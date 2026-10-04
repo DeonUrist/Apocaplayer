@@ -64,7 +64,7 @@ namespace FemalePlayer
         public static Prop Find(string weapon)
         {
             if (!_built || _catalog.Count == 0) Build();
-            if (string.IsNullOrEmpty(weapon)) return null;
+            if (string.IsNullOrEmpty(weapon) || KindOf(weapon) == Kind.None) return null;   // bare hands: nothing in them
             string w = Norm(weapon);
             Prop p;
             if (_catalog.TryGetValue(w, out p)) return p;

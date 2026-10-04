@@ -1038,7 +1038,7 @@ namespace FemalePlayer
             if (weapon == _propFor && (_prop != null || weapon == "")) return;
             _propFor = weapon;
             if (_prop != null) { UnityEngine.Object.Destroy(_prop); _prop = null; }
-            if (weapon == "") return;
+            if (weapon == "" || Props.KindOf(weapon) == Props.Kind.None) return;   // bare hands ("hands"): no weapon model
             var p = Props.Find(weapon);
             if (p == null) { Plugin.Verbose("No third-person model for " + weapon); return; }
             Transform hand;
