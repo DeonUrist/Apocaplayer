@@ -1,106 +1,126 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace FemalePlayer
 {
-    // The TAB screen (PlayerSheet: ammo, bosses killed ...) shows the player as a picture: the game's texture player_character_2_UI (512 x 1024,
-    // the bearded man, front view, arms down, black background), on RawImage PlayerSheet_Canvas/PlayerSheet/player/player_icon.
-    // Models/player_character_2_UI.png (same name; Denis's picture of her - the game's own is in the repo, tools/ref) is shown instead.
-    // Every UI element showing that texture is switched - any RawImage with it (or named player_icon) and any Image whose sprite uses it -
-    // checked once a second, so a copy the game makes later or a texture it puts back is caught too.
-    // No file = the game's picture. Off (mod or ReplaceDriver off) = the game's picture back.
+    // The TAB screen (PlayerSheet: ammo, bosses killed ...) shows the player as the game's texture player_character_2_UI (512 x 1024, the bearded
+    // man, front view, black background; the game's own is in the repo, tools/ref). Swapping the texture on its UI elements didn't change what
+    // is seen (0.10/0.11: player_icon and Tutorial_Vid_2 were switched, the man stayed), so the texture ITSELF is overwritten: her picture
+    // (Models/player_character_2_UI.png) is copied into the game's texture on the GPU, and whatever draws it - RawImage, Image, material -
+    // shows her. Done once per scene load (and when Enabled changes); nothing per frame. The man is kept in a backup texture and copied
+    // back when the mod is turned off.
+    //  - same size, format (DXT1 = her PNG as RGB24 compressed; DXT5 = RGBA32 compressed; uncompressed = loaded as that format) and mip
+    //    levels -> Graphics.CopyTexture level by level
+    //  - else, if the game's texture is readable: her pixels loaded straight into it
+    //  - else, last resort: her texture put on the UI elements that show it, once
     internal static class InventoryModel
     {
         private const string GameTexture = "player_character_2_UI";
-        private static readonly Dictionary<RawImage, Texture> _raw = new Dictionary<RawImage, Texture>();
-        private static readonly Dictionary<Image, Sprite> _img = new Dictionary<Image, Sprite>();
-        private static Texture2D _mine;
-        private static Sprite _mineSprite;
-        private static bool _tried;
-        private static float _nextScan;
+        private static Texture2D _game, _backup, _mine;
+        private static bool _applied, _loadFailed, _hooked;
+        private static float _nextTry;
+        private static int _tries;
 
+        // Runner calls this every frame, but it only works until the swap is done for the loaded scene (a cheap bool check after that)
         public static void LateTick()
         {
-            if (!Plugin.Enabled.Value || !Plugin.ReplaceDriver.Value) { Off(); return; }
-            var tex = Picture();
-            if (tex == null) return;
-            // the known ones every frame (the game may set its texture back), a full search once a second
-            foreach (var kv in _raw) if (kv.Key != null && kv.Key.texture != tex) kv.Key.texture = tex;
-            foreach (var kv in _img) if (kv.Key != null && kv.Key.overrideSprite != _mineSprite) kv.Key.overrideSprite = _mineSprite;
-            if (Time.unscaledTime < _nextScan) return;
-            _nextScan = Time.unscaledTime + 1f;
-            Scan(tex);
+            if (!_hooked) { _hooked = true; Plugin.Enabled.SettingChanged += (s, e) => { if (Plugin.Enabled.Value) { _applied = false; _tries = 0; } else Off(); }; }
+            if (_applied || !Plugin.Enabled.Value || !Plugin.ReplaceDriver.Value || _loadFailed) return;
+            if (Time.unscaledTime < _nextTry || _tries >= 15) return;   // the texture may load a moment after the scene: retry for ~30 s
+            _nextTry = Time.unscaledTime + 2f; _tries++;
+            Apply();
         }
 
-        private static void Scan(Texture2D tex)
+        private static void Apply()
         {
+            if (_game == null)
+                foreach (var t in Resources.FindObjectsOfTypeAll<Texture2D>())
+                    if (t != null && t.name == GameTexture) { _game = t; break; }
+            if (_game == null) return;
+            var mine = Mine(_game);
+            if (mine == null) return;
             try
             {
-                foreach (var r in Resources.FindObjectsOfTypeAll<RawImage>())
-                {
-                    if (r == null || !r.gameObject.scene.IsValid() || _raw.ContainsKey(r)) continue;
-                    var t = r.texture;
-                    if ((t != null && t.name == GameTexture) || r.name == "player_icon")
-                    {
-                        _raw[r] = t;
-                        r.texture = tex;
-                        Plugin.Log.LogInfo("TAB screen picture: replaced on " + Path(r.transform) + " (was " + (t != null ? t.name : "none") + ")");
-                    }
-                }
-                foreach (var im in Resources.FindObjectsOfTypeAll<Image>())
-                {
-                    if (im == null || !im.gameObject.scene.IsValid() || _img.ContainsKey(im)) continue;
-                    var s = im.sprite;
-                    if (s == null || s.texture == null || s.texture.name != GameTexture) continue;
-                    if (_mineSprite == null) _mineSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
-                    _img[im] = im.overrideSprite;
-                    im.overrideSprite = _mineSprite;
-                    Plugin.Log.LogInfo("TAB screen picture: replaced on " + Path(im.transform) + " (sprite " + s.name + ")");
-                }
+                if (_backup == null) _backup = Copy(_game);   // the man, for Off()
+                if (CopyInto(mine, _game)) { _applied = true; Plugin.Log.LogInfo("TAB screen picture: the game's " + GameTexture + " (" + _game.width + "x" + _game.height + " " + _game.format + ", " + _game.mipmapCount + " mips) now shows her"); return; }
+                if (_game.isReadable && ImageConversion.LoadImage(_game, File.ReadAllBytes(Plugin.ModPath("Models/player_character_2_UI.png")), false))
+                { _applied = true; Plugin.Log.LogInfo("TAB screen picture: her pixels loaded into the game's " + GameTexture); return; }
             }
-            catch (Exception e) { Plugin.Warn("TAB screen picture: " + e.Message); }
+            catch (Exception e) { Plugin.Warn("TAB screen picture: overwriting the texture failed (" + e.Message + "), switching the UI elements instead"); }
+            // last resort, once: the UI elements that show it
+            int n = 0;
+            foreach (var r in Resources.FindObjectsOfTypeAll<RawImage>())
+                if (r != null && r.gameObject.scene.IsValid() && r.texture == _game) { r.texture = mine; n++; }
+            _applied = true;
+            Plugin.Log.LogInfo("TAB screen picture: " + n + " UI element(s) switched to her picture (the game's texture can't be overwritten: " + _game.format + ")");
         }
 
-        private static string Path(Transform t)
+        // her picture in the game texture's size / format / mip count
+        private static Texture2D Mine(Texture2D game)
         {
-            string p = t.name;
-            for (var x = t.parent; x != null; x = x.parent) p = x.name + "/" + p;
-            return p;
-        }
-
-        private static Texture2D Picture()
-        {
-            if (_mine != null || _tried) return _mine;
-            _tried = true;
+            if (_mine != null || _loadFailed) return _mine;
             string path = Plugin.ModPath("Models/player_character_2_UI.png");
-            if (!File.Exists(path)) { Plugin.Log.LogInfo("TAB screen: no " + path + " - the game's picture stays"); return null; }
+            if (!File.Exists(path)) { _loadFailed = true; Plugin.Log.LogInfo("TAB screen: no " + path + " - the game's picture stays"); return null; }
             try
             {
-                var t = new Texture2D(2, 2, TextureFormat.RGBA32, true) { name = "FemalePlayer TAB picture" };
+                var f = game.format;
+                bool compress = f == TextureFormat.DXT1 || f == TextureFormat.DXT5;
+                var load = f == TextureFormat.DXT1 || f == TextureFormat.RGB24 ? TextureFormat.RGB24 : compress ? TextureFormat.RGBA32 : f;
+                var t = new Texture2D(2, 2, load, game.mipmapCount > 1) { name = "FemalePlayer TAB picture" };
                 if (!ImageConversion.LoadImage(t, File.ReadAllBytes(path), false)) throw new InvalidDataException("not a PNG/JPG");
-                t.wrapMode = TextureWrapMode.Clamp;
-                t.filterMode = FilterMode.Trilinear;
+                if (t.width != game.width || t.height != game.height)
+                {   // scale to the game's size (bilinear, on the CPU)
+                    var s = new Texture2D(game.width, game.height, load, game.mipmapCount > 1);
+                    var px = new Color32[game.width * game.height];
+                    for (int y = 0; y < game.height; y++)
+                        for (int x = 0; x < game.width; x++)
+                            px[y * game.width + x] = t.GetPixelBilinear((x + 0.5f) / game.width, (y + 0.5f) / game.height);
+                    s.SetPixels32(px);
+                    UnityEngine.Object.Destroy(t);
+                    t = s;
+                }
+                t.Apply(true, false);
+                if (compress) t.Compress(true);
+                t.Apply(false, true);   // upload, drop the CPU copy
+                t.wrapMode = game.wrapMode; t.filterMode = game.filterMode;
                 t.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 _mine = t;
-                Plugin.Log.LogInfo("TAB screen picture: " + System.IO.Path.GetFileName(path) + " (" + t.width + "x" + t.height + ")");
+                Plugin.Verbose("TAB screen picture: her picture " + t.width + "x" + t.height + " " + t.format + ", " + t.mipmapCount + " mips");
             }
-            catch (Exception e) { Plugin.Warn("TAB screen picture " + path + ": " + e.Message); }
+            catch (Exception e) { _loadFailed = true; Plugin.Warn("TAB screen picture " + path + ": " + e.Message); }
             return _mine;
+        }
+
+        private static Texture2D Copy(Texture2D src)
+        {
+            var b = new Texture2D(src.width, src.height, src.format, src.mipmapCount > 1) { name = GameTexture + " (FemalePlayer backup)", hideFlags = HideFlags.DontUnloadUnusedAsset };
+            if (!CopyInto(src, b)) { UnityEngine.Object.Destroy(b); return null; }
+            return b;
+        }
+
+        // level by level, as many levels as both have (same size and format needed)
+        private static bool CopyInto(Texture2D src, Texture2D dst)
+        {
+            if (src == null || dst == null || src.width != dst.width || src.height != dst.height || src.format != dst.format) return false;
+            if (SystemInfo.copyTextureSupport == UnityEngine.Rendering.CopyTextureSupport.None) return false;
+            int mips = Mathf.Min(src.mipmapCount, dst.mipmapCount);
+            for (int m = 0; m < mips; m++) Graphics.CopyTexture(src, 0, m, dst, 0, m);
+            return true;
         }
 
         public static void Off()
         {
-            foreach (var kv in _raw) if (kv.Key != null) kv.Key.texture = kv.Value;
-            foreach (var kv in _img) if (kv.Key != null) kv.Key.overrideSprite = kv.Value;
-            _raw.Clear(); _img.Clear(); _nextScan = 0f;
+            if (_applied && _game != null && _backup != null) { CopyInto(_backup, _game); Plugin.Verbose("TAB screen picture: the game's picture back"); }
+            _applied = false; _tries = 0;
         }
 
+        // new scene: the texture may be a new instance - find it again and overwrite it once more
         public static void Reset()
         {
-            Off();
+            if (_game == null) { _backup = null; }
+            _applied = false; _tries = 0; _nextTry = 0f;
         }
     }
 }
