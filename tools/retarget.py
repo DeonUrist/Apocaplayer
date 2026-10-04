@@ -47,7 +47,7 @@ def fpose():
         W[f]=M
     return W
 W=fpose()
-fem=glb.load('Boss_lady.glb')
+fem=glb.load('Player_female.glb')
 FP=fem['P'].copy(); FP[:,0]*=-1
 jn=[n.split(':')[1] for n in fem['jnames']]
 Vh=np.c_[FP,np.ones(len(FP))]; out=np.zeros((len(FP),3))
@@ -56,7 +56,7 @@ for k in range(4):
     out+=fem['Wt'][:,k:k+1]*np.einsum('nij,nj->ni',Ms,Vh)[:,:3]
 out/=fem['Wt'].sum(1,keepdims=True)
 T=fem['T'][:,[0,2,1]]
-tex=Image.open('Boss_lady.png')
+tex=Image.open('Player_female.png')
 # also P2 render for overlay comparison
 ims=[]
 for v in ['front','side','top']:

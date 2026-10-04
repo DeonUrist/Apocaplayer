@@ -11,7 +11,11 @@ namespace FemalePlayer
     {
         public static bool On;
         public static bool CarShift;               // set by the Runner: first person in the car with her body shown -> view drawn a bit further forward
-        public static bool Orbiting;               // middle mouse held: the mouse turns the camera around her, the game's mouse look is paused
+        public static bool Orbiting;
+        // the third-person picture's camera, as last drawn (for PickAssist: what is under the cursor on screen)
+        public static bool HasView;
+        public static Vector3 ViewPos;
+        public static Quaternion ViewRot = Quaternion.identity;               // middle mouse held: the mouse turns the camera around her, the game's mouse look is paused
         private static float _orbitYaw, _orbitPitch;
         private static bool _orbitOn;
 
@@ -170,6 +174,7 @@ namespace FemalePlayer
                 Vector3 look = aim - pos;
                 if (look.sqrMagnitude > 1e-4f) viewRot = Quaternion.Slerp(viewRot, Quaternion.LookRotation(look.normalized, Vector3.up), conv);
             }
+            ViewPos = pos; ViewRot = viewRot; HasView = true;
             var view = Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
         }
@@ -204,7 +209,7 @@ namespace FemalePlayer
 
         public static void Off()
         {
-            On = false; Orbiting = false; _orbitOn = false; CarShift = false;
+            On = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false;
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();

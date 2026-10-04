@@ -1,13 +1,13 @@
 import json,numpy as np,glb
 from PIL import Image, ImageFilter
 R=np.array([[1,0,0],[0,0,1],[0,-1,0]],float)   # P2 mesh space -> female Unity space
-fem=glb.load('Boss_lady.glb')
+fem=glb.load('Player_female.glb')
 FP=fem['P'].copy(); FP[:,0]*=-1                  # Unity space
 FT=fem['T']; FUV=fem['UV']; FJ=fem['J']; FW=fem['Wt']
 fj={n.split(':')[1]:i for i,n in enumerate(fem['jnames'])}
 jpos={n.split(':')[1]:(lambda p:np.array([-p[0],p[1],p[2]]))(w[:3,3]) for n,w in zip(fem['jnames'],fem['jworld'])}
 dom=FJ[np.arange(len(FJ)),FW.argmax(1)]
-ftex=np.asarray(Image.open('Boss_lady.png').convert('RGB')).astype(float)
+ftex=np.asarray(Image.open('Player_female.png').convert('RGB')).astype(float)
 def fem_tris(jointnames):
     ids={fj[n] for n in jointnames}
     sel=[t for t in FT if sum(dom[v] in ids for v in t)>=2]

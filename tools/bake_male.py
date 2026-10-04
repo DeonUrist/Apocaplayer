@@ -1,4 +1,4 @@
-# Player2 (the game's man, 27-bone Armature) -> a glb on Flexa's mixamo skeleton (Boss_lady.glb's nodes), for FemalePlayer's Male mode.
+# Player2 (the game's man, 27-bone Armature) -> a glb on Flexa's mixamo skeleton (Player_female.glb's nodes), for FemalePlayer's Male mode.
 # Each of his bones follows the mixamo bone it maps to (CarSeat.Pairs / retarget.py MAP): his bind mesh is overlaid on her bind skeleton
 # (R4: his mesh space -> hers) and each part turned by the same swing CarSeat uses (his bone direction onto hers), so at runtime
 # herBone * Inverse(D) == his bone, exactly like the seated driver.
@@ -50,7 +50,7 @@ for k in range(4):
     nout += bw[:,k:k+1]*np.einsum('nij,nj->ni', M[:,:3,:3], N)
 out /= bw.sum(1, keepdims=True)
 nout /= np.linalg.norm(nout, axis=1, keepdims=True)+1e-9
-fem = glb.load('Boss_lady.glb')
+fem = glb.load('Player_female.glb')
 jn = [n.split(':')[1] for n in fem['jnames']]
 jidx = {n: i for i, n in enumerate(jn)}
 J = np.zeros((len(V),4), int); W = np.zeros((len(V),4))
@@ -103,7 +103,7 @@ Tg = T[:, [0,2,1]]
 np.savez('male.npz', P=Pg, N=Ng, UV=UVg, T=Tg, J=J, W=W)
 print('total verts', len(Pg), 'tris', len(Tg))
 
-# ---- glb: Boss_lady's nodes + skin (Flexa's skeleton), inverse binds = inverse joint worlds (mesh stored in the bind pose), one primitive
+# ---- glb: Player_female's nodes + skin (Flexa's skeleton), inverse binds = inverse joint worlds (mesh stored in the bind pose), one primitive
 js = fem['js']; Wn = fem['W']
 joints = fem['joints']
 ibm = np.array([np.linalg.inv(Wn[j]) for j in joints])

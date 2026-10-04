@@ -9,7 +9,7 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 2. Hub → Projects → Add → pick this `UnityAnims` folder. The first time it opens it creates its Library (a few minutes).
 
 ## Getting the clips (mixamo.com, free Adobe account)
-- Upload `Models/Boss_lady.glb` converted to FBX (Blender: File → Export → FBX) as your character, or just use any Mixamo character (Y Bot) —
+- Upload `Models/Player_female.glb` converted to FBX (Blender: File → Export → FBX) as your character, or just use any Mixamo character (Y Bot) —
   either works, the clips are retargeted in the game.
 - For each clip: **Download → Format: FBX for Unity (.fbx), Skin: With Skin, Frames per second: 30, Keyframe Reduction: none**.
   For walk/run/strafe/crouch-walk leave **In Place unticked**: the builder keeps her on the spot anyway, and the clip's real walking speed lets the mod play it in step with you (In Place clips use the BundleWalkSpeed/BundleRunSpeed guesses).

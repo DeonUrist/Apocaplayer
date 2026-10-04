@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.14.0";
+        public const string VERSION = "0.15.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -31,12 +31,12 @@ namespace FemalePlayer
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
         internal static ConfigEntry<bool> ToggleMiddleMouse;
-        internal static ConfigEntry<float> JumpClipStart, StrikeWindup;
+        internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius;
         internal static ConfigEntry<KeyCode> IgnitionKey;
         internal enum Gender { Female, Male }
         internal static ConfigEntry<Gender> Character;
         public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
-        // the body: hers (Boss_lady, made from Flexa) or the game's own man (Player2 + hair, beard, bags, re-rigged onto Flexa's skeleton by
+        // the body: hers (Player_female, made from Flexa) or the game's own man (Player2 + hair, beard, bags, re-rigged onto Flexa's skeleton by
         // tools/bake_male.py) - same skeleton, so every animation, weapon pose and feature is the same
         public static string BodyModelFile { get { return Female ? ModelFile.Value : "Models/Player_male.glb"; } }
         public static string BodyTextureFile { get { return Female ? TextureFile.Value : "Models/Player_male.png"; } }
@@ -80,12 +80,13 @@ namespace FemalePlayer
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
 
-            ModelFile = H("Model", "Model", "Models/Boss_lady.glb", "Body model (.glb/.gltf) relative to the mod folder, rigged to Flexa's skeleton (22 mixamorig bones).");
-            TextureFile = H("Model", "Texture", "Models/Boss_lady.png", "Body texture relative to the mod folder.");
+            ModelFile = H("Model", "Model", "Models/Player_female.glb", "Body model (.glb/.gltf) relative to the mod folder, rigged to Flexa's skeleton (22 mixamorig bones).");
+            TextureFile = H("Model", "Texture", "Models/Player_female.png", "Body texture relative to the mod folder.");
             ArmsTextureFile = H("Model", "ArmsTexture", "Models/Player2_female_arms.png", "Replacement for the game's Player2 texture atlas, used only on the first-person arms and kick leg.");
 
             AnimBundleFile = H("Model", "AnimationBundle", "Models/femaleplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
             JumpClipStart = H("Animation", "JumpClipStart", 0.2f, "Jump / RifleJump / PistolJump clips start this far in (share of the clip): Mixamo jumps crouch first, the game's jump leaves the ground at once.");
+            PickAssistRadius = H("Camera", "PickAssistRadius", 0.06f, "Third person: an item / part / switch this close to the cursor on screen (share of the screen height) is picked even if the eye ray misses it.");
             StrikeWindup = H("Animation", "StrikeWindup", 0.08f, "Melee / bare hands: seconds her wind-up takes before the blow lands (the game hits the moment the swing starts).");
             HipsDrift = H("Animation", "HipsDrift", 0.25f, "Bundle clips: how far (m) her hips may move away from the player sideways/forward (room for the idle sway; stops clips with baked forward motion from walking ahead of you).");
             ClipWalkSpeed = H("Animation", "BundleWalkSpeed", 1.4f, "Ground speed (m/s) at which the bundle's walk clips play at normal speed.");
@@ -135,6 +136,8 @@ namespace FemalePlayer
                     prefix: new HarmonyLib.HarmonyMethod(typeof(ThirdPerson), nameof(ThirdPerson.BeforeGetButtonDown)));
             }
             catch (Exception e) { Log.LogError("Harmony patch failed, no camera orbit: " + e.Message); }
+            try { PickAssist.Patch(new HarmonyLib.Harmony(GUID)); }
+            catch (Exception e) { Log.LogError("Harmony patch failed, no third-person pick assist: " + e.Message); }
 
             SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); };
             EnsureRunner();

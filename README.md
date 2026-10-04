@@ -14,7 +14,7 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
 - **Cars** – she sits in the driver's seat instead of the game's seated man (car third-person camera), and in first
   person you see her legs and arms on the wheel.
 
-The default model is **Boss_lady** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
+The default model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
 ## Install
 
@@ -22,8 +22,8 @@ Copy the `FemalePlayer` folder into `BepInEx\plugins\`:
 
 ```
 BepInEx\plugins\FemalePlayer\FemalePlayer.dll
-BepInEx\plugins\FemalePlayer\Models\Boss_lady.glb
-BepInEx\plugins\FemalePlayer\Models\Boss_lady.png
+BepInEx\plugins\FemalePlayer\Models\Player_female.glb
+BepInEx\plugins\FemalePlayer\Models\Player_female.png
 BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 ```
 
@@ -38,6 +38,11 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | Debug | ToggleMiddleMouse | false | Third person: off = hold the middle mouse button to orbit around her, back behind her on release; on = a click turns orbiting on / off |
 | Debug | VerboseLog | false | Detailed log |
 
+Third person, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
+the cursor ON SCREEN is picked - within 6 % of the screen height, visible from the camera, within the game's own reach from her eye
+(`PickAssist.cs`, a Harmony postfix on PlayMaker's `ActionHelpers.DoMousePick`). Screen-space, so it works the same at every zoom.
+
+
 Everything else is fixed: her body in first person, her arms, the driver and TAB picture, the third-person camera (Change Camera key, on
 foot and in cars) and the camera offsets are always on, as `H(...)` entries in `Plugin.cs` (change one to `Config.Bind(...)` to expose
 it). The mouse-wheel camera distances are remembered in `config/FemalePlayer/camera.cfg`.
@@ -48,7 +53,7 @@ it). The mouse-wheel camera distances are remembered in `config/FemalePlayer/cam
 `PlayerHair.002`, `PlayerBeard.003`, `bag1`, `bag2`, `pouch1.001`; texture `Player2`), re-rigged onto Flexa's skeleton by
 `tools/bake_male.py`: each of his bones follows the mixamo bone it maps to (the same pairs and swing as the car-seat retarget), the
 rigid extras are baked in on his head / spine bone, and the beard (own texture `hair3`, not exported) takes one hair-coloured texel
-of the `Player2` atlas. Inputs: `_export/Player2.json`, `_export/extras.json`, `_export/prefabs.json` (UnityPy dumps), `Boss_lady.glb`
+of the `Player2` atlas. Inputs: `_export/Player2.json`, `_export/extras.json`, `_export/prefabs.json` (UnityPy dumps), `Player_female.glb`
 (for the skeleton nodes).
 
 ## Using another model
