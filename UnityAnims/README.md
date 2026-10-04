@@ -39,6 +39,8 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | RifleReload.fbx | rifle reload, played when you press Reload | "Reloading", "Rifle Reload" |
 | PistolAim.fbx / PistolFire.fbx / PistolReload.fbx | pistol / revolver | "Pistol Idle", "Shooting", "Pistol Reload" |
 | Melee.fbx | a swing (knife, machete, wrench) | "Sword And Shield Slash", "Stabbing", "Punching" |
+| MeleeCombo.fbx | two blows in a row (melee weapon swings chained one after the other) | "Sword And Shield Attack" |
+| Punch1.fbx, Punch2.fbx (or Melee1/Melee2) | bare-hands punches, played by turns | "Punching", "Jab" |
 | Throw.fbx | grenade / blast lance | "Throw", "Throw Grenade" |
 
 Everything except **Idle** and **Walk** is optional: whatever is missing falls back to the game's raider clips or the procedural motion.

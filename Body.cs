@@ -270,6 +270,88 @@ namespace FemalePlayer
             return false;
         }
 
+        // ---- strikes (Mixamo mode): a segment of a clip - From (wind-up) .. Hit (the blow lands) .. To (back on guard), clip seconds, read off the
+        // clips' arm-muscle speed (peak = the blow). The game's hit comes the moment the swing starts (its [Attack] FSM SphereCasts in "fire"),
+        // so the wind-up is played in StrikeWindup s and the rest stretched over the swing's cycle (0.35 s hands, 0.4 s machete ...).
+        private sealed class Strike { public string Clip; public float From, Hit, To; public Strike(string c, float a, float h, float e) { Clip = c; From = a; Hit = h; To = e; } }
+        private static readonly Strike[] Punches = { new Strike("Punch1", 0.75f, 1.0f, 1.5f), new Strike("Punch2", 0.3f, 0.5f, 0.95f) };   // right cross, left jab
+        private static readonly Strike[] Combo = { new Strike("MeleeCombo", 1.5f, 1.73f, 2.3f), new Strike("MeleeCombo", 0.8f, 1.07f, 1.5f) };   // 2nd blow, 1st blow
+        private Strike _strike;
+        private bool _striking;
+        private float _strikeAt, _strikeCycle = 0.4f, _strikeEnd = -10f, _strikeW, _atkTime;
+        private int _punchN, _chainN;
+        private string _atkFor = "", _atkState = "";
+
+        // the clip of a strike: "Melee1"/"Melee2" are taken as Punch1/Punch2 too; a missing one = a generic share of whatever clip there is
+        private static Strike Resolve(Strike s, string alias)
+        {
+            if (Anims.Get(s.Clip) != null) return s;
+            if (alias != null && Anims.Get(alias) != null) return new Strike(alias, s.From, s.Hit, s.To);
+            return null;
+        }
+
+        private void WatchAttack(Props.Kind kind, string weapon, bool click)
+        {
+            string st; float tv;
+            bool has = Game.Attack(weapon, out st, out tv);
+            if (weapon != _atkFor) { _atkFor = weapon; _atkState = st; _atkTime = tv; _chainN = 0; return; }
+            bool strike;
+            if (has) strike = st != "" && st != "on" && (_atkState == "on" || tv > _atkTime + 0.05f);   // left "on", or the timer restarted (held: on -> fire in one frame)
+            else { strike = click; tv = 0.4f; }
+            _atkState = st; _atkTime = tv;
+            if (strike) BeginStrike(kind, weapon, Mathf.Clamp(tv + Time.deltaTime, 0.2f, 1.5f));
+        }
+
+        private void BeginStrike(Props.Kind kind, string weapon, float cycle)
+        {
+            bool chained = _striking || _meleeStart > 0f || Time.time - _strikeEnd < 0.25f;   // straight after the last one: held button / fast clicks
+            Strike s = null;
+            if (kind == Props.Kind.None)
+            {
+                // bare hands: Punch1 / Punch2 by turns
+                for (int k = 0; k < 2 && s == null; k++) { int i = (_punchN + k) % 2; s = Resolve(Punches[i], i == 0 ? "Melee1" : "Melee2"); if (s != null) _punchN = i + 1; }
+            }
+            else
+            {
+                // melee weapon: the first swing = the Melee clip timed to the first-person swing (as before); the swings chained after it
+                // = MeleeCombo's two blows by turns
+                _chainN = chained ? _chainN + 1 : 0;
+                if (_chainN > 0) s = Resolve(Combo[(_chainN - 1) % 2], null);
+                if (s == null) { _striking = false; _strikeW = 0f; _strike = null; StartMelee(weapon); return; }
+                _meleeStart = 0f;
+            }
+            if (s == null) return;
+            _strike = s; _striking = true; _strikeAt = Time.time; _strikeCycle = cycle; _strikeW = 1f;
+            Plugin.Verbose("Strike: " + s.Clip + " " + s.From.ToString("0.00") + "-" + s.Hit.ToString("0.00") + "-" + s.To.ToString("0.00") + " in " + cycle.ToString("0.00") + " s" + (chained ? " (chained)" : ""));
+        }
+
+        private void PlayStrike(float dt)
+        {
+            if (_meleeStart > 0f)
+            {
+                string mc = Anims.Get("Melee") != null ? "Melee" : Plugin.MeleeClip.Value;
+                if (UpdateMelee(mc)) { SetUpper(mc, 1f, _meleeSpeed); return; }
+                _strikeEnd = Time.time;
+            }
+            if (_strike == null) { SetUpper("", 0f, 0f); return; }
+            float el = Time.time - _strikeAt, t;
+            if (_striking && el >= _strikeCycle) { _striking = false; _strikeEnd = Time.time; }
+            if (_striking)
+            {
+                float w = Mathf.Min(Plugin.StrikeWindup.Value, _strikeCycle * 0.4f);
+                t = el < w ? Mathf.Lerp(_strike.From, _strike.Hit, el / Mathf.Max(0.001f, w))
+                           : Mathf.Lerp(_strike.Hit, _strike.To, (el - w) / Mathf.Max(0.01f, _strikeCycle - w));
+            }
+            else
+            {
+                t = _strike.To;   // back on guard: fade out
+                _strikeW = Mathf.MoveTowards(_strikeW, 0f, dt * 8f);
+            }
+            if (_strikeW <= 0f) { SetUpper("", 0f, 0f); return; }
+            SetUpper(_strike.Clip, _strikeW, 0f);
+            _upper.SetTime(t);
+        }
+
         private void SetUpper(string clipName, float weight, float speed)
         {
             if (string.IsNullOrEmpty(clipName)) { _layers.SetInputWeight(1, 0f); return; }   // keep the last clip connected, just off
@@ -448,18 +530,6 @@ namespace FemalePlayer
         }
 
         // first person: no head; her own arms only in a car with nothing drawn (hands on the wheel) - with a gun the game draws its arms
-        // a copy of her for a portrait (TAB screen): her own idle on the bundle/game clips, unscaled time (the screen may pause the game),
-        // everything on one layer, no shadows, the full mesh
-        public void UsePortrait(int layer)
-        {
-            _animator.updateMode = AnimatorUpdateMode.UnscaledTime;
-            if (_graph.IsValid()) _graph.SetTimeUpdateMode(DirectorUpdateMode.UnscaledGameTime);
-            foreach (var t in Root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
-            _smr.sharedMesh = Model.Full;
-            _smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            SetVisible(true, false);
-        }
-        public Bounds RenderBounds { get { return _smr.bounds; } }
 
         public void SetMesh(bool firstPerson, bool inCar, bool gameArms = false)
         {
@@ -721,9 +791,9 @@ namespace FemalePlayer
             UpdateAction(dt);
             Groups(kind, rifleSet ? _rifle : pistolSet ? _pistol : _unarmed, fireSet);
 
-            string meleeClip = Anims.Get("Melee") != null ? "Melee" : Plugin.MeleeClip.Value;
-            // a click swings once; holding the button swings again and again (the game repeats the first-person swing too)
-            if (kind == Props.Kind.Melee && (click || live && Input.GetMouseButton(0) && _meleeStart <= 0f)) StartMelee(weapon);
+            // melee weapons and bare hands: one strike per game swing (its [Attack] FSM), the hit frame of the clip on the game's hit
+            if (kind == Props.Kind.Melee || kind == Props.Kind.None && weapon != "") WatchAttack(kind, weapon, click);
+            else { _atkFor = ""; _striking = false; _strikeW = 0f; _meleeStart = 0f; }
             if (kind == Props.Kind.Throw && click) StartThrow();
             string gs = Game.GrenadeState;   // the quick grenade (Throw Grenade key) is not a drawn weapon: watch its Attack FSM
             if (gs == "fire" && _grenadeState != "fire") StartThrow();
@@ -733,10 +803,8 @@ namespace FemalePlayer
                 SetUpper("Throw", 1f, 1f);
             else if (_reloading && kind != Props.Kind.None && kind != Props.Kind.Melee)
                 SetUpper(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload", 1f, 1f);
-            else if (kind == Props.Kind.Melee)
-            {
-                if (UpdateMelee(meleeClip)) SetUpper(meleeClip, 1f, _meleeSpeed); else SetUpper("", 0f, 0f);
-            }
+            else if (kind == Props.Kind.Melee || kind == Props.Kind.None && weapon != "")
+                PlayStrike(dt);
             else if (kind == Props.Kind.Throw)
             {
                 if (Time.time < _throwUntil && Anims.Get("Throw") != null) SetUpper("Throw", 1f, 1f); else SetUpper("", 0f, 0f);

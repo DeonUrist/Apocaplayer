@@ -345,7 +345,7 @@ namespace FemalePlayer
         // Numpad 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 (or 0 . Enter) switches MOVING <-> ROTATING (8/2 muzzle up/down,
         // 6/4 muzzle right/left, 7/1 roll). Numpad 9/3 select the next/previous animation the drawn weapon has (each clip once; she plays it standing
         // still), after the last one back to what she really plays. An edit applies to every entry that plays the same clip. Numpad - = delete the animation's own
-        // pose (it shows the weapon's Idle pose again), Numpad / = copy the shown pose, Numpad * = paste it into the current animation.
+        // pose (the built-in one shows again, else the weapon's Idle pose), Numpad / = copy the shown pose, Numpad * = paste it into the current animation.
         // Shift/Ctrl can't be used: with NumLock on, Shift+Numpad 8 arrives as the Up arrow.
         private static bool _rotateMode;
         private static readonly Dictionary<KeyCode, bool> _held = new Dictionary<KeyCode, bool>();

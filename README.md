@@ -34,16 +34,16 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | General | Enabled | true | Off = the game's own player (arms, driver) comes back at once |
 | General | BodyFirstPerson | true | Her legs/torso and shadow in first person |
 | General | FemaleArms | true | Her arms and gloves on the first-person animations |
-| General | ReplaceDriver | true | She sits in the driver's seat; on the TAB screen `Models/TabPicture.png` replaces the game's player picture (the original is dumped as `Models/player_character_2_UI.original.png`, 512 × 1024, black background) |
+| General | ReplaceDriver | true | She sits in the driver's seat; on the TAB screen `Models/player_character_2_UI.png` (her picture, 512 × 1024, black background) replaces the game's player picture (the game's own is in `tools/ref`) |
 | General | ThirdPersonOnFoot | true | Change Camera switches to a camera behind her, on foot and in cars (replaces the game's car view) |
 | General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
-| (hidden) Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) per weapon and animation; Numpad 9/3 step through the animations the drawn weapon has (its Rifle* / Pistol* clips incl. reload, jump and kick, each clip once, played standing still) - every clip has its own exact pose in her right hand, entries playing the same clip share it; Numpad - deletes one (shows the Idle pose); Numpad / copies a pose, Numpad * pastes it. Saved as absolute values in `config/FemalePlayer/weapon-poses.txt`; every save also writes `BuiltinPoses.generated.cs` (copy over `BuiltinPoses.cs` to hard-code them). Nothing else changes them (no automatic grip) |
 | Camera | FirstPersonBodyBack | 0.08 | First person on foot: how far (m) her head sits behind the camera; looking down you see her body up to the collar |
 | Camera | FirstPersonWeaponBack / FirstPersonChestLean | 0.08 / 20 | First person with a weapon drawn: her body moves back (m) and her chest bends back (degrees) so the game's arms don't sink into her chest |
 | Camera | ThirdPersonDistance / ThirdPersonCarDistance | 2.4 / 5.5 | Third-person camera distance on foot / in cars; the mouse wheel changes and saves them |
 | Car | IgnitionKey | E | In the driver's seat: turn the key and start the engine; "E - Start / Ignition" shows on the left while the engine is off |
 | Camera | CarCameraForward | 0.12 | Driving in first person: the view is drawn this many metres further forward so her body doesn't block it (only the picture moves) |
 | Debug | OrbitMiddleMouse | false | Third person: middle mouse click toggles orbiting around her |
+| Debug | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) per weapon and animation; Numpad 9/3 step through the animations the drawn weapon has (its Rifle* / Pistol* clips incl. reload, jump and kick, each clip once, played standing still) - every clip has its own exact pose in her right hand, entries playing the same clip share it; Numpad - deletes one (shows the Idle pose); Numpad / copies a pose, Numpad * pastes it. Saved as absolute values in `config/FemalePlayer/weapon-poses.txt`; every save also writes `BuiltinPoses.generated.cs` (copy over `BuiltinPoses.cs` to hard-code them). Nothing else changes them (no automatic grip) Your poses (config/FemalePlayer/weapon-poses.txt) override the built-in ones. |
 | Debug | VerboseLog | false | Detailed log |
 
 Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`
@@ -94,6 +94,11 @@ or a glTF animation sampler in the plugin (not written yet).
 writes `Models/femaleplayer_anims.bundle`. With at least `Idle` + `Walk` in it, her third-person body uses those clips (walk,
 back, strafe, run, crouch, a rifle set, aim/fire/reload, pistol, melee, throw) instead of the raider clips and the procedural
 walk, unmirrored, with the raider gun models moved to her right hand. See `UnityAnims/README.md` for the file names.
+
+Melee weapons: a swing plays `Melee` timed to the first-person swing; swings chained straight after it (held button, fast clicks)
+play `MeleeCombo`'s two blows by turns. Bare hands: `Punch1` / `Punch2` (or `Melee1` / `Melee2`) by turns. A strike follows the game's
+`[Attack]` FSM (the hit lands the moment the swing starts): the clip's wind-up in 0.08 s, then the blow and the way back over the swing's
+cycle (0.35 s hands, 0.4 s machete). The blow times are read off the clips (`Body.cs`, `Punches` / `Combo`).
 
 ## Build
 

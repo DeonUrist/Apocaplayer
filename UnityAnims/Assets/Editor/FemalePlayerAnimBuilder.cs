@@ -31,6 +31,7 @@ public static class FemalePlayerAnimBuilder
         "PistolFireCrouchWalk", "PistolFireCrouchWalkBack", "PistolFireCrouchStrafeLeft", "PistolFireCrouchStrafeRight",
         "CrouchPistolFire", "PistolCrouchFire", "PistolJump",
         "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
+        "MeleeCombo", "Punch1", "Punch2", "Melee1", "Melee2",
     };
 
     // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)

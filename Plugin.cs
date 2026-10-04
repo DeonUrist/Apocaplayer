@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.9.0";
+        public const string VERSION = "0.10.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -25,13 +25,13 @@ namespace FemalePlayer
         // player-facing
         internal static ConfigEntry<bool> WeaponAdjust, Enabled, BodyFirstPerson, FemaleArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
         // hidden (fixed values, never written to the file; change H( to Config.Bind( to expose one)
-        internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile, TabPictureFile;
+        internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
         internal static ConfigEntry<bool> OrbitMiddleMouse;
-        internal static ConfigEntry<float> JumpClipStart;
+        internal static ConfigEntry<float> JumpClipStart, StrikeWindup;
         internal static ConfigEntry<KeyCode> IgnitionKey;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
@@ -53,10 +53,10 @@ namespace FemalePlayer
             ReplaceDriver = Config.Bind("General", "ReplaceDriver", true, "She replaces the game's man everywhere he is shown: in the driver's seat instead of the game's driver model, and as the player model on the TAB screen (seen from the car's third-person camera, and her arms on the wheel in first person).");
             ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key switches to a camera behind her - on foot and in cars (it replaces the game's own car view, in which nothing in the car could be used). The mouse wheel zooms in / out (saved separately on foot and in cars). Shots and picks still go where the crosshair is; everything you can use in first person works.");
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
-            WeaponAdjust = H("Weapon grip", "WeaponAdjustment", false, "On: in third person set where the weapon sits in her hand, per weapon and animation, with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it (8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll); Numpad 9/3 select the next / previous animation the drawn weapon has (Rifle* clips for rifles, Pistol* clips for pistols and SMGs: walk, strafes, run, crouch, firing, reload, jump, kick - each clip once; she plays it standing still), after the last one back to what she really plays; an edit applies to every entry that plays the same clip; Numpad - deletes the pose (it shows the weapon's Idle pose); Numpad / copies the shown pose and Numpad * pastes it. Exact positions saved in config/FemalePlayer/weapon-poses.txt (and as C# in BuiltinPoses.generated.cs) - nothing else changes them.");
             CarCameraForward = Config.Bind("Camera", "CarCameraForward", 0.12f, new ConfigDescription("Driving in first person with her body shown: the view is drawn this far (m) in front of the game's eye so her head and chest don't block it (only the picture moves; 0 = off).", new AcceptableValueRange<float>(0f, 0.4f)));
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
+            WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "On: in third person you set where the weapon sits in her hand, per weapon and animation, with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it (8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll); Numpad 9/3 select the next / previous animation the drawn weapon has (Rifle* clips for rifles, Pistol* clips for pistols and SMGs: walk, strafes, run, crouch, firing, reload, jump, kick - each clip once; she plays it standing still), after the last one back to what she really plays; an edit applies to every entry that plays the same clip; Numpad - deletes the pose (it shows the weapon's Idle pose); Numpad / copies the shown pose and Numpad * pastes it. Exact positions saved in config/FemalePlayer/weapon-poses.txt (and as C# in BuiltinPoses.generated.cs) - nothing else changes them. Your poses there override the ones built into the mod; delete a pose (Numpad -) to get the built-in one back.");
             OrbitMiddleMouse = Config.Bind("Debug", "OrbitMiddleMouse", false, "Third person: clicking the middle mouse button turns orbiting the camera around her on / off (for looking at her from the front).");
             IgnitionKey = Config.Bind("Car", "IgnitionKey", KeyCode.E, "In the driver's seat: turns the key and starts the engine (the same as clicking the ignition twice). A hint shows on the left while the engine is off. None = off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines (what was found, which clips/props are used).");
@@ -65,9 +65,9 @@ namespace FemalePlayer
             TextureFile = H("Model", "Texture", "Models/Boss_lady.png", "Body texture relative to the mod folder.");
             ArmsTextureFile = H("Model", "ArmsTexture", "Models/Player2_female_arms.png", "Replacement for the game's Player2 texture atlas, used only on the first-person arms and kick leg.");
 
-            TabPictureFile = H("Model", "TabPicture", "Models/TabPicture.png", "Picture of her on the TAB screen (replaces the game's player_character_2_UI, 512 x 1024; the original is Models/player_character_2_UI.original.png).");
             AnimBundleFile = H("Model", "AnimationBundle", "Models/femaleplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
             JumpClipStart = H("Animation", "JumpClipStart", 0.2f, "Jump / RifleJump / PistolJump clips start this far in (share of the clip): Mixamo jumps crouch first, the game's jump leaves the ground at once.");
+            StrikeWindup = H("Animation", "StrikeWindup", 0.08f, "Melee / bare hands: seconds her wind-up takes before the blow lands (the game hits the moment the swing starts).");
             HipsDrift = H("Animation", "HipsDrift", 0.08f, "Bundle clips: how far (m) her hips may move away from the player sideways/forward (stops clips with baked forward motion from walking ahead of you).");
             ClipWalkSpeed = H("Animation", "BundleWalkSpeed", 1.4f, "Ground speed (m/s) at which the bundle's walk clips play at normal speed.");
             ClipRunSpeed = H("Animation", "BundleRunSpeed", 3.8f, "Ground speed (m/s) at which the bundle's run clips play at normal speed.");

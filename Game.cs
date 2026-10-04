@@ -16,7 +16,7 @@ namespace FemalePlayer
         public static PlayMakerFSM GrenadeFsm;      // PlayerCamera/QuickItems/grenade [Attack]: on -> (Throw Grenade) -> checkGrenade -> fire 0.4 s -> wait 0.35 s -> throw      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
         private static float _nextFind;
 
-        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _arms.Clear(); GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
+        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _arms.Clear(); _attackFsms.Clear(); GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
 
         public static bool Ready
         {
@@ -216,6 +216,32 @@ namespace FemalePlayer
         }
 
         public static bool Paused { get { return Time.timeScale < 0.01f; } }
+
+        // melee / bare hands: the drawn weapon's [Attack] FSM (on -> fire: SphereCast = the hit, at once; then its float "Time" (0.35 hands,
+        // 0.4 machete ...) counts down to the next swing; a held Fire button goes straight on to the next one)
+        private static readonly Dictionary<string, PlayMakerFSM> _attackFsms = new Dictionary<string, PlayMakerFSM>();
+        public static bool Attack(string weapon, out string state, out float time)
+        {
+            state = ""; time = 0f;
+            if (string.IsNullOrEmpty(weapon) || WeaponsParent == null) return false;
+            try
+            {
+                PlayMakerFSM f;
+                if (!_attackFsms.TryGetValue(weapon, out f) || f == null)
+                {
+                    f = null;
+                    var w = WeaponsParent.Find(weapon);
+                    if (w != null) foreach (var c in w.GetComponents<PlayMakerFSM>()) if (c.FsmName == "Attack") { f = c; break; }
+                    _attackFsms[weapon] = f;
+                }
+                if (f == null || !f.gameObject.activeInHierarchy) return false;
+                state = f.ActiveStateName ?? "";
+                var v = f.FsmVariables.GetFsmFloat("Time");
+                time = v != null ? v.Value : 0f;
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
 
         // the FSM <name> on the DriveTrigger of the car she sits in (the Player rides under the car's sitPos): Camera (1st / 3rd), Drive (exit)
         public static PlayMakerFSM CarFsm(string name)
