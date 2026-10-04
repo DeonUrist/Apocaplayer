@@ -237,7 +237,9 @@ namespace FemalePlayer
             // feet at the bottom of the capsule (the Movement FSM keeps the capsule centred on the Player, height = standingHeight)
             Vector3 feet = player.position - Vector3.up * (standH * 0.5f);
             Vector3 pos = feet;
-            if (view == View.FirstPerson) pos -= yaw * Vector3.forward * Plugin.BodyBack.Value;
+            float camPitch = Mathf.DeltaAngle(0f, Game.PlayerCamera.eulerAngles.x);   // + = looking down
+            if (view == View.FirstPerson)   // further back the more you look down, so the view goes past her belly to her feet
+                pos -= yaw * Vector3.forward * (Plugin.BodyBack.Value + Plugin.BodyBackDown.Value * Mathf.Clamp01(camPitch / 70f));
             var rot = yaw;
             if (_prone > 0f)
             {
@@ -304,7 +306,8 @@ namespace FemalePlayer
             if (_crouch > 0.001f) Crouch(_crouch);
 
             // aim pitch: the spine follows the camera (looking down = positive)
-            float pitch = Mathf.DeltaAngle(0f, Game.PlayerCamera.eulerAngles.x) * Plugin.AimPitchShare.Value * (1f - _prone);
+            // (not in first person: bending the torso toward the camera put her chest in front of the lens)
+            float pitch = view == View.FirstPerson ? 0f : camPitch * Plugin.AimPitchShare.Value * (1f - _prone);
             if (Mathf.Abs(pitch) > 0.5f)
             {
                 Turn("mixamorig:Spine", Vector3.right, pitch * 0.3f);

@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.1.0";
+        public const string VERSION = "0.1.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -27,7 +27,7 @@ namespace FemalePlayer
         // hidden (fixed values, never written to the file; change H( to Config.Bind( to expose one)
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
-        internal static ConfigEntry<float> BodyBack, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
+        internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -69,7 +69,8 @@ namespace FemalePlayer
             CrouchDrop = H("Animation", "CrouchDrop", 0.42f, "How far the hips go down when crouched, m.");
             AimPitchShare = H("Animation", "AimPitch", 0.9f, "Share of the camera pitch the spine follows (aiming up/down).");
 
-            BodyBack = H("Camera", "BodyBack", 0.14f, "First person: her body sits this far behind the camera, m (so you look down at her chest, not from inside it).");
+            BodyBack = H("Camera", "BodyBack", 0.2f, "First person: her body sits this far behind the camera, m.");
+            BodyBackDown = H("Camera", "BodyBackDown", 0.15f, "First person: extra distance behind the camera when looking straight down, m (blended in with the pitch).");
             ThirdDistance = H("Camera", "ThirdDistance", 2.4f, "Third person on foot: camera distance behind her, m.");
             ThirdHeight = H("Camera", "ThirdHeight", 0.25f, "Third person on foot: camera height above the eyes, m.");
             ThirdShoulder = H("Camera", "ThirdShoulder", 0.45f, "Third person on foot: sideways offset (over the right shoulder), m.");

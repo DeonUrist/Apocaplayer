@@ -8,7 +8,8 @@ namespace FemalePlayer
     // Her body meshes (built once from the .glb against Flexa's 22-bone skeleton) and textures.
     //  Full    - everything (third person, the shadow)
     //  NoHead  - head and neck-up removed (first person in a car: the camera sits in her head)
-    //  NoArms  - head and both arms removed (first person on foot: the game draws its own first-person arms)
+    //  NoArms  - first person on foot: only hips, belly and legs (head, neck, chest, shoulders and arms removed - the game draws its
+    //            own first-person arms, and the chest right under the camera blocked the view down)
     internal static class Model
     {
         public static Mesh Full, NoHead, NoArms;
@@ -20,6 +21,7 @@ namespace FemalePlayer
         {
             "mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftHand",
             "mixamorig:RightArm", "mixamorig:RightForeArm", "mixamorig:RightHand",
+            "mixamorig:LeftShoulder", "mixamorig:RightShoulder", "mixamorig:Neck", "mixamorig:Spine2",
         };
 
         public static bool Build(SkinnedMeshRenderer smr)
