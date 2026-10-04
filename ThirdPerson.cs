@@ -22,8 +22,60 @@ namespace FemalePlayer
         private static float _nextScan, _dist, _aimDist = 20f;
         private static readonly int Mask = ~((1 << 6) | (1 << 2) | (1 << 5) | (1 << 9) | (1 << 22));   // not the player, ignore-raycast, UI, loose items, map icons
 
+        // cars: entering in third person switches the car's own camera to its third-person view; Use (F) in the car's third-person view
+        // gets out (the game only lets you out in first person, looking at the door) and keeps third person on foot
+        private static bool _wasInCar, _carWantThird, _carThirdDone, _stayThird;
+        private static float _carEnter, _exitStep;
+        private static int _exitPhase;
+
+        private static void CarTick()
+        {
+            bool inCar = Game.Ready && Game.InCar;
+            float now = Time.unscaledTime;
+            if (inCar && !_wasInCar) { _carWantThird = On && Plugin.ThirdPersonOnFoot.Value; _carThirdDone = false; _carEnter = now; _exitPhase = 0; }
+            if (!inCar && _wasInCar)
+            {
+                if (_exitPhase > 0) _stayThird = true;
+                _exitPhase = 0;
+                var du = Game.DriveUse;   // make sure the game's enter/exit FSM is back at its start (it may still think we sit in the car)
+                try { if (du != null && du.enabled && du.ActiveStateName != "Idle" && du.Fsm.GetState("Idle") != null) du.Fsm.SetState("Idle"); } catch (System.Exception) { }
+            }
+            _wasInCar = inCar;
+            if (!inCar) return;
+            try
+            {
+                if (_carWantThird && !_carThirdDone && now - _carEnter > 0.4f)
+                {
+                    var cam = Game.CarFsm("Camera");
+                    if (cam != null && cam.enabled && cam.Fsm.Initialized && cam.ActiveStateName == "1st") { cam.Fsm.SetState("3rd"); _carThirdDone = true; Plugin.Verbose("Car: third-person view (entered from third person)"); }
+                    else if (now - _carEnter > 3f) _carThirdDone = true;
+                }
+                bool carThird = !Game.FirstPersonCameraOn;
+                if (_exitPhase == 0 && carThird && !Game.Paused && Input.GetButtonDown("Use"))
+                {
+                    var du = Game.DriveUse;
+                    var sp = du != null ? du.FsmVariables.GetFsmFloat("speed") : null;
+                    if (sp != null && sp.Value > 6f) Plugin.Verbose("Car: too fast to get out");
+                    else
+                    {
+                        var cam = Game.CarFsm("Camera");
+                        if (cam != null) cam.SendEvent("3rdPersonCameraDisable");   // back to the car's first-person camera first (the PlayerCamera comes back)
+                        _exitPhase = 1; _exitStep = now + 0.1f;
+                    }
+                }
+                if (_exitPhase == 1 && now >= _exitStep)
+                {
+                    var drive = Game.CarFsm("Drive");
+                    if (drive != null) { drive.SendEvent("Deactivate"); Plugin.Verbose("Car: out from the third-person view"); }
+                    _exitPhase = 2;
+                }
+            }
+            catch (System.Exception e) { Plugin.Warn("Car third person: " + e.Message); _exitPhase = 0; }
+        }
+
         public static void Tick()
         {
+            CarTick();
             bool allowed = Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && Game.Ready && !Game.InCar && Game.FirstPersonCameraOn;
             bool pressed = false;
             try { pressed = allowed && !Game.Paused && Input.GetButtonDown("Change Camera"); } catch (System.Exception) { }
@@ -33,6 +85,7 @@ namespace FemalePlayer
                 _dist = 0.3f;
                 Plugin.Verbose("Third person on foot: " + (On ? "on" : "off"));
             }
+            if (_stayThird && allowed) { _stayThird = false; On = true; _dist = 0.3f; Plugin.Verbose("Third person on foot (out of the car)"); }
             if (!allowed && On) On = false;
             // middle mouse button = orbit on / off (toggle)
             bool click = false;

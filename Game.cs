@@ -189,6 +189,31 @@ namespace FemalePlayer
 
         public static bool Paused { get { return Time.timeScale < 0.01f; } }
 
+        // the FSM <name> on the DriveTrigger of the car she sits in (the Player rides under the car's sitPos): Camera (1st / 3rd), Drive (exit)
+        public static PlayMakerFSM CarFsm(string name)
+        {
+            if (Player == null) return null;
+            for (var t = Player.transform.parent; t != null; t = t.parent)
+            {
+                var dt = t.Find("DriveTrigger");
+                if (dt == null) continue;
+                foreach (var f in dt.GetComponents<PlayMakerFSM>()) if (f.FsmName == name) return f;
+                return null;
+            }
+            return null;
+        }
+
+        // PlayerCamera [DriveUse]: the game's own enter/exit (Use while looking at the car's trigger, first person only)
+        public static PlayMakerFSM DriveUse
+        {
+            get
+            {
+                if (PlayerCamera == null) return null;
+                foreach (var f in PlayerCamera.GetComponents<PlayMakerFSM>()) if (f.FsmName == "DriveUse") return f;
+                return null;
+            }
+        }
+
         public static Transform FindDeep(Transform t, string name)
         {
             if (t == null) return null;

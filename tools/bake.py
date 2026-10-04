@@ -122,3 +122,6 @@ print('baked leg')
 out=Image.fromarray(tex.clip(0,255).astype(np.uint8))
 out.save('Player2_female.png')
 Image.fromarray(mask).save('bake_mask.png')
+# glove fix + island padding -> the shipped Models/Player2_female_arms.png
+import gloves
+gloves.fix('Player2_female.png','_export/Player2.png',['player_arm_left','player_arm_left_002','Player_leg'],'Player2_female_arms.png')
