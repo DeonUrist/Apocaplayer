@@ -232,9 +232,13 @@ namespace FemalePlayer
         private int _meleeHash0;
         private bool _meleeMeasuring;
         private float _meleeStart, _meleeLen = 0.5f, _meleeSpeed = 1f;
+        private string _meleeFor = "";
+        private readonly Dictionary<string, float> _meleeLens = new Dictionary<string, float>();   // measured swing length per weapon (a held button repeats the
+                                                                                                 // swing state, so the next swings can't be measured)
         private void StartMelee(string weapon)
         {
-            _meleeStart = Time.time; _upperClip = ""; _meleeLen = 0.5f; _meleeMeasuring = false; _meleeFp = null;
+            float known;
+            _meleeStart = Time.time; _upperClip = ""; _meleeLen = _meleeLens.TryGetValue(weapon ?? "", out known) ? known : 0.5f; _meleeMeasuring = false; _meleeFp = null; _meleeFor = weapon ?? "";
             var w = Game.WeaponsParent != null && !string.IsNullOrEmpty(weapon) ? Game.WeaponsParent.Find(weapon) : null;
             if (w != null) _meleeFp = w.GetComponentInChildren<Animator>();
             if (_meleeFp != null && _meleeFp.isActiveAndEnabled) { _meleeHash0 = _meleeFp.GetCurrentAnimatorStateInfo(0).fullPathHash; _meleeMeasuring = true; }
@@ -251,6 +255,7 @@ namespace FemalePlayer
                     float sp = Mathf.Abs(_meleeFp.speed * st.speedMultiplier);
                     _meleeLen = Mathf.Clamp(st.length / Mathf.Max(0.1f, sp), 0.2f, 2f);
                     _meleeMeasuring = false;
+                    _meleeLens[_meleeFor] = _meleeLen;
                     Plugin.Verbose("Melee: first-person swing " + _meleeLen.ToString("0.00") + " s");
                 }
             }
@@ -358,7 +363,7 @@ namespace FemalePlayer
             bool fire = !Game.Paused && Input.GetMouseButton(0);
             if (kind == Props.Kind.Melee || kind == Props.Kind.None || kind == Props.Kind.Throw)
             {
-                if (kind == Props.Kind.Melee && !Game.Paused && Input.GetMouseButtonDown(0)) StartMelee(weapon);
+                if (kind == Props.Kind.Melee && !Game.Paused && (Input.GetMouseButtonDown(0) || Input.GetMouseButton(0) && _meleeStart <= 0f)) StartMelee(weapon);
                 if (UpdateMelee(Plugin.MeleeClip.Value)) SetUpper(Plugin.MeleeClip.Value, 1f, _meleeSpeed);
                 else SetUpper("", 0f, 0f);
             }
@@ -665,7 +670,8 @@ namespace FemalePlayer
             UpdateAction(dt);
 
             string meleeClip = Anims.Get("Melee") != null ? "Melee" : Plugin.MeleeClip.Value;
-            if (kind == Props.Kind.Melee && click) StartMelee(weapon);
+            // a click swings once; holding the button swings again and again (the game repeats the first-person swing too)
+            if (kind == Props.Kind.Melee && (click || live && Input.GetMouseButton(0) && _meleeStart <= 0f)) StartMelee(weapon);
             if (kind == Props.Kind.Throw && click) StartThrow();
             string gs = Game.GrenadeState;   // the quick grenade (Throw Grenade key) is not a drawn weapon: watch its Attack FSM
             if (gs == "fire" && _grenadeState != "fire") StartThrow();

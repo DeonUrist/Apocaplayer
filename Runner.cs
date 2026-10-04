@@ -78,7 +78,7 @@ namespace FemalePlayer
                     else
                     {
                         _body.LateCar(Game.Player.transform);
-                        bool firstPerson = fpCam;
+                        bool firstPerson = fpCam && !ThirdPerson.On;
                         _body.SetMesh(firstPerson, true, Game.DrawnWeapon != "");
                         _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
                         ThirdPerson.CarShift = firstPerson && Plugin.BodyFirstPerson.Value && Plugin.CarCameraForward.Value != 0f;

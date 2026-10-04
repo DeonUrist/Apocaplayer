@@ -203,6 +203,17 @@ namespace FemalePlayer
             return null;
         }
 
+        // the car she sits in (the ancestor of the Player with a DriveTrigger child)
+        public static Transform CarRoot
+        {
+            get
+            {
+                if (Player == null) return null;
+                for (var t = Player.transform.parent; t != null; t = t.parent) if (t.Find("DriveTrigger") != null) return t;
+                return null;
+            }
+        }
+
         // PlayerCamera [DriveUse]: the game's own enter/exit (Use while looking at the car's trigger, first person only)
         public static PlayMakerFSM DriveUse
         {

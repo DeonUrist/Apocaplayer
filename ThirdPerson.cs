@@ -22,70 +22,32 @@ namespace FemalePlayer
         private static float _nextScan, _dist, _aimDist = 20f;
         private static readonly int Mask = ~((1 << 6) | (1 << 2) | (1 << 5) | (1 << 9) | (1 << 22));   // not the player, ignore-raycast, UI, loose items, map icons
 
-        // cars: entering in third person switches the car's own camera to its third-person view; Use (F) in the car's third-person view
-        // gets out (the game only lets you out in first person, looking at the door) and keeps third person on foot
-        private static bool _wasInCar, _carWantThird, _carThirdDone, _stayThird;
-        private static float _carEnter, _exitStep;
-        private static int _exitPhase;
-
-        private static void CarTick()
+        // cars: our third person also works in the car (the game's own car view is replaced: it switches the whole first-person camera off, so
+        // nothing in the car - ignition, cassette player, Exit (F) at the door - could be used). The PlayerCamera keeps working in the seat
+        // and only the picture is drawn from behind / above the car.
+        public static bool BeforeGetButtonDown(HutongGames.PlayMaker.Actions.GetButtonDown __instance)
         {
-            bool inCar = Game.Ready && Game.InCar;
-            float now = Time.unscaledTime;
-            if (inCar && !_wasInCar) { _carWantThird = On && Plugin.ThirdPersonOnFoot.Value; _carThirdDone = false; _carEnter = now; _exitPhase = 0; }
-            if (!inCar && _wasInCar)
-            {
-                if (_exitPhase > 0) _stayThird = true;
-                _exitPhase = 0;
-                var du = Game.DriveUse;   // make sure the game's enter/exit FSM is back at its start (it may still think we sit in the car)
-                try { if (du != null && du.enabled && du.ActiveStateName != "Idle" && du.Fsm.GetState("Idle") != null) du.Fsm.SetState("Idle"); } catch (System.Exception) { }
-            }
-            _wasInCar = inCar;
-            if (!inCar) return;
             try
             {
-                if (_carWantThird && !_carThirdDone && now - _carEnter > 0.4f)
-                {
-                    var cam = Game.CarFsm("Camera");
-                    if (cam != null && cam.enabled && cam.Fsm.Initialized && cam.ActiveStateName == "1st") { cam.Fsm.SetState("3rd"); _carThirdDone = true; Plugin.Verbose("Car: third-person view (entered from third person)"); }
-                    else if (now - _carEnter > 3f) _carThirdDone = true;
-                }
-                bool carThird = !Game.FirstPersonCameraOn;
-                if (_exitPhase == 0 && carThird && !Game.Paused && Input.GetButtonDown("Use"))
-                {
-                    var du = Game.DriveUse;
-                    var sp = du != null ? du.FsmVariables.GetFsmFloat("speed") : null;
-                    if (sp != null && sp.Value > 6f) Plugin.Verbose("Car: too fast to get out");
-                    else
-                    {
-                        var cam = Game.CarFsm("Camera");
-                        if (cam != null) cam.SendEvent("3rdPersonCameraDisable");   // back to the car's first-person camera first (the PlayerCamera comes back)
-                        _exitPhase = 1; _exitStep = now + 0.1f;
-                    }
-                }
-                if (_exitPhase == 1 && now >= _exitStep)
-                {
-                    var drive = Game.CarFsm("Drive");
-                    if (drive != null) { drive.SendEvent("Deactivate"); Plugin.Verbose("Car: out from the third-person view"); }
-                    _exitPhase = 2;
-                }
+                if (Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && __instance.Fsm != null && __instance.Fsm.Name == "Camera"
+                    && __instance.buttonName != null && __instance.buttonName.Value == "Change Camera" && __instance.Fsm.GameObjectName == "DriveTrigger")
+                    return false;   // the car's DriveTrigger [Camera] toggle: our Tick handles Change Camera in the car too
             }
-            catch (System.Exception e) { Plugin.Warn("Car third person: " + e.Message); _exitPhase = 0; }
+            catch (System.Exception) { }
+            return true;
         }
 
         public static void Tick()
         {
-            CarTick();
-            bool allowed = Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && Game.Ready && !Game.InCar && Game.FirstPersonCameraOn;
+            bool allowed = Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && Game.Ready && Game.FirstPersonCameraOn;
             bool pressed = false;
             try { pressed = allowed && !Game.Paused && Input.GetButtonDown("Change Camera"); } catch (System.Exception) { }
             if (pressed)
             {
                 On = !On;
                 _dist = 0.3f;
-                Plugin.Verbose("Third person on foot: " + (On ? "on" : "off"));
+                Plugin.Verbose("Third person: " + (On ? "on" : "off"));
             }
-            if (_stayThird && allowed) { _stayThird = false; On = true; _dist = 0.3f; Plugin.Verbose("Third person on foot (out of the car)"); }
             if (!allowed && On) On = false;
             // middle mouse button = orbit on / off (toggle)
             bool click = false;
@@ -138,13 +100,18 @@ namespace FemalePlayer
             var viewRot = Quaternion.Euler(pitch, e.y + _orbitYaw, 0f);
             Vector3 fwd = viewRot * Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
-            Vector3 pivot = t.position + Vector3.up * Plugin.ThirdHeight.Value;
-            Vector3 want = pivot - fwd * Plugin.ThirdDistance.Value + right * Plugin.ThirdShoulder.Value;
+            Transform car = Game.InCar ? Game.CarRoot : null;
+            Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
+            Vector3 want = pivot - fwd * (car != null ? Plugin.ThirdCarDistance.Value : Plugin.ThirdDistance.Value) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
             Vector3 d = want - pivot;
             float max = d.magnitude;
-            RaycastHit hit;
             float dist = max;
-            if (Physics.SphereCast(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), out hit, max, Mask, QueryTriggerInteraction.Ignore)) dist = Mathf.Max(0.2f, hit.distance);
+            // walls pull the camera in; in a car its own body doesn't (the camera starts inside it)
+            foreach (var h in Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore))
+            {
+                if (car != null && h.collider != null && h.collider.transform.IsChildOf(car)) continue;
+                if (h.distance > 0f && h.distance < dist) dist = Mathf.Max(0.2f, h.distance);
+            }
             // come out smoothly, snap in when something is in the way
             _dist = dist < _dist ? dist : Mathf.MoveTowards(_dist, dist, Time.unscaledDeltaTime * 4f);
             Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * _dist;

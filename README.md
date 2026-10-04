@@ -7,7 +7,7 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
   a camera over her right shoulder; click the middle mouse button to orbit around her (click again to stop). Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
-  Getting into a car in third person switches the car to its own third-person view; **Use (F)** in the car's third-person view gets you out (the game only allows it in first person) and keeps third person on foot.
+  It works in cars too (instead of the game's own car view, where nothing in the car can be used): ignition, cassette player and Exit (F) at the door work as in first person, and you stay in third person when you get out.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
   (Flexa's AKM, Sprokka's pipe pistol, Lugnut's shotgun …) at the spot the raiders hold it.
@@ -35,7 +35,7 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | General | BodyFirstPerson | true | Her legs/torso and shadow in first person |
 | General | FemaleArms | true | Her arms and gloves on the first-person animations |
 | General | ReplaceDriver | true | She sits in the driver's seat |
-| General | ThirdPersonOnFoot | true | Change Camera works on foot |
+| General | ThirdPersonOnFoot | true | Change Camera switches to a camera behind her, on foot and in cars (replaces the game's car view) |
 | General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
 | Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) for the animation she is in - every clip has its own grip (StrafeLeft and the mirrored StrafeRight separately, every crouch and fire variant too); Numpad 9/3 preview the animations; Numpad - clears one; Numpad / copies a grip, Numpad * pastes it. Grips go to config/FemalePlayer/weapon-grips.cfg |
 | Weapon grip | AutoGrip | true | With the Mixamo clips: the rifle's grip is taken once from the rifle idle pose (barrel from right hand to left hand) and then kept fixed in her hand |
