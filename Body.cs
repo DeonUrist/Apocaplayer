@@ -448,25 +448,18 @@ namespace FemalePlayer
         }
 
         // first person: no head; her own arms only in a car with nothing drawn (hands on the wheel) - with a gun the game draws its arms
-        // a copy of her standing in for another Player2 man (the TAB screen's player model): same layer, its torso size, its pose every frame
-        public void LateMirror(Transform[] src, int layer)
+        // a copy of her for a portrait (TAB screen): her own idle on the bundle/game clips, unscaled time (the screen may pause the game),
+        // everything on one layer, no shadows, the full mesh
+        public void UsePortrait(int layer)
         {
-            if (!_inCar) { _inCar = true; _animator.enabled = false; UpdateProp(""); }   // _inCar = "posed from outside, no Animator"
-            if (Root.layer != layer) foreach (var t in Root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
-            Transform hips, head;
-            float k = 1f;
-            if (Bones.TryGetValue("mixamorig:Hips", out hips) && Bones.TryGetValue("mixamorig:Head", out head))
-            {
-                float dSrc = Vector3.Distance(src[0].position, src[5].position);            // spine1 -> head of the man
-                float dHer = Vector3.Distance(hips.position, head.position) / Mathf.Max(1e-4f, Root.transform.lossyScale.x);
-                if (dSrc > 1e-4f && dHer > 1e-4f) k = dSrc / dHer;
-            }
-            Root.transform.localScale = Vector3.one * k;
-            Root.transform.SetPositionAndRotation(src[0].position, src[0].rotation);
-            CarSeat.PoseFrom(src, Bones, _bindLocal);
-            if (_smr.sharedMesh != Model.Full) _smr.sharedMesh = Model.Full;
+            _animator.updateMode = AnimatorUpdateMode.UnscaledTime;
+            if (_graph.IsValid()) _graph.SetTimeUpdateMode(DirectorUpdateMode.UnscaledGameTime);
+            foreach (var t in Root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+            _smr.sharedMesh = Model.Full;
             _smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            SetVisible(true, false);
         }
+        public Bounds RenderBounds { get { return _smr.bounds; } }
 
         public void SetMesh(bool firstPerson, bool inCar, bool gameArms = false)
         {
@@ -667,7 +660,8 @@ namespace FemalePlayer
             {
                 _lastWeapon = weapon; _weaponSince = Time.time;
                 _fireW = 0f; _reloading = false; _reloadW = 0f; _reloadFresh = false; _upperClip = "";
-                GunPose.Flush(); GunPose.ResetSelection();
+                GunPose.Flush();
+                _groupsKind = (Props.Kind)(-1);   // regroup for the new weapon (the selected animation is kept when it has it)
                 Plugin.Verbose("Weapon: " + (weapon == "" ? "none" : weapon + " (" + kind + ")"));
             }
             var fireSet = rifleSet ? _fire : pistolSet ? _pfire : null;

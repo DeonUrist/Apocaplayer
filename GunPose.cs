@@ -222,7 +222,9 @@ namespace FemalePlayer
             _rep = rep; _names = names;
             _cycle.Clear();
             for (int i = 0; i < rep.Length; i++) if (rep[i] == i) _cycle.Add(i);
-            ResetSelection();
+            // another weapon: stay on the same animation when this weapon has it (to copy a pose across weapons), else back to live
+            _sel = -1;
+            if (_selPose >= 0 && _selPose < rep.Length && rep[_selPose] >= 0) _sel = _cycle.IndexOf(rep[_selPose]);
         }
         private static int Rep(int pose) { return _rep != null && pose < _rep.Length && _rep[pose] >= 0 ? _rep[pose] : pose; }
         // every entry that plays the same clip as pose
@@ -352,15 +354,16 @@ namespace FemalePlayer
 
         public static bool Editing { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value; } }
         // Numpad 9/3: the selected animation of the drawn weapon (index into _cycle), played standing still; -1 = what she really plays
-        private static int _sel = -1;
+        private static int _sel = -1, _selPose = -1;   // _selPose: the selected animation (pose index), kept across weapons
         public static int Preview { get { return Editing && ThirdPerson.On && _sel >= 0 && _sel < _cycle.Count ? _cycle[_sel] : -1; } }
-        public static void ResetSelection() { _sel = -1; }
+        public static void ResetSelection() { _sel = -1; _selPose = -1; }
         private static void Step(int d)
         {
-            if (_cycle.Count == 0) { _sel = -1; return; }
+            if (_cycle.Count == 0) { _sel = -1; _selPose = -1; return; }
             _sel += d;
             if (_sel >= _cycle.Count) _sel = -1;
             else if (_sel < -1) _sel = _cycle.Count - 1;
+            _selPose = _sel >= 0 ? _cycle[_sel] : -1;
         }
 
         private static bool Pressed(params KeyCode[] keys)
