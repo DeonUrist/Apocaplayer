@@ -14,6 +14,42 @@ namespace Apocaplayer
         public static bool Orbiting;
         // the third-person picture's camera, as last drawn (for PickAssist: what is under the cursor on screen)
         public static bool HasView;
+        public static float ViewFov = 60f;
+        // right mouse button with a non-scoped gun in third person: the game only hides its crosshair (its sights are on the hidden
+        // first-person gun) - here the view zooms in toward the crosshair instead (narrower field of view, camera a bit closer) and the
+        // crosshair stays. Scoped weapons keep the game's own scope (overlay + FOV 25).
+        public static bool AimZoom;
+        private static float _zoomK, _fovBase;
+        private static bool _fovSet;
+        private static GameObject _crosshair;
+        public const float ZoomFov = 0.55f, ZoomDistance = 0.7f;
+
+        // Harmony prefix on PlayMaker's ActivateGameObject.DoActivateGameObject: while zooming, the weapon's AimDownSights FSM may not switch
+        // MouseCrosshair off
+        public static bool BeforeActivateGameObject(HutongGames.PlayMaker.Actions.ActivateGameObject __instance)
+        {
+            if (!AimZoom) return true;
+            try
+            {
+                if (__instance.activate == null || __instance.activate.Value || __instance.Fsm == null) return true;
+                var go = __instance.Fsm.GetOwnerDefaultTarget(__instance.gameObject);
+                if (go != null && go.name == "MouseCrosshair") { _crosshair = go; if (!go.activeSelf) go.SetActive(true); return false; }
+            }
+            catch (System.Exception) { }
+            return true;
+        }
+
+        private static void UpdateZoom()
+        {
+            string w = Game.DrawnWeapon;
+            var k = Props.KindOf(w);
+            bool gun = k == Props.Kind.Rifle || k == Props.Kind.Pistol;
+            AimZoom = On && !Game.Paused && gun && w.IndexOf("scoped", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
+            _zoomK = Mathf.MoveTowards(_zoomK, AimZoom ? 1f : 0f, Time.unscaledDeltaTime * 6f);
+            if (!On) _zoomK = 0f;
+            if (AimZoom && _crosshair != null && !_crosshair.activeSelf) _crosshair.SetActive(true);
+        }
+        private static float ZoomEase { get { return _zoomK * _zoomK * (3f - 2f * _zoomK); } }
         public static Vector3 ViewPos;
         public static Quaternion ViewRot = Quaternion.identity;               // middle mouse held: the mouse turns the camera around her, the game's mouse look is paused
         private static float _orbitYaw, _orbitPitch;
@@ -60,6 +96,7 @@ namespace Apocaplayer
             else _orbitOn = held;
             if (!On) _orbitOn = false;
             Zoom();
+            UpdateZoom();
             Orbiting = false;
             if (On && !Game.Paused)
             {
@@ -146,7 +183,10 @@ namespace Apocaplayer
             Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
             Transform car = Game.InCar ? Game.CarRoot : null;
             Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
-            Vector3 want = pivot - fwd * Distance(car != null) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
+            float zk = ZoomEase;
+            if (zk > 0.001f) { _fovBase = cam.fieldOfView; cam.fieldOfView = _fovBase * Mathf.Lerp(1f, ZoomFov, zk); _fovSet = true; }
+            ViewFov = cam.fieldOfView;
+            Vector3 want = pivot - fwd * (Distance(car != null) * Mathf.Lerp(1f, ZoomDistance, zk)) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;
@@ -184,6 +224,7 @@ namespace Apocaplayer
         public static void EndOfFrame()
         {
             if (_hooked && Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();
+            if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }   // the game's own FOV back for the next frame
         }
 
         private static void HideViewModel()
@@ -209,7 +250,8 @@ namespace Apocaplayer
 
         public static void Off()
         {
-            On = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false;
+            On = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
+            if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();

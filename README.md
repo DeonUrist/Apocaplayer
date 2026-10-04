@@ -49,6 +49,10 @@ correction puts her throwing hand on the aim line at the release), past 95° to 
 its timing are the same as on foot, played once. A blast lance thrown from a car ignores that car's colliders (`Projectiles.cs`), so it
 doesn't blow up on your own doors and windows.
 
+Third person, right mouse button (Aim Down Sights) with a non-scoped gun: the view zooms in toward the crosshair (narrower field of view,
+camera a little closer) and the crosshair stays - the game's own sights are on the first-person gun, which isn't drawn in third person.
+Scoped guns keep the game's scope.
+
 Third person, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
 the cursor ON SCREEN is picked - within 6 % of the screen height, visible from the camera, within the game's own reach from her eye
 (`PickAssist.cs`, a Harmony postfix on PlayMaker's `ActionHelpers.DoMousePick`). Screen-space, so it works the same at every zoom.

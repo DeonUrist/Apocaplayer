@@ -16,7 +16,7 @@ namespace Apocaplayer
         public static PlayMakerFSM GrenadeFsm;      // PlayerCamera/QuickItems/grenade [Attack]: on -> (Throw Grenade) -> checkGrenade -> fire 0.4 s -> wait 0.35 s -> throw      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
         private static float _nextFind;
 
-        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _arms.Clear(); _attackFsms.Clear(); GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
+        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _arms.Clear(); _attackFsms.Clear(); _adsFsm = null; GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
 
         public static bool Ready
         {
@@ -205,6 +205,24 @@ namespace Apocaplayer
             return false;
         }
         private static bool IsReload(AnimatorStateInfo s) { return s.IsName("reload") || s.IsName("Reload") || s.IsName("Base Layer.reload") || s.IsName("Base Layer.Reload"); }
+
+        // right mouse button (the game's "Aim Down Sights"): PlayerCamera [AimDownSIghts_Hold] sits in "ads" while it is held (it sends
+        // AimDownSights_ON to the drawn weapon: the first-person gun slides to the sights and MouseCrosshair is switched off; scoped
+        // weapons also set the camera FOV to 25 and show their scope overlay)
+        private static PlayMakerFSM _adsFsm;
+        public static bool AimDownSights
+        {
+            get
+            {
+                try
+                {
+                    if (_adsFsm == null && PlayerCamera != null)
+                        foreach (var f in PlayerCamera.GetComponents<PlayMakerFSM>()) if (f.FsmName == "AimDownSIghts_Hold" || f.FsmName == "AimDownSights_Hold") { _adsFsm = f; break; }
+                    return _adsFsm != null && _adsFsm.enabled && _adsFsm.ActiveStateName == "ads";
+                }
+                catch (Exception) { return false; }
+            }
+        }
 
         public static string GrenadeState
         {

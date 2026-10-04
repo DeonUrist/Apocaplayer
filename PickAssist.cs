@@ -63,11 +63,11 @@ namespace Apocaplayer
             Vector3 mouse = Input.mousePosition;
             float W = Screen.width, H = Screen.height;
             float nx = mouse.x / W * 2f - 1f, ny = mouse.y / H * 2f - 1f;
-            float tan = Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            float tan = Mathf.Tan(ThirdPerson.ViewFov * 0.5f * Mathf.Deg2Rad);
             Vector3 rpos = ThirdPerson.ViewPos; Quaternion rrot = ThirdPerson.ViewRot;
             Vector3 rdir = (rrot * new Vector3(nx * tan * cam.aspect, ny * tan, 1f)).normalized;
             var viewM = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(rpos, rrot, Vector3.one).inverse;
-            var vp = cam.projectionMatrix * viewM;
+            var vp = Matrix4x4.Perspective(ThirdPerson.ViewFov, cam.aspect, cam.nearClipPlane, cam.farClipPlane) * viewM;
             float radius = Mathf.Max(16f, Plugin.PickAssistRadius.Value * H);
 
             int n = Physics.OverlapSphereNonAlloc(eye, distance, _near, layerMask, QueryTriggerInteraction.UseGlobal);
