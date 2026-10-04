@@ -104,10 +104,15 @@ namespace FemalePlayer
             _upperClip = ""; _throwFresh = true;   // restart the clip
             Plugin.Verbose("Throw: " + n + " from " + _throwFrom.ToString("0.00") + " s");
         }
+        // the throw runs on its own clock (started at _throwAt from _throwFrom): a weapon change during it (the lance leaving her hand, the
+        // grenade holstering the drawn weapon) resets the upper clip, which must not start the throw over
         private void PlayThrow()
         {
             SetUpper(_throwClip, 1f, 1f);
-            if (_throwFresh && _upper.IsValid()) { _upper.SetTime(_throwFrom); _throwFresh = false; }
+            if (!_upper.IsValid()) return;
+            double want = _throwFrom + (Time.time - _throwAt);
+            if (_throwFresh || System.Math.Abs(_upper.GetTime() - want) > 0.05) _upper.SetTime(want);
+            _throwFresh = false;
         }
         private string _throwState = "", _throwFor = "";
 

@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.12.1";
+        public const string VERSION = "0.12.2";
 
         internal static ManualLogSource Log;
         internal static string Dir;
