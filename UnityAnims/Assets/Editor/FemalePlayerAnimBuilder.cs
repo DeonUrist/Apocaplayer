@@ -25,6 +25,11 @@ public static class FemalePlayerAnimBuilder
         "RifleCrouchIdle", "RifleCrouchWalk", "RifleCrouchWalkBack", "RifleCrouchStrafeLeft", "RifleCrouchStrafeRight",
         "RifleFireWalk", "RifleFireWalkBack", "RifleFireStrafeLeft", "RifleFireStrafeRight",
         "RifleFireCrouchWalk", "RifleFireCrouchWalkBack", "RifleFireCrouchStrafeLeft", "RifleFireCrouchStrafeRight",
+        "PistolIdle", "PistolWalk", "PistolWalkBack", "PistolStrafeLeft", "PistolStrafeRight", "PistolRun", "PistolRunStrafeLeft", "PistolRunStrafeRight",
+        "PistolCrouchIdle", "PistolCrouchWalk", "PistolCrouchWalkBack", "PistolCrouchStrafeLeft", "PistolCrouchStrafeRight",
+        "PistolFireWalk", "PistolFireWalkBack", "PistolFireStrafeLeft", "PistolFireStrafeRight",
+        "PistolFireCrouchWalk", "PistolFireCrouchWalkBack", "PistolFireCrouchStrafeLeft", "PistolFireCrouchStrafeRight",
+        "CrouchPistolFire", "PistolCrouchFire", "PistolJump",
         "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
     };
 

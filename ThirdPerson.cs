@@ -51,9 +51,10 @@ namespace FemalePlayer
             if (!allowed && On) On = false;
             // middle mouse button = orbit on / off (toggle)
             bool click = false;
-            try { click = On && !Game.Paused && Input.GetMouseButtonDown(2); } catch (System.Exception) { }
+            try { click = On && !Game.Paused && Plugin.OrbitMiddleMouse.Value && Input.GetMouseButtonDown(2); } catch (System.Exception) { }
             if (click) _orbitOn = !_orbitOn;
-            if (!On) _orbitOn = false;
+            if (!On || !Plugin.OrbitMiddleMouse.Value) _orbitOn = false;
+            Zoom();
             Orbiting = false;
             if (On && !Game.Paused)
             {
@@ -80,6 +81,44 @@ namespace FemalePlayer
             if (!want && _hooked) { if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix(); Camera.onPreCull -= PreCull; _hooked = false; }
         }
 
+        // mouse wheel: closer / further, one distance on foot and one in cars, both kept in the config. Not while she carries an item
+        // on foot (the wheel moves the item then).
+        private static float _saveAt;
+        private static void Zoom()
+        {
+            if (!On || Game.Paused) { Save(); return; }
+            float w = 0f;
+            try { w = Input.mouseScrollDelta.y; } catch (System.Exception) { }
+            bool car = Game.InCar;
+            if (w != 0f && !car)
+            {
+                var hand = Game.PlayerCamera != null ? Game.PlayerCamera.Find("Hand") : null;
+                if (hand != null && hand.childCount > 0) w = 0f;
+            }
+            if (w != 0f)
+            {
+                var e = car ? Plugin.ThirdCarDistance : Plugin.ThirdDistance;
+                float lo = car ? 2.5f : 0.8f, hi = car ? 15f : 6f;
+                _zoomTo[car ? 1 : 0] = Mathf.Clamp((_zoomTo[car ? 1 : 0] > 0f ? _zoomTo[car ? 1 : 0] : e.Value) * Mathf.Pow(0.88f, w), lo, hi);
+                _saveAt = Time.unscaledTime + 1f;
+            }
+            Save();
+        }
+        private static readonly float[] _zoomTo = { 0f, 0f };
+        private static void Save()
+        {
+            if (_saveAt <= 0f || Time.unscaledTime < _saveAt) return;
+            _saveAt = 0f;
+            if (_zoomTo[0] > 0f) Plugin.ThirdDistance.Value = (float)System.Math.Round(_zoomTo[0], 2);   // written to the config once the wheel rests
+            if (_zoomTo[1] > 0f) Plugin.ThirdCarDistance.Value = (float)System.Math.Round(_zoomTo[1], 2);
+            _zoomTo[0] = _zoomTo[1] = 0f;   // the config is the source again (also edited from the Mods menu)
+        }
+        private static float Distance(bool car)
+        {
+            float z = _zoomTo[car ? 1 : 0];
+            return z > 0f ? z : (car ? Plugin.ThirdCarDistance.Value : Plugin.ThirdDistance.Value);
+        }
+
         private static void PreCull(Camera cam)
         {
             if (cam == null || cam != Game.Cam) return;
@@ -102,7 +141,7 @@ namespace FemalePlayer
             Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
             Transform car = Game.InCar ? Game.CarRoot : null;
             Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
-            Vector3 want = pivot - fwd * (car != null ? Plugin.ThirdCarDistance.Value : Plugin.ThirdDistance.Value) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
+            Vector3 want = pivot - fwd * Distance(car != null) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;

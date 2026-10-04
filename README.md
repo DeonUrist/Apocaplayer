@@ -6,7 +6,7 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
-  a camera over her right shoulder; click the middle mouse button to orbit around her (click again to stop). Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
+  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); `[Debug] OrbitMiddleMouse` lets the middle mouse button orbit around her. Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
   It works in cars too (instead of the game's own car view, where nothing in the car can be used): ignition, cassette player and Exit (F) at the door work as in first person, and you stay in third person when you get out.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
@@ -42,7 +42,10 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Base grip in her right hand (hand axes, cm / degrees), used by every animation without its own grip |
 | Camera | FirstPersonBodyBack | 0.08 | First person on foot: how far (m) her head sits behind the camera; looking down you see her body up to the collar |
 | Camera | FirstPersonWeaponBack / FirstPersonChestLean | 0.08 / 20 | First person with a weapon drawn: her body moves back (m) and her chest bends back (degrees) so the game's arms don't sink into her chest |
+| Camera | ThirdPersonDistance / ThirdPersonCarDistance | 2.4 / 5.5 | Third-person camera distance on foot / in cars; the mouse wheel changes and saves them |
+| Car | IgnitionKey | E | In the driver's seat: turn the key and start the engine; "E - Start / Ignition" shows on the left while the engine is off |
 | Camera | CarCameraForward | 0.12 | Driving in first person: the view is drawn this many metres further forward so her body doesn't block it (only the picture moves) |
+| Debug | OrbitMiddleMouse | false | Third person: middle mouse click toggles orbiting around her |
 | Debug | VerboseLog | false | Detailed log |
 
 Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`

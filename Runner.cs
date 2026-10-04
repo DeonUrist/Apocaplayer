@@ -17,6 +17,7 @@ namespace FemalePlayer
             ThirdPerson.Off();
             Game.Reset();
             Arms.OnSceneLoaded();
+            Car.Reset();
             Props.OnSceneLoaded();
         }
 
@@ -41,6 +42,7 @@ namespace FemalePlayer
                 if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
                 if (Plugin.FemaleArms.Value) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
+                Car.Tick();
                 GunPose.ClearHint();                       // set again in LateUpdate while a weapon is being adjusted
                 if (!ThirdPerson.On || Game.InCar) GunPose.Flush();
             }
@@ -112,7 +114,7 @@ namespace FemalePlayer
             }
         }
 
-        private void OnGUI() { try { GunPose.OnGUI(); } catch (Exception) { } }
+        private void OnGUI() { try { GunPose.OnGUI(); Car.OnGUI(); } catch (Exception) { } }
 
         private void OnDestroy() { ThirdPerson.Off(); }
     }

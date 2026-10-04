@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.5.7";
+        public const string VERSION = "0.6.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -30,6 +30,8 @@ namespace FemalePlayer
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
+        internal static ConfigEntry<bool> OrbitMiddleMouse;
+        internal static ConfigEntry<KeyCode> IgnitionKey;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -48,13 +50,15 @@ namespace FemalePlayer
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", true, "See her body in first person: legs and torso when you look down, and her shadow.");
             FemaleArms = Config.Bind("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person weapon, tool and item animations (and the kick leg in her boot).");
             ReplaceDriver = Config.Bind("General", "ReplaceDriver", true, "She sits in the driver's seat instead of the game's driver model (seen from the car's third-person camera, and her arms on the wheel in first person).");
-            ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key switches to a camera behind her - on foot and in cars (it replaces the game's own car view, in which nothing in the car could be used). Click the middle mouse button to orbit around her, click again to stop. Shots and picks still go where the crosshair is; everything you can use in first person works.");
+            ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key switches to a camera behind her - on foot and in cars (it replaces the game's own car view, in which nothing in the car could be used). The mouse wheel zooms in / out (saved separately on foot and in cars). Shots and picks still go where the crosshair is; everything you can use in first person works.");
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
             AlignGun = Config.Bind("Weapon grip", "AutoGrip", true, "Third person with the Mixamo clips: when she first stands still holding a rifle, the rifle is pointed from her right hand to her left hand (where the rifle clips expect it) and that grip is then kept fixed in her hand for every animation; while shooting it follows her left hand. The per-weapon lines below fine-tune it.");
             WeaponAdjust = Config.Bind("Weapon grip", "WeaponAdjustment", false, "On: in third person set the weapon's grip for the animation she is in (each clip on its own: Idle, Walk, WalkBack, StrafeLeft, StrafeRight, Run..., CrouchIdle, CrouchStrafeLeft..., Fire, FireWalk..., Reload) with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it (8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll); Numpad 9/3 previews the animations one by one standing still; Numpad - clears the animation's grip; Numpad / copies the shown grip and Numpad * pastes it into the current animation. Saved in config/FemalePlayer/weapon-grips.cfg.");
             CarCameraForward = Config.Bind("Camera", "CarCameraForward", 0.12f, new ConfigDescription("Driving in first person with her body shown: the view is drawn this far (m) in front of the game's eye so her head and chest don't block it (only the picture moves; 0 = off).", new AcceptableValueRange<float>(0f, 0.4f)));
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
+            OrbitMiddleMouse = Config.Bind("Debug", "OrbitMiddleMouse", false, "Third person: clicking the middle mouse button turns orbiting the camera around her on / off (for looking at her from the front).");
+            IgnitionKey = Config.Bind("Car", "IgnitionKey", KeyCode.E, "In the driver's seat: turns the key and starts the engine (the same as clicking the ignition twice). A hint shows on the left while the engine is off. None = off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines (what was found, which clips/props are used).");
 
             ModelFile = H("Model", "Model", "Models/Boss_lady.glb", "Body model (.glb/.gltf) relative to the mod folder, rigged to Flexa's skeleton (22 mixamorig bones).");
@@ -85,9 +89,9 @@ namespace FemalePlayer
             FirstPersonWeaponBack = Config.Bind("Camera", "FirstPersonWeaponBack", 0.08f, new ConfigDescription("First person with a weapon drawn: her body moves this much (m) further back, so the game's arms don't sink into her chest (same as moving the camera forward, but the arms stay undistorted).", new AcceptableValueRange<float>(0f, 0.4f)));
             FirstPersonChestLean = Config.Bind("Camera", "FirstPersonChestLean", 20f, new ConfigDescription("First person with a weapon drawn: her chest bends back by this many degrees (up to 40% more when looking down) to keep it out of the arms.", new AcceptableValueRange<float>(0f, 45f)));
             BodyBackDown = H("Camera", "BodyBackDown", 0.08f, "First person: extra distance behind the camera when looking straight down, m (blended in with the pitch).");
-            ThirdDistance = H("Camera", "ThirdDistance", 2.4f, "Third person on foot: camera distance behind her, m.");
+            ThirdDistance = Config.Bind("Camera", "ThirdPersonDistance", 2.4f, new ConfigDescription("Third person on foot: camera distance behind her, m (the mouse wheel changes it and it is saved here).", new AcceptableValueRange<float>(0.8f, 6f)));
             ThirdHeight = H("Camera", "ThirdHeight", 0.25f, "Third person on foot: camera height above the eyes, m.");
-            ThirdCarDistance = H("Camera", "ThirdCarDistance", 5.5f, "Third person in a car: camera distance behind her, m.");
+            ThirdCarDistance = Config.Bind("Camera", "ThirdPersonCarDistance", 5.5f, new ConfigDescription("Third person in a car: camera distance behind her, m (the mouse wheel changes it and it is saved here).", new AcceptableValueRange<float>(2.5f, 15f)));
             ThirdCarHeight = H("Camera", "ThirdCarHeight", 1.1f, "Third person in a car: camera height above her eyes, m.");
             ThirdShoulder = H("Camera", "ThirdShoulder", 0.45f, "Third person on foot: sideways offset (over the right shoulder), m.");
 

@@ -27,7 +27,8 @@ namespace FemalePlayer
         private string _upperClip = "";
         private AnimationClip _fallback;
         private bool _mixamo;                       // locomotion from the animation bundle (Mixamo clips) instead of the game's clips + procedural walk
-        private LocoSet _unarmed, _rifle, _fire;   // _fire: RifleFire* clips = walking/crouching while shooting (full body)
+        private LocoSet _unarmed, _rifle, _fire, _pistol, _pfire;   // _fire / _pfire: RifleFire* / PistolFire* clips = walking/crouching while shooting (full body)
+        private float _armPW;   // pistol set weight (_armW = rifle set)
         private float _fireW;
         private AnimationMixerPlayable _sets;
         private float _armW, _reloadUntil, _throwUntil, _reloadStart;
@@ -471,7 +472,7 @@ namespace FemalePlayer
         // (the "RifleFire" set falls back to the "Rifle" one, then to the unarmed one)
         private static AnimationClip G(string pre, string name)
         {
-            return Anims.Get(pre + name) ?? (pre.Length > 5 && pre.StartsWith("Rifle") ? Anims.Get("Rifle" + name) : null) ?? Anims.Get(name);
+            return Anims.Get(pre + name) ?? (pre.Length > 4 && pre.EndsWith("Fire") ? Anims.Get(pre.Substring(0, pre.Length - 4) + name) : null) ?? Anims.Get(name);
         }
 
         // one locomotion set (unarmed: no prefix, rifle: "Rifle"); null when the set has no idle clip
@@ -523,11 +524,16 @@ namespace FemalePlayer
             var crouchFire = Anims.First("RifleFireCrouchIdle", "CrouchRifleFire", "RifleCrouchFire");
             if (_rifle != null && (Anims.Get("RifleFireWalk") != null || Anims.Get("RifleFireCrouchWalk") != null))
                 _fire = MakeSet("RifleFire", Anims.First("RifleFire", "RifleFireIdle", "RifleIdle"), crouchFire);
-            _sets = AnimationMixerPlayable.Create(_graph, 3);
+            _pistol = MakeSet("Pistol");
+            if (_pistol != null && (Anims.Get("PistolFireWalk") != null || Anims.Get("PistolFireCrouchWalk") != null))
+                _pfire = MakeSet("PistolFire", Anims.First("PistolFire", "PistolFireIdle", "PistolIdle"), Anims.First("PistolFireCrouchIdle", "CrouchPistolFire", "PistolCrouchFire"));
+            _sets = AnimationMixerPlayable.Create(_graph, 5);
             _graph.Connect(_unarmed.Mix, 0, _sets, 0);
             _sets.SetInputWeight(0, 1f);
             if (_rifle != null) { _graph.Connect(_rifle.Mix, 0, _sets, 1); _sets.SetInputWeight(1, 0f); }
             if (_fire != null) { _graph.Connect(_fire.Mix, 0, _sets, 2); _sets.SetInputWeight(2, 0f); }
+            if (_pistol != null) { _graph.Connect(_pistol.Mix, 0, _sets, 3); _sets.SetInputWeight(3, 0f); }
+            if (_pfire != null) { _graph.Connect(_pfire.Mix, 0, _sets, 4); _sets.SetInputWeight(4, 0f); }
             _fallback = Anims.Get("Idle");
             _layers = AnimationLayerMixerPlayable.Create(_graph, 3);
             _graph.Connect(_sets, 0, _layers, 0);
@@ -542,7 +548,8 @@ namespace FemalePlayer
             output.SetSourcePlayable(_layers);
             _graph.Play();
             Plugin.Log.LogInfo("Animations from the bundle: unarmed " + _unarmed.Info + (_rifle != null ? "; rifle " + _rifle.Info : "; no rifle set (RifleIdle) - rifle aim on the upper body only")
-                + (_fire != null ? "; firing " + _fire.Info : ""));
+                + (_fire != null ? "; rifle firing " + _fire.Info : "")
+                + (_pistol != null ? "; pistol " + _pistol.Info : "; no pistol set (PistolIdle) - pistol aim on the upper body only") + (_pfire != null ? "; pistol firing " + _pfire.Info : ""));
         }
 
         private static AvatarMask UpperMask()
@@ -629,18 +636,25 @@ namespace FemalePlayer
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
+            bool pistolSet = _pistol != null && kind == Props.Kind.Pistol;
             _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, dt * 5f);
-            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && rifleSet && _fire != null && !_reloading && Time.time >= _throwUntil;
+            _armPW = Mathf.MoveTowards(_armPW, pistolSet ? 1f : 0f, dt * 5f);
+            var fireSet = rifleSet ? _fire : pistolSet ? _pfire : null;
+            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && fireSet != null && !_reloading && Time.time >= _throwUntil;
             _fireW = _snap ? (firing ? 1f : 0f) : Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
-            if (_snap) { _armW = rifleSet ? 1f : 0f; _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
-            if (_rifle != null)
+            if (_snap) { _armW = rifleSet ? 1f : 0f; _armPW = pistolSet ? 1f : 0f; _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
+            if (_rifle != null || _pistol != null)
             {
-                _sets.SetInputWeight(0, 1f - _armW);
-                _sets.SetInputWeight(1, _armW * (1f - _fireW));
+                _sets.SetInputWeight(0, Mathf.Clamp01(1f - _armW - _armPW));
+                if (_rifle != null) _sets.SetInputWeight(1, _armW * (_fire != null ? 1f - _fireW : 1f));
                 if (_fire != null) _sets.SetInputWeight(2, _armW * _fireW);
+                if (_pistol != null) _sets.SetInputWeight(3, _armPW * (_pfire != null ? 1f - _fireW : 1f));
+                if (_pfire != null) _sets.SetInputWeight(4, _armPW * _fireW);
             }
-            var set = firing ? _fire : rifleSet ? _rifle : _unarmed;
+            var set = firing ? fireSet : rifleSet ? _rifle : pistolSet ? _pistol : _unarmed;
             Drive(_fire, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
+            Drive(_pistol, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
+            Drive(_pfire, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
             Drive(_unarmed, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
             Drive(_rifle, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
 
@@ -665,7 +679,8 @@ namespace FemalePlayer
             if (ks == "fire" && _kickState != "fire") StartAction("Kick");
             _kickState = ks;
             string js = Game.JumpState;
-            if (js == "Jump" && _jumpState != "Jump") StartAction(kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump" : "Jump");
+            if (js == "Jump" && _jumpState != "Jump") StartAction(kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump"
+                                                      : kind == Props.Kind.Pistol && Anims.Get("PistolJump") != null ? "PistolJump" : "Jump");
             _jumpState = js;
             UpdateAction(dt);
 
@@ -691,8 +706,14 @@ namespace FemalePlayer
             }
             else if (kind == Props.Kind.Pistol)
             {
-                string aim = Anims.Get("PistolAim") != null ? "PistolAim" : Plugin.PistolClip.Value;
-                SetUpper(fire && Anims.Get("PistolFire") != null ? "PistolFire" : aim, 1f, 1f);
+                // same pattern as rifles: the full-body PistolFire* set while shooting, else crouch-fire / fire / aim on the upper body
+                string crouchPFire = Anims.Get("CrouchPistolFire") != null ? "CrouchPistolFire" : Anims.Get("PistolCrouchFire") != null ? "PistolCrouchFire" : null;
+                if (fire && _pfire != null) SetUpper("", 0f, 0f);
+                else if (fire && _crouch > 0.5f && crouchPFire != null) SetUpper(crouchPFire, 1f, 1f);
+                else if (fire && Anims.Get("PistolFire") != null) SetUpper("PistolFire", 1f, 1f);
+                else if (Anims.Get("PistolAim") != null) SetUpper("PistolAim", 1f, 1f);
+                else if (_pistol == null) SetUpper(Plugin.PistolClip.Value, 1f, 1f);
+                else SetUpper("", 0f, 0f);
             }
             else if (kind == Props.Kind.Rifle)
             {
@@ -763,7 +784,7 @@ namespace FemalePlayer
                 _slotW[S_IDLE] = (1f - mv) * (1f - c); _slotW[S_FWD] = mv * (1f - _runW) * (1f - c); _slotW[S_RUN] = mv * _runW * (1f - c);
                 _slotW[S_CIDLE] = (1f - mv) * c; _slotW[S_CWALK] = mv * c;
             }
-            float R = _reloadW, F = _mixamo && _fire != null ? _fireW : 0f;
+            float R = _reloadW, F = _mixamo && (_fire != null || _pfire != null) ? _fireW : 0f;
             for (int i = 0; i < N; i++)
             {
                 _poseW[i] = (1f - R) * (1f - F) * _slotW[i];
