@@ -648,6 +648,20 @@ namespace FemalePlayer
         private bool _carArmsReady;
         private string _carWeapon = "";
         private bool _carTurned, _carTurnedReady;
+        // seated, her arms come from standing gun clips whose stance twists the whole body - without that twist the gun points off to a side
+        // (≈45 degrees left). Per clip, an extra chest yaw is learned from where the barrel points against the aim (sideways only), every frame
+        private readonly Dictionary<string, float> _carYawFix = new Dictionary<string, float>();
+        private void LearnCarYaw(Transform player, float aimYaw)
+        {
+            if (_prop == null || _propBarrel == Vector3.zero || string.IsNullOrEmpty(_upperClip)) return;
+            var l = Quaternion.Inverse(player.rotation) * _prop.transform.TransformDirection(_propBarrel);
+            if (new Vector2(l.x, l.z).sqrMagnitude < 0.25f) return;   // pointing up/down: no sideways reading
+            float barrelYaw = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;
+            float err = Mathf.DeltaAngle(Mathf.Clamp(aimYaw, -90f, 90f), barrelYaw);   // + = barrel right of the aim
+            if (Mathf.Abs(err) > 120f) return;   // the barrel axis runs butt-first on this model: no use
+            float corr; _carYawFix.TryGetValue(_upperClip, out corr);
+            _carYawFix[_upperClip] = Mathf.Clamp(corr - err * 0.25f, -90f, 90f);
+        }
         private readonly Dictionary<string, Quaternion> _carAll = new Dictionary<string, Quaternion>();
 
         // chest to the aim: yaw over Spine/Spine1/Spine2, pitch like on foot
@@ -728,7 +742,8 @@ namespace FemalePlayer
                 if (animated)
                 {
                     for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) b.localRotation = _carArms[i]; }
-                    AimPitch(aimPitch, Mathf.Clamp(aimYaw, -90f, 90f));
+                    float corr; _carYawFix.TryGetValue(_upperClip ?? "", out corr);
+                    AimPitch(aimPitch, Mathf.Clamp(aimYaw, -90f, 90f) + corr);
                 }
             }
             if (!gun)
@@ -761,6 +776,7 @@ namespace FemalePlayer
                 Vector3 p; Quaternion r;
                 GunPose.Blend(_propFor, w, _propPos, _propRot, out p, out r);
                 _prop.transform.localPosition = p; _prop.transform.localRotation = r;
+                if (!turned && animated) LearnCarYaw(player, aimYaw);
             }
             ShowProp(!firstPerson);
         }
