@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.10.0";
+        public const string VERSION = "0.10.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -68,7 +68,7 @@ namespace FemalePlayer
             AnimBundleFile = H("Model", "AnimationBundle", "Models/femaleplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
             JumpClipStart = H("Animation", "JumpClipStart", 0.2f, "Jump / RifleJump / PistolJump clips start this far in (share of the clip): Mixamo jumps crouch first, the game's jump leaves the ground at once.");
             StrikeWindup = H("Animation", "StrikeWindup", 0.08f, "Melee / bare hands: seconds her wind-up takes before the blow lands (the game hits the moment the swing starts).");
-            HipsDrift = H("Animation", "HipsDrift", 0.08f, "Bundle clips: how far (m) her hips may move away from the player sideways/forward (stops clips with baked forward motion from walking ahead of you).");
+            HipsDrift = H("Animation", "HipsDrift", 0.25f, "Bundle clips: how far (m) her hips may move away from the player sideways/forward (room for the idle sway; stops clips with baked forward motion from walking ahead of you).");
             ClipWalkSpeed = H("Animation", "BundleWalkSpeed", 1.4f, "Ground speed (m/s) at which the bundle's walk clips play at normal speed.");
             ClipRunSpeed = H("Animation", "BundleRunSpeed", 3.8f, "Ground speed (m/s) at which the bundle's run clips play at normal speed.");
             ClipCrouchSpeed = H("Animation", "BundleCrouchSpeed", 1.0f, "Ground speed (m/s) at which the bundle's crouch walk plays at normal speed.");

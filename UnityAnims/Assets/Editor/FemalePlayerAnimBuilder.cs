@@ -5,7 +5,8 @@ using UnityEngine;
 
 // FemalePlayer > Build animation bundle
 // 1. every FBX in Assets/Mixamo is imported as Humanoid (avatar created from the file), in place (root motion baked into the pose),
-//    looping unless it is a one-shot (Reload, Melee, Throw); its clip is named after the file (Walk.fbx -> "Walk")
+//    looping unless it is a one-shot (Reload, Melee, Throw); its clip is named after the file (Walk.fbx -> "Walk"); standing clips keep their
+//    sideways sway in the pose (feet stay planted), moving ones put it in the root (she walks on the spot)
 // 2. a missing StrafeRight / RifleStrafeRight is made by mirroring the left one (and the other way round)
 // 3. the clips are copied to Assets/Clips/*.anim and packed into Build/femaleplayer_anims.bundle (Windows 64)
 // 4. the bundle is copied into the game's BepInEx/plugins/FemalePlayer/Models folder when that folder exists
@@ -39,6 +40,11 @@ public static class FemalePlayerAnimBuilder
 
     // the grenade is thrown with the LEFT hand (the right one holds the gun)
     const bool MirrorThrow = true;
+
+    // clips that move her (walk, run, strafe, jump): forward/sideways motion goes to the (ignored) root, so she walks on the spot and the mod can
+    // read the clip's walking speed. Everything else stands still (idles, fire, reload, melee, punches, kick ...): its sway is baked into the pose,
+    // else the hips stay put and the feet slide under her (Idle sways 16 cm sideways)
+    static bool Moves(string n) { return n.Contains("Walk") || n.Contains("Run") || n.Contains("Strafe") || n.Contains("Jump"); }
 
     static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n == "Throw" || n == "Kick" || n.Contains("Jump"); }
 
@@ -122,13 +128,12 @@ public static class FemalePlayerAnimBuilder
             lastFrame = c.lastFrame,
             loopTime = !OneShot(name),
             loopPose = false,
-            // rotation and height baked into the pose; forward/sideways motion NOT baked: it goes to the root, which the mod
-            // ignores - so she walks on the spot whether or not the clip was downloaded "In Place", and the mod can read the
-            // clip's own walking speed (averageSpeed) to play it in step with the player
+            // rotation and height baked into the pose; forward/sideways motion of moving clips NOT baked (see Moves)
             lockRootRotation = true, keepOriginalOrientation = true,
             // jumps: the game lifts her body itself - their height goes to the (ignored) root so she doesn't rise twice
             lockRootHeightY = !name.Contains("Jump"), keepOriginalPositionY = true, heightFromFeet = false,
-            lockRootPositionXZ = false, keepOriginalPositionXZ = true,
+            // standing clips: XZ baked, measured from the clip's start (center of mass), so the sway stays and no fixed offset is added
+            lockRootPositionXZ = !Moves(name), keepOriginalPositionXZ = Moves(name),
         };
         return a;
     }
