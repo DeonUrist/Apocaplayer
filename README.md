@@ -40,6 +40,7 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | Weapon grip | AutoGrip | true | With the Mixamo clips: the rifle's grip is taken once from the rifle idle pose (barrel from right hand to left hand) and then kept fixed in her hand |
 | Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Base grip in her right hand (hand axes, cm / degrees), used by every animation without its own grip |
 | Camera | FirstPersonBodyBack | 0.08 | First person on foot: how far (m) her head sits behind the camera; looking down you see her body up to the collar |
+| Camera | FirstPersonWeaponBack / FirstPersonChestLean | 0.08 / 20 | First person with a weapon drawn: her body moves back (m) and her chest bends back (degrees) so the game's arms don't sink into her chest |
 | Camera | CarCameraForward | 0.12 | Driving in first person: the view is drawn this many metres further forward so her body doesn't block it (only the picture moves) |
 | Debug | VerboseLog | false | Detailed log |
 

@@ -378,9 +378,21 @@ namespace FemalePlayer
             Transform head;
             if (!Bones.TryGetValue("mixamorig:Head", out head)) return;
             Vector3 want = Game.PlayerCamera.position - yaw * Vector3.forward * (Plugin.BodyBack.Value + Plugin.BodyBackDown.Value * Mathf.Clamp01(camPitch / 70f));
+            // a weapon drawn: the game's first-person arms hang right in front of the camera, where her chest is - lean her back and bend the
+            // chest back (more the further you look down) so the arms don't sink into it. Moving HER back = the camera forward, without
+            // touching the camera (which would also push the game's arms closer and distort them).
+            _fpWeaponW = Mathf.MoveTowards(_fpWeaponW, Game.DrawnWeapon != "" ? 1f : 0f, Time.deltaTime * 4f);
+            want -= yaw * Vector3.forward * (Plugin.FirstPersonWeaponBack.Value * _fpWeaponW);
             Vector3 d = want - head.position; d.y = 0f;
             Root.transform.position += d;
+            float lean = Plugin.FirstPersonChestLean.Value * _fpWeaponW * (0.6f + 0.4f * Mathf.Clamp01(camPitch / 60f));
+            if (lean > 0.1f)
+            {
+                Turn("mixamorig:Spine1", Vector3.right, -lean * 0.4f);
+                Turn("mixamorig:Spine2", Vector3.right, -lean * 0.6f);
+            }
         }
+        private float _fpWeaponW;
 
         // in a car: no Animator, the pose comes from the car's seated driver
         public void LateCar(Transform player)

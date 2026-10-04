@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.5.3";
+        public const string VERSION = "0.5.4";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -28,7 +28,7 @@ namespace FemalePlayer
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
-        internal static ConfigEntry<float> CarCameraForward;
+        internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -81,6 +81,8 @@ namespace FemalePlayer
             AimPitchShare = H("Animation", "AimPitch", 0.9f, "Share of the camera pitch the spine follows (aiming up/down).");
 
             BodyBack = Config.Bind("Camera", "FirstPersonBodyBack", 0.08f, new ConfigDescription("First person on foot: her head sits this far (m) behind the camera. More = less of her chest in the view when looking down; less = more of her body.", new AcceptableValueRange<float>(0f, 0.4f)));
+            FirstPersonWeaponBack = Config.Bind("Camera", "FirstPersonWeaponBack", 0.08f, new ConfigDescription("First person with a weapon drawn: her body moves this much (m) further back, so the game's arms don't sink into her chest (same as moving the camera forward, but the arms stay undistorted).", new AcceptableValueRange<float>(0f, 0.4f)));
+            FirstPersonChestLean = Config.Bind("Camera", "FirstPersonChestLean", 20f, new ConfigDescription("First person with a weapon drawn: her chest bends back by this many degrees (up to 40% more when looking down) to keep it out of the arms.", new AcceptableValueRange<float>(0f, 45f)));
             BodyBackDown = H("Camera", "BodyBackDown", 0.08f, "First person: extra distance behind the camera when looking straight down, m (blended in with the pitch).");
             ThirdDistance = H("Camera", "ThirdDistance", 2.4f, "Third person on foot: camera distance behind her, m.");
             ThirdHeight = H("Camera", "ThirdHeight", 0.25f, "Third person on foot: camera height above the eyes, m.");
