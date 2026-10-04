@@ -44,6 +44,11 @@ BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mod
 | Debug | ToggleMiddleMouse | false | Third person: off = hold the middle mouse button to orbit around her, back behind her on release; on = a click turns orbiting on / off |
 | Debug | VerboseLog | false | Detailed log |
 
+Throws from the driver's seat (blast lance, quick grenade) work like guns there: her chest turns to the aim (a learned per-clip
+correction puts her throwing hand on the aim line at the release), past 95° to a side she turns round and crouches; the throw clip and
+its timing are the same as on foot, played once. A blast lance thrown from a car ignores that car's colliders (`Projectiles.cs`), so it
+doesn't blow up on your own doors and windows.
+
 Third person, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
 the cursor ON SCREEN is picked - within 6 % of the screen height, visible from the camera, within the game's own reach from her eye
 (`PickAssist.cs`, a Harmony postfix on PlayMaker's `ActionHelpers.DoMousePick`). Screen-space, so it works the same at every zoom.

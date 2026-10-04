@@ -702,25 +702,38 @@ namespace Apocaplayer
             _anim.localPosition = Vector3.zero; _anim.localRotation = Quaternion.identity;
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
+            bool live = !Game.Paused;
+            // throws from the seat: the blast lance's [Attack] FSM and the quick grenade, as on foot (same clips, timing, one play per throw)
+            if (_mixamo && _layers.IsValid())
+            {
+                if (kind == Props.Kind.Throw) WatchThrow(weapon, live && Input.GetMouseButtonDown(0)); else _throwFor = "";
+                string gs = Game.GrenadeState;
+                if (gs == "fire" && _grenadeState != "fire") StartThrow(false, true);
+                _grenadeState = gs;
+            }
+            bool throwing = _mixamo && _layers.IsValid() && Time.time < _throwUntil && Anims.Get(_throwClip) != null;
             bool gun = _mixamo && _layers.IsValid() && (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol);
-            if (weapon != _carWeapon) { _carWeapon = weapon; _carArmsReady = false; _carTurnedReady = false; _weaponSince = Time.time; _upperClip = ""; }
+            bool arms = gun || throwing;   // the Animator drives her arms (gun clips or the throw)
+            // the lance leaving her hand / the grenade holstering the gun changes the weapon mid-throw: that must not reset the throw's arms
+            if (weapon != _carWeapon) { _carWeapon = weapon; if (!throwing) { _carArmsReady = false; _carTurnedReady = false; _upperClip = ""; } _weaponSince = Time.time; }
 
-            // where she aims (the game shoots along the first-person camera), relative to her seat: yaw + = right, pitch + = down
+            // where she aims (the game shoots / throws along the first-person camera), relative to her seat: yaw + = right, pitch + = down
             float aimYaw = 0f, aimPitch = 0f;
-            if (gun && Game.PlayerCamera != null)
+            if (arms && Game.PlayerCamera != null)
             {
                 var l = Quaternion.Inverse(player.rotation) * Game.PlayerCamera.forward;
                 aimYaw = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;
                 aimPitch = -Mathf.Asin(Mathf.Clamp(l.y, -1f, 1f)) * Mathf.Rad2Deg;
             }
             // past 90 degrees to a side she gets off the seat: turned to the aim, crouched, hips at the seat's height (back below 80)
-            bool turned = gun && (_carTurned ? Mathf.Abs(aimYaw) > 80f : Mathf.Abs(aimYaw) > 95f);
+            bool turned = arms && (_carTurned ? Mathf.Abs(aimYaw) > 80f : Mathf.Abs(aimYaw) > 95f);
             if (turned != _carTurned) { _carTurned = turned; _carTurnedReady = false; }
+            string fixKey = throwing ? "throw:" + _throwClip : _upperClip ?? "";
 
-            bool animated = gun && _carArmsReady && _animator.enabled;
+            bool animated = arms && _carArmsReady && _animator.enabled;
             if (turned && animated && _carTurnedReady)
             {
-                // the whole body from the Animator (crouch idle + gun clip); only the seat's hip position is used
+                // the whole body from the Animator (crouch idle + gun clip / throw); only the seat's hip position is used
                 foreach (var kv in Bones) _carAll[kv.Key] = kv.Value.localRotation;
                 Transform hips; Vector3 hipsLocal = Vector3.zero;
                 bool hasHips = Bones.TryGetValue("mixamorig:Hips", out hips);
@@ -731,7 +744,9 @@ namespace Apocaplayer
                 if (hasHips) hips.localPosition = hipsLocal;
                 Root.transform.rotation = player.rotation * Quaternion.Euler(0f, aimYaw, 0f);
                 if (hasHips) Root.transform.position += seatHips - hips.position;
-                AimPitch(aimPitch, 0f);
+                float tcorr = 0f; if (throwing) _carYawFix.TryGetValue(fixKey, out tcorr);
+                AimPitch(aimPitch, tcorr);
+                if (throwing) LearnCarThrow(player, aimYaw, true);
             }
             else
             {
@@ -742,33 +757,40 @@ namespace Apocaplayer
                 if (animated)
                 {
                     for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) b.localRotation = _carArms[i]; }
-                    float corr; _carYawFix.TryGetValue(_upperClip ?? "", out corr);
+                    float corr; _carYawFix.TryGetValue(fixKey, out corr);
                     AimPitch(aimPitch, Mathf.Clamp(aimYaw, -90f, 90f) + corr);
+                    if (throwing) LearnCarThrow(player, aimYaw, false);
                 }
             }
-            if (!gun)
+            if (!arms)
             {
                 if (_animator.enabled) _animator.enabled = false;
                 _carArmsReady = false; _carTurned = false;
-                UpdateProp("");
+                // a lance held in the seat (not being thrown): in her hand, the seat's arms
+                if (kind == Props.Kind.Throw) { UpdateProp(weapon); ShowProp(!firstPerson); } else UpdateProp("");
                 return;
             }
-            // base layer for the next frame: the gun set's crouch idle when turned (seated: not used)
-            CarBase(kind, turned);
+            // base layer for the next frame: crouch idle when turned (the gun's set; unarmed for a throw)
+            CarBase(gun && !throwing ? kind : Props.Kind.None, turned);
             if (turned) _carTurnedReady = true;
-            // next frame's arms
-            bool reload = ReloadNow(weapon);
-            bool fire = !reload && !Game.Paused && Input.GetMouseButton(0);
-            string pre = kind == Props.Kind.Pistol ? "Pistol" : "Rifle";
-            string clip = reload ? pre + "Reload" : fire && Anims.Get(pre + "Fire") != null ? pre + "Fire" : pre + "Idle";
-            if (reload && !_reloading) _upperClip = "";   // a reload starts from its beginning
-            _reloading = reload;
             if (!_animator.enabled) _animator.enabled = true;
             if (_action.IsValid()) { _actionW = 0f; _layers.SetInputWeight(2, 0f); }
-            SetUpper(clip, 1f, 1f);
+            bool reload = false, fire = false;
+            if (throwing) PlayThrow();   // on its own clock: a weapon change mid-throw doesn't start it over
+            else
+            {
+                // next frame's arms
+                reload = ReloadNow(weapon);
+                fire = !reload && live && Input.GetMouseButton(0);
+                string pre = kind == Props.Kind.Pistol ? "Pistol" : "Rifle";
+                string clip = reload ? pre + "Reload" : fire && Anims.Get(pre + "Fire") != null ? pre + "Fire" : pre + "Idle";
+                if (reload && !_reloading) _upperClip = "";   // a reload starts from its beginning
+                _reloading = reload;
+                SetUpper(clip, 1f, 1f);
+            }
             _carArmsReady = true;
-            // the gun in her right hand
-            UpdateProp(weapon);
+            // the weapon in her right hand (the gun; the lance until it leaves the hand)
+            UpdateProp(gun || kind == Props.Kind.Throw ? weapon : "");
             if (_prop != null)
             {
                 var w = new float[GunPose.Poses.Length];
@@ -776,9 +798,30 @@ namespace Apocaplayer
                 Vector3 p; Quaternion r;
                 GunPose.Blend(_propFor, w, _propPos, _propRot, out p, out r);
                 _prop.transform.localPosition = p; _prop.transform.localRotation = r;
-                if (!turned && animated) LearnCarYaw(player, aimYaw);
+                if (gun && !throwing && !turned && animated) LearnCarYaw(player, aimYaw);
+                LanceAlign(kind);
             }
             ShowProp(!firstPerson);
+        }
+
+        // a throw from the seat goes where she aims: when her throwing hand passes the release point of the clip, its sideways angle from her
+        // chest is compared with the aim and the chest turn for that clip is corrected (per clip, learned throw by throw like the punches)
+        private void LearnCarThrow(Transform player, float aimYaw, bool turned)
+        {
+            if (_aimMeasured || !_upper.IsValid() || _upperClip != _throwClip || _upper.GetTime() < ThrowRelease) return;
+            _aimMeasured = true;
+            Transform hand, chest;
+            if (!Bones.TryGetValue(_throwClip == "ThrowRight" ? "mixamorig:RightHand" : "mixamorig:LeftHand", out hand) || !Bones.TryGetValue("mixamorig:Spine2", out chest)) return;
+            var v = Quaternion.Inverse(player.rotation) * (hand.position - chest.position);
+            if (new Vector2(v.x, v.z).sqrMagnitude < 0.01f) return;
+            float handYaw = Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg;
+            float target = turned ? aimYaw : Mathf.Clamp(aimYaw, -90f, 90f);
+            float err = Mathf.DeltaAngle(target, handYaw);   // + = hand right of the aim
+            if (Mathf.Abs(err) > 120f) return;
+            string key = "throw:" + _throwClip;
+            float corr; _carYawFix.TryGetValue(key, out corr);
+            _carYawFix[key] = Mathf.Clamp(corr - err, -90f, 90f);
+            Plugin.Verbose("Car throw aim: " + _throwClip + " hand " + err.ToString("0.0") + " deg off -> chest turn " + _carYawFix[key].ToString("0.0"));
         }
 
         // first person: no head; her own arms only in a car with nothing drawn (hands on the wheel) - with a gun the game draws its arms

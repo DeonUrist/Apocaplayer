@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "0.16.0";
+        public const string VERSION = "0.17.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -136,6 +136,8 @@ namespace Apocaplayer
                     prefix: new HarmonyLib.HarmonyMethod(typeof(ThirdPerson), nameof(ThirdPerson.BeforeGetButtonDown)));
             }
             catch (Exception e) { Log.LogError("Harmony patch failed, no camera orbit: " + e.Message); }
+            try { Projectiles.Patch(new HarmonyLib.Harmony(GUID)); }
+            catch (Exception e) { Log.LogError("Harmony patch failed, lances may hit your own car: " + e.Message); }
             try { PickAssist.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Harmony patch failed, no third-person pick assist: " + e.Message); }
 
