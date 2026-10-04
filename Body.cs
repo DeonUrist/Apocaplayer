@@ -321,8 +321,41 @@ namespace FemalePlayer
                 _meleeStart = 0f;
             }
             if (s == null) return;
+            _strikeHand = kind == Props.Kind.None ? (s.Clip == "Punch1" || s.Clip == "Melee1" ? "mixamorig:RightHand" : "mixamorig:LeftHand") : null;
+            _aimMeasured = false;
             _strike = s; _striking = true; _strikeAt = Time.time; _strikeCycle = cycle; _strikeW = 1f;
             Plugin.Verbose("Strike: " + s.Clip + " " + s.From.ToString("0.00") + "-" + s.Hit.ToString("0.00") + "-" + s.To.ToString("0.00") + " in " + cycle.ToString("0.00") + " s" + (chained ? " (chained)" : ""));
+        }
+
+        // punches land on the middle line in front of her chest: the spine turns (Spine, Spine1, Spine2 a third each) by an angle learned per clip -
+        // measured where the fist is when the blow lands (its sideways angle from the chest), corrected on every punch, ramped in over the
+        // wind-up and out over the second half of the way back
+        private readonly Dictionary<string, float> _aimYaw = new Dictionary<string, float>();
+        private string _strikeHand;
+        private bool _aimMeasured;
+        private void PunchAim()
+        {
+            if (_strike == null || _strikeHand == null || !_striking) return;
+            float el = Time.time - _strikeAt, w = Mathf.Min(Plugin.StrikeWindup.Value, _strikeCycle * 0.4f), back = (_strikeCycle - w) * 0.5f;
+            float k = el < w ? el / Mathf.Max(0.001f, w) : el < w + back ? 1f : Mathf.Clamp01(1f - (el - w - back) / Mathf.Max(0.01f, back));
+            float aim;
+            _aimYaw.TryGetValue(_strike.Clip, out aim);
+            float d = aim * k;
+            if (Mathf.Abs(d) > 0.01f)
+            {
+                Turn("mixamorig:Spine", Vector3.up, d / 3f);
+                Turn("mixamorig:Spine1", Vector3.up, d / 3f);
+                Turn("mixamorig:Spine2", Vector3.up, d / 3f);
+            }
+            if (_aimMeasured || el < w) return;
+            _aimMeasured = true;
+            Transform hand, chest;
+            if (!Bones.TryGetValue(_strikeHand, out hand) || !Bones.TryGetValue("mixamorig:Spine2", out chest)) return;
+            var v = _anim.InverseTransformPoint(hand.position) - _anim.InverseTransformPoint(chest.position);
+            if (v.z < 0.1f) return;
+            float off = Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg;   // + = right of the middle
+            _aimYaw[_strike.Clip] = Mathf.Clamp(aim - off * (k > 0.99f ? 1f : 0.5f), -45f, 45f);
+            Plugin.Verbose("Punch aim: " + _strike.Clip + " landed " + off.ToString("0.0") + " deg off the middle -> spine turn " + _aimYaw[_strike.Clip].ToString("0.0"));
         }
 
         private void PlayStrike(float dt)
@@ -864,6 +897,7 @@ namespace FemalePlayer
                 Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
+            PunchAim();
             PoseProp(kind, yaw);
         }
 
