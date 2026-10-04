@@ -34,6 +34,7 @@ namespace FemalePlayer
         {
             n = n.ToLowerInvariant();
             int p = n.IndexOf(" (", StringComparison.Ordinal); if (p > 0) n = n.Substring(0, p);
+            p = n.IndexOf("(clone)", StringComparison.Ordinal); if (p > 0) n = n.Substring(0, p);
             if (n.EndsWith("_model")) n = n.Substring(0, n.Length - 6);
             if (n.StartsWith("9mm_")) n = n.Substring(4);
             return n.Trim();
@@ -74,7 +75,7 @@ namespace FemalePlayer
             {
                 case Kind.Pistol: standIn = w.Contains("smg") || w.Contains("borz") ? new[] { "borz_smg", "22_pipe_smg" } : new[] { "22_pipe_pistol", "folk_17" }; break;
                 case Kind.Melee: standIn = new[] { "machete", "old_knife", "shiv" }; break;
-                case Kind.Throw: return null;
+                case Kind.Throw: standIn = new[] { "machete", "pipe_wrench", "old_knife" }; break;   // blast lance: its own world model, held like a machete
                 default:
                     if (w.Contains("slam") || w.Contains("rochester")) standIn = new[] { "slamberg_500_chopped", "rochester_m24_chopped" };
                     else if (w.Contains("smg") || w.Contains("borz")) standIn = new[] { "borz_smg", "22_pipe_smg" };
@@ -87,6 +88,8 @@ namespace FemalePlayer
             // no NPC carries it (redmark_m11, redmark_m11_scoped, the long rochester_m24 / slamberg_500): the weapon's own world model, placed
             // where the stand-in sits
             var item = ItemModel(w);
+            if (item == null && KindOf(weapon) == Kind.Throw) item = SceneItem(w);
+            if (KindOf(weapon) == Kind.Throw && item == null) { Plugin.Verbose("Props: no model for " + weapon); return null; }
             if (item != null && stand != null) { Plugin.Verbose("Props: no NPC model for " + weapon + ", using its world item model (placed like " + stand.Key + ")"); return new Prop { Key = w, Source = item, Hand = stand.Hand, Owner = "item", Item = true, Ref = stand }; }
             if (stand != null) { Plugin.Verbose("Props: no NPC model for " + weapon + ", using " + stand.Key); return stand; }
             return null;
@@ -109,6 +112,18 @@ namespace FemalePlayer
             _items[w] = best != null ? new Prop { Key = w, Source = best } : null;
             if (best == null) Plugin.Verbose("Props: no world item model named " + w);
             return best;
+        }
+
+        // no prefab asset loaded: a copy of one lying in the world (blastlance_1(Clone)178 ...), not the player's own first-person one
+        private static GameObject SceneItem(string w)
+        {
+            foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go == null || !go.scene.IsValid() || go.transform.parent != null || Norm(go.name) != w) continue;
+                if (go.GetComponentInChildren<MeshRenderer>(true) == null || go.GetComponent<Rigidbody>() == null) continue;
+                return go;
+            }
+            return null;
         }
 
         // a render-only copy of the prop, parented to the given hand bone at the NPC's local pose

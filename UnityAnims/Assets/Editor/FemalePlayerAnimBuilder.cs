@@ -32,7 +32,7 @@ public static class FemalePlayerAnimBuilder
         "PistolFireCrouchWalk", "PistolFireCrouchWalkBack", "PistolFireCrouchStrafeLeft", "PistolFireCrouchStrafeRight",
         "CrouchPistolFire", "PistolCrouchFire", "PistolJump",
         "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
-        "MeleeCombo", "Punch1", "Punch2", "Melee1", "Melee2",
+        "MeleeCombo", "Punch1", "Punch2", "Melee1", "Melee2", "ThrowRight",
     };
 
     // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)
@@ -46,7 +46,7 @@ public static class FemalePlayerAnimBuilder
     // else the hips stay put and the feet slide under her (Idle sways 16 cm sideways)
     static bool Moves(string n) { return n.Contains("Walk") || n.Contains("Run") || n.Contains("Strafe") || n.Contains("Jump"); }
 
-    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n == "Throw" || n == "Kick" || n.Contains("Jump"); }
+    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || n.Contains("Jump"); }
 
     [MenuItem("FemalePlayer/Build animation bundle")]
     public static void Build()
@@ -73,6 +73,8 @@ public static class FemalePlayerAnimBuilder
             var main = Setup(src[0], name);
             if (MirrorThrow && name == "Throw") { main.mirror = true; Debug.Log("FemalePlayer: Throw mirrored (thrown with the left hand)"); }
             list.Add(main);
+            // the blast lance is thrown with the RIGHT hand (it is the drawn weapon): the same clip unmirrored
+            if (MirrorThrow && name == "Throw" && !have.Contains("ThrowRight")) list.Add(Setup(src[0], "ThrowRight"));
             string mirrorName = null;
             if (name.EndsWith("StrafeLeft")) mirrorName = name.Replace("StrafeLeft", "StrafeRight");
             else if (name.EndsWith("StrafeRight")) mirrorName = name.Replace("StrafeRight", "StrafeLeft");
@@ -106,12 +108,18 @@ public static class FemalePlayerAnimBuilder
         AssetDatabase.SaveAssets();
         Directory.CreateDirectory(OutDir);
         var build = new AssetBundleBuild { assetBundleName = BundleName, assetNames = anims.ToArray() };
-        BuildPipeline.BuildAssetBundles(OutDir, new[] { build }, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.StandaloneWindows64);
+        BuildPipeline.BuildAssetBundles(OutDir, new[] { build }, BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.ForceRebuildAssetBundle, BuildTarget.StandaloneWindows64);
         string outFile = Path.Combine(OutDir, BundleName);
 
         // 4: into the game
         string copied = "";
-        if (Directory.Exists(GameModels)) { File.Copy(outFile, Path.Combine(GameModels, BundleName), true); copied = "\nCopied to " + GameModels; }
+        if (Directory.Exists(GameModels))
+        {
+            string dst = Path.Combine(GameModels, BundleName);
+            File.Copy(outFile, dst, true);
+            File.SetLastWriteTime(dst, System.DateTime.Now);   // File.Copy keeps the source's date - show when it was really copied
+            copied = "\nCopied to " + GameModels;
+        }
         var missing = new List<string>();
         foreach (var n in new[] { "Idle", "Walk" }) if (!have.Contains(n)) missing.Add(n);
         EditorUtility.DisplayDialog("FemalePlayer", anims.Count + " clips packed into " + Path.GetFullPath(outFile) + copied

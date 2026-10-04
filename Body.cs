@@ -81,12 +81,39 @@ namespace FemalePlayer
         }
         private string _grenadeState = "";
 
-        private void StartThrow()
+        // a throw: the quick grenade with the LEFT hand ("Throw", mirrored in the bundle - the right one holds the gun), a drawn throwing weapon
+        // (blast lance) with the RIGHT hand ("ThrowRight" = the same clip unmirrored, else "Throw"). The blast lance's [Attack] FSM goes
+        // on -> fire (0.4 s) -> throw (the lance leaves the hand), so its clip starts ThrowLead s in: her release (0.85 s into the clip) on the game's
+        private string _throwClip = "Throw";
+        private float _throwFrom;
+        private bool _throwFresh;
+        private const float ThrowRelease = 0.85f, ThrowLead = 0.4f;
+        private void StartThrow(bool rightHand = false, bool timed = false)
         {
-            var c = Anims.Get("Throw");
+            string n = rightHand && Anims.Get("ThrowRight") != null ? "ThrowRight" : "Throw";
+            var c = Anims.Get(n);
             if (c == null) return;
-            _throwUntil = Time.time + Mathf.Clamp(c.length, 0.5f, 2f);
-            _upperClip = "";   // restart the clip
+            _throwClip = n;
+            _throwFrom = timed ? Mathf.Clamp(ThrowRelease - ThrowLead, 0f, c.length * 0.5f) : 0f;
+            _throwUntil = Time.time + Mathf.Clamp(c.length - _throwFrom, 0.5f, 2f);
+            _upperClip = ""; _throwFresh = true;   // restart the clip
+            Plugin.Verbose("Throw: " + n + " from " + _throwFrom.ToString("0.00") + " s");
+        }
+        private void PlayThrow()
+        {
+            SetUpper(_throwClip, 1f, 1f);
+            if (_throwFresh && _upper.IsValid()) { _upper.SetTime(_throwFrom); _throwFresh = false; }
+        }
+        private string _throwState = "", _throwFor = "";
+
+        // drawn throwing weapon: its [Attack] FSM leaving "on" = the throw has begun (button pressed)
+        private void WatchThrow(string weapon, bool click)
+        {
+            string st; float tv;
+            if (!Game.Attack(weapon, out st, out tv)) { if (click) StartThrow(true); _throwFor = ""; return; }
+            if (weapon != _throwFor) { _throwFor = weapon; _throwState = st; return; }
+            if (_throwState == "on" && st != "on" && st != "" && st != "InMenu") StartThrow(true, true);
+            _throwState = st;
         }
         private readonly Dictionary<string, AnimationClip> _clips = new Dictionary<string, AnimationClip>();
 
@@ -869,20 +896,20 @@ namespace FemalePlayer
             // melee weapons and bare hands: one strike per game swing (its [Attack] FSM), the hit frame of the clip on the game's hit
             if (kind == Props.Kind.Melee || kind == Props.Kind.None && weapon != "") WatchAttack(kind, weapon, click);
             else { _atkFor = ""; _striking = false; _strikeW = 0f; _meleeStart = 0f; }
-            if (kind == Props.Kind.Throw && click) StartThrow();
+            if (kind == Props.Kind.Throw) WatchThrow(weapon, click); else _throwFor = "";
             string gs = Game.GrenadeState;   // the quick grenade (Throw Grenade key) is not a drawn weapon: watch its Attack FSM
             if (gs == "fire" && _grenadeState != "fire") StartThrow();
             _grenadeState = gs;
 
-            if (Time.time < _throwUntil && Anims.Get("Throw") != null)
-                SetUpper("Throw", 1f, 1f);
+            if (Time.time < _throwUntil && Anims.Get(_throwClip) != null)
+                PlayThrow();
             else if (_reloading && kind != Props.Kind.None && kind != Props.Kind.Melee)
                 SetUpper(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload", 1f, 1f);
             else if (kind == Props.Kind.Melee || kind == Props.Kind.None && weapon != "")
                 PlayStrike(dt);
             else if (kind == Props.Kind.Throw)
             {
-                if (Time.time < _throwUntil && Anims.Get("Throw") != null) SetUpper("Throw", 1f, 1f); else SetUpper("", 0f, 0f);
+                SetUpper("", 0f, 0f);
             }
             else if (kind == Props.Kind.Pistol)
             {

@@ -87,6 +87,8 @@ writes `Models/femaleplayer_anims.bundle`. With at least `Idle` + `Walk` in it, 
 back, strafe, run, crouch, a rifle set, aim/fire/reload, pistol, melee, throw) instead of the raider clips and the procedural
 walk, unmirrored, with the raider gun models moved to her right hand. See `UnityAnims/README.md` for the file names.
 
+Blast lance: held in her right hand (its world model, placed like a machete); its throw plays `ThrowRight` (right-handed;
+the grenade's `Throw` is the left-handed one) timed so her release comes when the game lets the lance go.
 Melee weapons: a swing plays `Melee` timed to the first-person swing; swings chained straight after it (held button, fast clicks)
 play `MeleeCombo`'s two blows by turns. Bare hands: `Punch1` / `Punch2` (or `Melee1` / `Melee2`) by turns. A strike follows the game's
 `[Attack]` FSM (the hit lands the moment the swing starts): the clip's wind-up in 0.08 s, then the blow and the way back over the swing's
