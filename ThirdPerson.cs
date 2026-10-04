@@ -19,7 +19,7 @@ namespace FemalePlayer
         public static bool BeforeMouseLook() { return !Orbiting; }
         private static bool _hooked;
         private static readonly List<Renderer> _hidden = new List<Renderer>();
-        private static float _nextScan, _dist;
+        private static float _nextScan, _dist, _aimDist = 20f;
         private static readonly int Mask = ~((1 << 6) | (1 << 2) | (1 << 5) | (1 << 9) | (1 << 22));   // not the player, ignore-raycast, UI, loose items, map icons
 
         public static void Tick()
@@ -95,6 +95,21 @@ namespace FemalePlayer
             // come out smoothly, snap in when something is in the way
             _dist = dist < _dist ? dist : Mathf.MoveTowards(_dist, dist, Time.unscaledDeltaTime * 4f);
             Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * _dist;
+            // converge on the aim point: the camera sits over her shoulder, so looking parallel to her eye line would put the crosshair
+            // ThirdShoulder metres beside where shots / picks really go. Find what the eye ray hits (the game casts from the eye) and turn the
+            // view so the screen centre looks exactly at it; she stays where she is on screen. Not while orbiting (that view isn't for aiming).
+            float conv = 1f - Mathf.Clamp01((Mathf.Abs(_orbitYaw) + Mathf.Abs(_orbitPitch)) / 10f);
+            if (conv > 0.001f)
+            {
+                RaycastHit ah;
+                float want2 = Physics.Raycast(t.position, t.forward, out ah, 100f, Mask, QueryTriggerInteraction.Ignore) ? Mathf.Max(ah.distance, 0.8f) : 100f;
+                // fast toward nearer targets, a bit slower when the target goes away (no flicker on edges)
+                float k = 1f - Mathf.Exp(-Time.unscaledDeltaTime * (want2 < _aimDist ? 20f : 8f));
+                _aimDist = Mathf.Lerp(_aimDist, want2, k);
+                Vector3 aim = t.position + t.forward * _aimDist;
+                Vector3 look = aim - pos;
+                if (look.sqrMagnitude > 1e-4f) viewRot = Quaternion.Slerp(viewRot, Quaternion.LookRotation(look.normalized, Vector3.up), conv);
+            }
             var view = Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
         }
