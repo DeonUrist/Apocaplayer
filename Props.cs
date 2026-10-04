@@ -9,7 +9,10 @@ namespace FemalePlayer
     // Same skeleton, same animations -> it sits in her hand like in theirs.
     internal static class Props
     {
-        internal sealed class Prop { public string Key; public GameObject Source; public string Hand; public string Owner; }
+        // Item = the weapon's own world model (the item you pick up), used when no NPC carries the weapon; Ref = the stand-in NPC prop that
+        // gives it its starting place in the hand
+        internal sealed class Prop { public string Key; public GameObject Source; public string Hand; public string Owner; public bool Item; public Prop Ref; }
+        private static readonly Dictionary<string, Prop> _items = new Dictionary<string, Prop>();
 
         private static readonly Dictionary<string, Prop> _catalog = new Dictionary<string, Prop>();
         private static bool _built;
@@ -79,8 +82,33 @@ namespace FemalePlayer
                     else standIn = new[] { "akms", "m16a1", "akm_trash" };
                     break;
             }
-            foreach (var s in standIn) if (_catalog.TryGetValue(s, out p)) { Plugin.Verbose("Props: no NPC model for " + weapon + ", using " + s); return p; }
+            Prop stand = null;
+            foreach (var s in standIn) if (_catalog.TryGetValue(s, out stand)) break;
+            // no NPC carries it (redmark_m11, redmark_m11_scoped, the long rochester_m24 / slamberg_500): the weapon's own world model, placed
+            // where the stand-in sits
+            var item = ItemModel(w);
+            if (item != null && stand != null) { Plugin.Verbose("Props: no NPC model for " + weapon + ", using its world item model (placed like " + stand.Key + ")"); return new Prop { Key = w, Source = item, Hand = stand.Hand, Owner = "item", Item = true, Ref = stand }; }
+            if (stand != null) { Plugin.Verbose("Props: no NPC model for " + weapon + ", using " + stand.Key); return stand; }
             return null;
+        }
+
+        // the item prefab (a root prefab asset named like the weapon, with a mesh and a Rigidbody/Collider) - not the first-person model
+        private static GameObject ItemModel(string w)
+        {
+            Prop cached;
+            if (_items.TryGetValue(w, out cached)) return cached != null ? cached.Source : null;
+            GameObject best = null;
+            foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go == null || go.scene.IsValid() || go.transform.parent != null) continue;
+                if (Norm(go.name) != w) continue;
+                if (go.GetComponentInChildren<MeshRenderer>(true) == null) continue;
+                if (go.GetComponent<Rigidbody>() == null && go.GetComponentInChildren<Collider>(true) == null) continue;
+                best = go; break;
+            }
+            _items[w] = best != null ? new Prop { Key = w, Source = best } : null;
+            if (best == null) Plugin.Verbose("Props: no world item model named " + w);
+            return best;
         }
 
         // a render-only copy of the prop, parented to the given hand bone at the NPC's local pose
@@ -103,6 +131,15 @@ namespace FemalePlayer
                 UnityEngine.Object.DestroyImmediate(smr);
                 host.AddComponent<MeshFilter>().sharedMesh = mesh;
                 host.AddComponent<MeshRenderer>().sharedMaterials = mats;
+            }
+            // LOD groups (item models): only the most detailed level is drawn, the others' renderers go
+            foreach (var lg in go.GetComponentsInChildren<LODGroup>(true))
+            {
+                var lods = lg.GetLODs();
+                if (lods.Length < 2) continue;
+                var keepR = new HashSet<Renderer>(lods[0].renderers);
+                for (int i = 1; i < lods.Length; i++)
+                    foreach (var r in lods[i].renderers) if (r != null && !keepR.Contains(r)) UnityEngine.Object.DestroyImmediate(r);
             }
             // strip everything but transforms and mesh rendering (FSMs, lights, colliders, audio, animators ...) while nothing has woken up
             var comps = go.GetComponentsInChildren<Component>(true);
@@ -177,6 +214,6 @@ namespace FemalePlayer
             return m.inverse;
         }
 
-        public static void OnSceneLoaded() { _built = false; _catalog.Clear(); }
+        public static void OnSceneLoaded() { _built = false; _catalog.Clear(); _items.Clear(); }
     }
 }

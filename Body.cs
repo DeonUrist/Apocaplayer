@@ -962,7 +962,20 @@ namespace FemalePlayer
             bool otherHand = _mixamo && p.Hand == "mixamorig:LeftHand";   // raider guns sit in the left hand; Mixamo clips hold them right-handed
             Transform right;
             if (otherHand && Bones.TryGetValue("mixamorig:RightHand", out right)) hand = right; else otherHand = false;
-            _prop = Props.Instantiate(p, hand, otherHand);
+            if (p.Item)
+            {
+                // the weapon's own world model: real size, put where the stand-in NPC gun would sit, its barrel along the stand-in's barrel
+                var stand = Props.Instantiate(p.Ref, hand, otherHand);
+                _prop = Props.Instantiate(p, hand, false);
+                var ls = hand.lossyScale; var ss = p.Source.transform.localScale;
+                _prop.transform.localScale = new Vector3(ss.x / Mathf.Max(1e-4f, Mathf.Abs(ls.x)), ss.y / Mathf.Max(1e-4f, Mathf.Abs(ls.y)), ss.z / Mathf.Max(1e-4f, Mathf.Abs(ls.z)));
+                _prop.transform.SetPositionAndRotation(stand.transform.position, stand.transform.rotation);
+                Vector3 bi = Props.Barrel(_prop), bs = Props.Barrel(stand);
+                if (bi != Vector3.zero && bs != Vector3.zero)
+                    _prop.transform.rotation = Quaternion.FromToRotation(_prop.transform.TransformDirection(bi), stand.transform.TransformDirection(bs)) * _prop.transform.rotation;
+                UnityEngine.Object.DestroyImmediate(stand);
+            }
+            else _prop = Props.Instantiate(p, hand, otherHand);
             _propBarrel = Props.Barrel(_prop);
             _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation; _propHand = hand;
             _propSince = Time.time; GunPose.Note("");
