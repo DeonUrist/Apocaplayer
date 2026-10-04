@@ -89,12 +89,26 @@ namespace FemalePlayer
             holder.SetActive(false);
             var go = UnityEngine.Object.Instantiate(p.Source, holder.transform, false);
             go.name = "FemalePlayerProp_" + p.Key;
-            // strip everything but transforms and mesh rendering (FSMs, lights, colliders, audio ...) while nothing has woken up
+            // skinned parts (the crossbow's bow limbs / string): kept when their bones are inside the copy, else turned into a plain mesh in
+            // its bind pose (their bones would be the NPC's)
+            var keep = new HashSet<Component>();
+            foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (smr.sharedMesh == null) continue;
+                bool inside = smr.rootBone == null || smr.rootBone.IsChildOf(go.transform);
+                foreach (var b in smr.bones) if (b == null || !b.IsChildOf(go.transform)) { inside = false; break; }
+                if (inside) { smr.updateWhenOffscreen = true; keep.Add(smr); continue; }
+                var host = smr.gameObject; var mesh = smr.sharedMesh; var mats = smr.sharedMaterials;
+                UnityEngine.Object.DestroyImmediate(smr);
+                host.AddComponent<MeshFilter>().sharedMesh = mesh;
+                host.AddComponent<MeshRenderer>().sharedMaterials = mats;
+            }
+            // strip everything but transforms and mesh rendering (FSMs, lights, colliders, audio, animators ...) while nothing has woken up
             var comps = go.GetComponentsInChildren<Component>(true);
             for (int pass = 0; pass < 2; pass++)
                 foreach (var c in comps)
                 {
-                    if (c == null || c is Transform || c is MeshFilter || c is MeshRenderer) continue;
+                    if (c == null || c is Transform || c is MeshFilter || c is MeshRenderer || keep.Contains(c)) continue;
                     try { UnityEngine.Object.DestroyImmediate(c); } catch (Exception) { }
                 }
             foreach (var r in go.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
