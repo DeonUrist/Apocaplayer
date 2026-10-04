@@ -7,6 +7,7 @@ namespace Apocaplayer
     // On foot we keep the PlayerCamera exactly where the game puts it (all shooting / picking / using raycasts start there) and only
     // render it from behind her shoulder: Camera.onPreCull overrides its worldToCameraMatrix for that frame. The first-person
     // weapon/arm renderers under the PlayerCamera are switched off (forceRenderingOff) while the view is behind her.
+    // Binoculars raised (Peek): the game's own first-person binocular view instead, until they are lowered.
     internal static class ThirdPerson
     {
         public static bool On;
@@ -19,6 +20,9 @@ namespace Apocaplayer
         // first-person gun) - here the view zooms in toward the crosshair instead (narrower field of view, camera a bit closer) and the
         // crosshair stays. Scoped weapons keep the game's own scope (overlay + FOV 25).
         public static bool AimZoom;
+        // binoculars raised in third person: the picture is the game's own first-person binocular view (eye, FOV 20, its overlay) -
+        // no camera behind her, her body drawn as in first person, the first-person renderers (binocular effect) not hidden
+        public static bool Peek;
         private static float _zoomK, _fovBase;
         private static bool _fovSet;
         private static GameObject _crosshair;
@@ -44,7 +48,7 @@ namespace Apocaplayer
             string w = Game.DrawnWeapon;
             var k = Props.KindOf(w);
             bool gun = k == Props.Kind.Rifle || k == Props.Kind.Pistol;
-            AimZoom = On && !Game.Paused && gun && w.IndexOf("scoped", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
+            AimZoom = On && !Peek && !Game.Paused && gun && w.IndexOf("scoped", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
             _zoomK = Mathf.MoveTowards(_zoomK, AimZoom ? 1f : 0f, Time.unscaledDeltaTime * 6f);
             if (!On) _zoomK = 0f;
             if (AimZoom && _crosshair != null && !_crosshair.activeSelf) _crosshair.SetActive(true);
@@ -89,12 +93,15 @@ namespace Apocaplayer
                 Plugin.Verbose("Third person: " + (On ? "on" : "off"));
             }
             if (!allowed && On) On = false;
+            bool peek = On && Game.Binoculars;
+            if (Peek && !peek) { _dist = 0.3f; _nextScan = 0f; }   // binoculars down: the camera comes back out from behind her head, first-person renderers hidden again at once
+            Peek = peek;
             // middle mouse button orbits the camera around her: held (back behind her on release), or with ToggleMiddleMouse a click turns it on / off
             bool click = false, held = false;
             try { click = On && !Game.Paused && Input.GetMouseButtonDown(2); held = On && !Game.Paused && Input.GetMouseButton(2); } catch (System.Exception) { }
             if (Plugin.ToggleMiddleMouse.Value) { if (click) _orbitOn = !_orbitOn; }
             else _orbitOn = held;
-            if (!On) _orbitOn = false;
+            if (!On || Peek) _orbitOn = false;
             Zoom();
             UpdateZoom();
             Orbiting = false;
@@ -118,7 +125,7 @@ namespace Apocaplayer
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
             bool want = On || CarShift;
             if (want && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
-            if (On) HideViewModel();
+            if (On && !Peek) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
             if (!want && _hooked) { if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix(); Camera.onPreCull -= PreCull; _hooked = false; }
         }
@@ -128,7 +135,7 @@ namespace Apocaplayer
         private static float _saveAt;
         private static void Zoom()
         {
-            if (!On || Game.Paused) { Save(); return; }
+            if (!On || Peek || Game.Paused) { Save(); return; }
             float w = 0f;
             try { w = Input.mouseScrollDelta.y; } catch (System.Exception) { }
             bool car = Game.InCar;
@@ -165,6 +172,7 @@ namespace Apocaplayer
         {
             if (cam == null || cam != Game.Cam) return;
             var t = cam.transform;
+            if (Peek) { HasView = false; cam.ResetWorldToCameraMatrix(); return; }   // binoculars: the game's own view
             if (!On)
             {
                 if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); return; }
@@ -250,7 +258,7 @@ namespace Apocaplayer
 
         public static void Off()
         {
-            On = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
+            On = false; Peek = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
             if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }

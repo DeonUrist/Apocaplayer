@@ -224,6 +224,26 @@ namespace Apocaplayer
             }
         }
 
+        // binoculars raised: PlayerCamera/ItemAnim/Binocular Anim [Animation] off -(Activate)-> animOn (raise, 0.4 s) -> on (arms off,
+        // BinocularUI + Binocular_Effect on, SetCameraFOV 20 every frame) -(Deactivate)-> animOff -> off
+        private static PlayMakerFSM _binoFsm;
+        public static bool Binoculars
+        {
+            get
+            {
+                try
+                {
+                    if (_binoFsm == null && PlayerCamera != null)
+                    {
+                        var t = PlayerCamera.Find("ItemAnim/Binocular Anim");
+                        if (t != null) foreach (var f in t.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Animation") { _binoFsm = f; break; }
+                    }
+                    return _binoFsm != null && _binoFsm.enabled && _binoFsm.ActiveStateName == "on";
+                }
+                catch (Exception) { return false; }
+            }
+        }
+
         public static string GrenadeState
         {
             get

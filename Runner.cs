@@ -93,7 +93,7 @@ namespace Apocaplayer
                     }
                     else
                     {
-                        bool firstPerson = fpCam && !ThirdPerson.On;
+                        bool firstPerson = fpCam && (!ThirdPerson.On || ThirdPerson.Peek);   // binoculars: first person
                         _body.LateCar(Game.Player.transform, firstPerson);
                         _body.SetMesh(firstPerson, true, Game.DrawnWeapon != "");
                         _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
@@ -104,7 +104,7 @@ namespace Apocaplayer
                 else
                 {
                     CarSeat.Detach();
-                    bool third = ThirdPerson.On;
+                    bool third = ThirdPerson.On && !ThirdPerson.Peek;   // binoculars raised: drawn as in first person
                     _body.LateFoot(third ? Body.View.ThirdPerson : Body.View.FirstPerson, Time.deltaTime);
                     _body.SetMesh(!third, false);
                     bool show = third || Plugin.BodyFirstPerson.Value;
