@@ -38,7 +38,8 @@ namespace FemalePlayer
         private string _actionClip = "";
         private float _actionUntil, _actionW;
 
-        private void StartAction(string name)
+        private float _jumpAt = -10f;
+        private void StartAction(string name, float startFraction = 0f)
         {
             var c = Anims.Get(name);
             if (c == null || !_action.IsValid()) return;
@@ -51,8 +52,9 @@ namespace FemalePlayer
                 _action.SetApplyFootIK(true);
                 _graph.Connect(_action, 0, _layers, 2);
             }
-            _action.SetTime(0); _action.SetSpeed(1);
-            _actionUntil = Time.time + c.length;
+            float t0 = Mathf.Clamp01(startFraction) * c.length;   // jumps: skip the clip's crouch before take-off, the game pushes her up at once
+            _action.SetTime(t0); _action.SetSpeed(1);
+            _actionUntil = Time.time + c.length - t0;
         }
 
         private void UpdateAction(float dt)
@@ -678,9 +680,21 @@ namespace FemalePlayer
             string ks = Game.KickState;
             if (ks == "fire" && _kickState != "fire") StartAction("Kick");
             _kickState = ks;
+            // jump: the game's Jump state lasts no frame at all (its "grounded?" test fires Grounded -> Idle in the same frame as the push),
+            // so the jump is taken from the Jump button while the FSM sits in Idle (= on the ground), or from leaving the ground fast upward
             string js = Game.JumpState;
-            if (js == "Jump" && _jumpState != "Jump") StartAction(kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump"
-                                                      : kind == Props.Kind.Pistol && Anims.Get("PistolJump") != null ? "PistolJump" : "Jump");
+            bool jumpPress = live && js == "Idle" && Input.GetButtonDown("Jump");
+            bool launched = js == "Falling" && _jumpState == "Idle" && Game.Velocity.y > 2f && Time.time > _jumpAt + 0.5f;   // a press this script missed
+            if (jumpPress || launched)
+            {
+                _jumpAt = Time.time;
+                string jc = kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump"
+                          : kind == Props.Kind.Pistol && Anims.Get("PistolJump") != null ? "PistolJump" : "Jump";
+                StartAction(jc, Plugin.JumpClipStart.Value);
+            }
+            // landed (Falling -> Idle) well after the take-off: let the jump clip go (the clip's own landing may come later than the game's)
+            if (_jumpState == "Falling" && js == "Idle" && _actionClip != null && _actionClip.EndsWith("Jump") && Time.time - _jumpAt > 0.25f && Time.time < _actionUntil)
+                _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.3f);
             _jumpState = js;
             UpdateAction(dt);
 
