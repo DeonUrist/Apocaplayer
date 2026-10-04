@@ -7,4 +7,4 @@ mcs -nostdlib -noconfig -target:library -langversion:latest -optimize+ -out:${1:
   -r:$M/UnityEngine.dll -r:$M/UnityEngine.CoreModule.dll -r:$M/UnityEngine.PhysicsModule.dll -r:$M/UnityEngine.ImageConversionModule.dll \
   -r:$M/UnityEngine.AnimationModule.dll -r:$M/UnityEngine.AssetBundleModule.dll -r:$M/UnityEngine.DirectorModule.dll -r:$M/UnityEngine.InputLegacyModule.dll \
   -r:$M/PlayMaker.dll -r:$M/Assembly-CSharp.dll \
-  Plugin.cs Runner.cs Game.cs Model.cs Body.cs CarSeat.cs Arms.cs Props.cs ThirdPerson.cs Anims.cs Gltf.cs Json.cs Bindposes.cs
+  Plugin.cs Runner.cs Game.cs Model.cs Body.cs CarSeat.cs Arms.cs Props.cs ThirdPerson.cs Anims.cs GunPose.cs Gltf.cs Json.cs Bindposes.cs

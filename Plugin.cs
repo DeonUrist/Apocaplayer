@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.2.2";
+        public const string VERSION = "0.3.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -28,7 +28,7 @@ namespace FemalePlayer
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
-        internal static ConfigEntry<float> HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
+        internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
         private static ConfigEntry<T> H<T>(string section, string key, T value, string description) { return _hidden.Bind(section, key, value, description); }
@@ -46,8 +46,11 @@ namespace FemalePlayer
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", true, "See her body in first person: legs and torso when you look down, and her shadow.");
             FemaleArms = Config.Bind("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person weapon, tool and item animations (and the kick leg in her boot).");
             ReplaceDriver = Config.Bind("General", "ReplaceDriver", true, "She sits in the driver's seat instead of the game's driver model (seen from the car's third-person camera, and her arms on the wheel in first person).");
-            ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key also works on foot: a camera behind her shoulder. Your shots still go where the crosshair of the first-person camera points.");
+            ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key also works on foot: a camera behind her shoulder (hold the middle mouse button to orbit around her). Your shots still go where the crosshair of the first-person camera points.");
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
+            AlignGun = Config.Bind("Gun position", "AlignRifleToHands", true, "Third person with the Mixamo clips: turn a rifle so the barrel runs from her right hand to her left hand. Off = the raider's own grip only (then use the per-weapon lines below).");
+            GunPose.Bind(Config);
+            OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines (what was found, which clips/props are used).");
 
             ModelFile = H("Model", "Model", "Models/Boss_lady.glb", "Body model (.glb/.gltf) relative to the mod folder, rigged to Flexa's skeleton (22 mixamorig bones).");
@@ -55,7 +58,6 @@ namespace FemalePlayer
             ArmsTextureFile = H("Model", "ArmsTexture", "Models/Player2_female_arms.png", "Replacement for the game's Player2 texture atlas, used only on the first-person arms and kick leg.");
 
             AnimBundleFile = H("Model", "AnimationBundle", "Models/femaleplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
-            AlignGun = H("Animation", "AlignRifleToHands", true, "Bundle clips: turn the rifle in her right hand so the barrel points at her left (support) hand.");
             HipsDrift = H("Animation", "HipsDrift", 0.08f, "Bundle clips: how far (m) her hips may move away from the player sideways/forward (stops clips with baked forward motion from walking ahead of you).");
             ClipWalkSpeed = H("Animation", "BundleWalkSpeed", 1.4f, "Ground speed (m/s) at which the bundle's walk clips play at normal speed.");
             ClipRunSpeed = H("Animation", "BundleRunSpeed", 3.8f, "Ground speed (m/s) at which the bundle's run clips play at normal speed.");
@@ -88,6 +90,13 @@ namespace FemalePlayer
                 if (dict != null && dict.Count > 0) { int n = dict.Count; dict.Clear(); Config.Save(); Log.LogInfo("Config: " + n + " old setting(s) removed from the file"); }
             }
             catch (Exception e) { Log.LogWarning("Config cleanup: " + e.Message); }
+
+            try
+            {
+                new HarmonyLib.Harmony(GUID).Patch(HarmonyLib.AccessTools.Method(typeof(HutongGames.PlayMaker.Actions.MouseLook), "OnUpdate"),
+                    prefix: new HarmonyLib.HarmonyMethod(typeof(ThirdPerson), nameof(ThirdPerson.BeforeMouseLook)));
+            }
+            catch (Exception e) { Log.LogError("Harmony patch failed, no camera orbit: " + e.Message); }
 
             SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); };
             EnsureRunner();

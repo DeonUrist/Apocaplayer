@@ -10,6 +10,11 @@ namespace FemalePlayer
     internal static class ThirdPerson
     {
         public static bool On;
+        public static bool Orbiting;               // middle mouse held: the mouse turns the camera around her, the game's mouse look is paused
+        private static float _orbitYaw, _orbitPitch;
+
+        // Harmony prefix on PlayMaker's MouseLook: no player/camera turning while orbiting
+        public static bool BeforeMouseLook() { return !Orbiting; }
         private static bool _hooked;
         private static readonly List<Renderer> _hidden = new List<Renderer>();
         private static float _nextScan, _dist;
@@ -27,6 +32,25 @@ namespace FemalePlayer
                 Plugin.Verbose("Third person on foot: " + (On ? "on" : "off"));
             }
             if (!allowed && On) On = false;
+            Orbiting = false;
+            if (On && !Game.Paused)
+            {
+                bool held = false; float mx = 0f, my = 0f;
+                try { held = Input.GetMouseButton(2); mx = Input.GetAxis("Mouse X"); my = Input.GetAxis("Mouse Y"); } catch (System.Exception) { }
+                if (held)
+                {
+                    Orbiting = true;
+                    _orbitYaw += mx * Plugin.OrbitSpeed.Value;
+                    _orbitPitch = Mathf.Clamp(_orbitPitch - my * Plugin.OrbitSpeed.Value, -70f, 70f);
+                }
+            }
+            if (!Orbiting)   // released: swing back behind her
+            {
+                float k = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 6f);
+                _orbitYaw = Mathf.LerpAngle(_orbitYaw, 0f, k); _orbitPitch = Mathf.Lerp(_orbitPitch, 0f, k);
+                if (Mathf.Abs(_orbitYaw) < 0.05f) _orbitYaw = 0f;
+            }
+            if (!On) { _orbitYaw = _orbitPitch = 0f; }
             if (On && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
             if (On) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
@@ -37,8 +61,12 @@ namespace FemalePlayer
         {
             if (!On || cam == null || cam != Game.Cam) return;
             var t = cam.transform;
-            Vector3 fwd = t.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = t.right; right.Normalize();
+            // orbit: the view direction turned about her by the middle-mouse offsets (yaw about up, pitch clamped)
+            var e = t.rotation.eulerAngles;
+            float pitch = Mathf.Clamp(Mathf.DeltaAngle(0f, e.x) + _orbitPitch, -80f, 85f);
+            var viewRot = Quaternion.Euler(pitch, e.y + _orbitYaw, 0f);
+            Vector3 fwd = viewRot * Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
             Vector3 pivot = t.position + Vector3.up * Plugin.ThirdHeight.Value;
             Vector3 want = pivot - fwd * Plugin.ThirdDistance.Value + right * Plugin.ThirdShoulder.Value;
             Vector3 d = want - pivot;
@@ -49,7 +77,7 @@ namespace FemalePlayer
             // come out smoothly, snap in when something is in the way
             _dist = dist < _dist ? dist : Mathf.MoveTowards(_dist, dist, Time.unscaledDeltaTime * 4f);
             Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * _dist;
-            var view = Matrix4x4.TRS(pos, t.rotation, Vector3.one).inverse;
+            var view = Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
         }
 
@@ -69,7 +97,7 @@ namespace FemalePlayer
 
         public static void Off()
         {
-            On = false;
+            On = false; Orbiting = false;
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();

@@ -23,11 +23,16 @@ public static class FemalePlayerAnimBuilder
         "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight",
         "RifleIdle", "RifleWalk", "RifleWalkBack", "RifleStrafeLeft", "RifleStrafeRight", "RifleRun", "RifleRunStrafeLeft", "RifleRunStrafeRight",
         "RifleCrouchIdle", "RifleCrouchWalk", "RifleCrouchWalkBack", "RifleCrouchStrafeLeft", "RifleCrouchStrafeRight",
+        "RifleFireWalk", "RifleFireWalkBack", "RifleFireStrafeLeft", "RifleFireStrafeRight",
+        "RifleFireCrouchWalk", "RifleFireCrouchWalkBack", "RifleFireCrouchStrafeLeft", "RifleFireCrouchStrafeRight",
         "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
     };
 
     // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)
     static string Norm(string n) { return n.Replace("LeftStrafe", "StrafeLeft").Replace("RightStrafe", "StrafeRight"); }
+
+    // the grenade is thrown with the LEFT hand (the right one holds the gun)
+    const bool MirrorThrow = true;
 
     static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n == "Throw"; }
 
@@ -54,6 +59,7 @@ public static class FemalePlayerAnimBuilder
             if (src.Length == 0) { Debug.LogError("FemalePlayer: " + path + " has no animation"); continue; }
             var list = new List<ModelImporterClipAnimation>();
             var main = Setup(src[0], name);
+            if (MirrorThrow && name == "Throw") { main.mirror = true; Debug.Log("FemalePlayer: Throw mirrored (thrown with the left hand)"); }
             list.Add(main);
             string mirrorName = null;
             if (name.EndsWith("StrafeLeft")) mirrorName = name.Replace("StrafeLeft", "StrafeRight");

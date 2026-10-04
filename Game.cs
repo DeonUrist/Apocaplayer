@@ -11,10 +11,11 @@ namespace FemalePlayer
         public static PlayMakerFSM InCarFsm, MovementFsm;
         public static Transform CameraHolder, PlayerCamera;
         public static Camera Cam;
-        public static Transform WeaponsParent;      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
+        public static Transform WeaponsParent;
+        public static PlayMakerFSM GrenadeFsm;      // PlayerCamera/QuickItems/grenade [Attack]: on -> (Throw Grenade) -> checkGrenade -> fire 0.4 s -> wait 0.35 s -> throw      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
         private static float _nextFind;
 
-        public static void Reset() { Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
+        public static void Reset() { GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
 
         public static bool Ready
         {
@@ -54,7 +55,9 @@ namespace FemalePlayer
                         Cam = PlayerCamera.GetComponent<Camera>();
                         var wa = PlayerCamera.Find("WeaponsArm");
                         WeaponsParent = wa != null ? wa.Find("Parent") : null;
-                        Plugin.Verbose("Found the PlayerCamera" + (WeaponsParent != null ? " and WeaponsArm/Parent" : " (no WeaponsArm/Parent!)"));
+                        var gr = PlayerCamera.Find("QuickItems/grenade");
+                        if (gr != null) foreach (var f in gr.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Attack") GrenadeFsm = f;
+                        Plugin.Verbose("Found the PlayerCamera" + (GrenadeFsm != null ? " (+ grenade)" : "") + (WeaponsParent != null ? " and WeaponsArm/Parent" : " (no WeaponsArm/Parent!)"));
                     }
                 }
             }
@@ -117,6 +120,15 @@ namespace FemalePlayer
 
         // the first-person camera is rendering (false while the car's third-person camera is on: the game deactivates the PlayerCamera hierarchy)
         public static bool FirstPersonCameraOn { get { return Cam != null && Cam.isActiveAndEnabled; } }
+
+        public static string GrenadeState
+        {
+            get
+            {
+                try { return GrenadeFsm != null && GrenadeFsm.gameObject.activeInHierarchy ? GrenadeFsm.ActiveStateName : ""; }
+                catch (Exception) { return ""; }
+            }
+        }
 
         public static bool Paused { get { return Time.timeScale < 0.01f; } }
 

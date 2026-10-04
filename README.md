@@ -6,7 +6,7 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
-  a camera over her right shoulder. Shots still come from the first-person camera, so aim with the crosshair.
+  a camera over her right shoulder; hold the middle mouse button to orbit around her. Shots still come from the first-person camera, so aim with the crosshair.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
   (Flexa's AKM, Sprokka's pipe pistol, Lugnut's shotgun …) at the spot the raiders hold it.
@@ -36,6 +36,8 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | General | ReplaceDriver | true | She sits in the driver's seat |
 | General | ThirdPersonOnFoot | true | Change Camera works on foot |
 | General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
+| Gun position | AlignRifleToHands | true | With the Mixamo clips: rifle barrel from her right hand to her left |
+| Gun position | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Fine-tune that weapon in her hand in third person: right, up, forward (cm), pitch, yaw, roll (°). Applied live |
 | Debug | VerboseLog | false | Detailed log |
 
 Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`

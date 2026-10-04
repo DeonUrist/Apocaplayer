@@ -27,15 +27,25 @@ namespace FemalePlayer
         private string _upperClip = "";
         private AnimationClip _fallback;
         private bool _mixamo;                       // locomotion from the animation bundle (Mixamo clips) instead of the game's clips + procedural walk
-        private LocoSet _unarmed, _rifle;
+        private LocoSet _unarmed, _rifle, _fire;   // _fire: RifleFire* clips = walking/crouching while shooting (full body)
+        private float _fireW;
         private AnimationMixerPlayable _sets;
         private float _armW, _reloadUntil, _throwUntil;
+        private string _grenadeState = "";
+
+        private void StartThrow()
+        {
+            var c = Anims.Get("Throw");
+            if (c == null) return;
+            _throwUntil = Time.time + Mathf.Clamp(c.length, 0.5f, 2f);
+            _upperClip = "";   // restart the clip
+        }
         private readonly Dictionary<string, AnimationClip> _clips = new Dictionary<string, AnimationClip>();
 
         private float _phase, _speedSmooth, _strafeSmooth, _crouch, _prone, _runW, _meleeUntil;
         private float _legThigh, _legShin;
         private bool _inCar;
-        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot;
+        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand;
 
         public enum View { FirstPerson, ThirdPerson }
 
@@ -326,6 +336,7 @@ namespace FemalePlayer
                 Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
+            PoseProp(kind, yaw);
         }
 
         // in a car: no Animator, the pose comes from the car's seated driver
@@ -360,18 +371,23 @@ namespace FemalePlayer
                                                        "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight" };
 
         // the set's own clip ("Rifle" + name), else the unarmed one
-        private static AnimationClip G(string pre, string name) { return Anims.Get(pre + name) ?? Anims.Get(name); }
+        // (the "RifleFire" set falls back to the "Rifle" one, then to the unarmed one)
+        private static AnimationClip G(string pre, string name)
+        {
+            return Anims.Get(pre + name) ?? (pre.Length > 5 && pre.StartsWith("Rifle") ? Anims.Get("Rifle" + name) : null) ?? Anims.Get(name);
+        }
 
         // one locomotion set (unarmed: no prefix, rifle: "Rifle"); null when the set has no idle clip
-        private LocoSet MakeSet(string pre)
+        private LocoSet MakeSet(string pre, AnimationClip idleOverride = null, AnimationClip crouchIdleOverride = null)
         {
-            var idle = Anims.Get(pre + "Idle");
+            var idle = idleOverride ?? Anims.Get(pre + "Idle");
             var walk = G(pre, "Walk");
             if (idle == null || walk == null) return null;
             var s = new LocoSet();
             var c = new AnimationClip[N];
             for (int i = 0; i < N; i++) c[i] = G(pre, SlotNames[i]);
             c[S_IDLE] = idle;
+            if (crouchIdleOverride != null) c[S_CIDLE] = crouchIdleOverride;
             s.StrafeIsWalk = c[S_LEFT] == null || c[S_RIGHT] == null;
             s.CrouchMissing = c[S_CIDLE] == null || c[S_CWALK] == null;
             s.CrouchStrafeMissing = c[S_CLEFT] == null || c[S_CRIGHT] == null;
@@ -404,10 +420,14 @@ namespace FemalePlayer
         {
             _unarmed = MakeSet("");
             _rifle = MakeSet("Rifle");
-            _sets = AnimationMixerPlayable.Create(_graph, 2);
+            var crouchFire = Anims.First("RifleFireCrouchIdle", "CrouchRifleFire", "RifleCrouchFire");
+            if (_rifle != null && (Anims.Get("RifleFireWalk") != null || Anims.Get("RifleFireCrouchWalk") != null))
+                _fire = MakeSet("RifleFire", Anims.First("RifleFire", "RifleFireIdle", "RifleIdle"), crouchFire);
+            _sets = AnimationMixerPlayable.Create(_graph, 3);
             _graph.Connect(_unarmed.Mix, 0, _sets, 0);
             _sets.SetInputWeight(0, 1f);
             if (_rifle != null) { _graph.Connect(_rifle.Mix, 0, _sets, 1); _sets.SetInputWeight(1, 0f); }
+            if (_fire != null) { _graph.Connect(_fire.Mix, 0, _sets, 2); _sets.SetInputWeight(2, 0f); }
             _fallback = Anims.Get("Idle");
             _layers = AnimationLayerMixerPlayable.Create(_graph, 2);
             _graph.Connect(_sets, 0, _layers, 0);
@@ -418,7 +438,8 @@ namespace FemalePlayer
             _layers.SetLayerMaskFromAvatarMask(1, UpperMask());
             output.SetSourcePlayable(_layers);
             _graph.Play();
-            Plugin.Log.LogInfo("Animations from the bundle: unarmed " + _unarmed.Info + (_rifle != null ? "; rifle " + _rifle.Info : "; no rifle set (RifleIdle) - rifle aim on the upper body only"));
+            Plugin.Log.LogInfo("Animations from the bundle: unarmed " + _unarmed.Info + (_rifle != null ? "; rifle " + _rifle.Info : "; no rifle set (RifleIdle) - rifle aim on the upper body only")
+                + (_fire != null ? "; firing " + _fire.Info : ""));
         }
 
         private static AvatarMask UpperMask()
@@ -486,8 +507,16 @@ namespace FemalePlayer
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
             _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, dt * 5f);
-            if (_rifle != null) { _sets.SetInputWeight(0, 1f - _armW); _sets.SetInputWeight(1, _armW); }
-            var set = rifleSet ? _rifle : _unarmed;
+            bool firing = !Game.Paused && Input.GetMouseButton(0) && rifleSet && _fire != null && Time.time >= _reloadUntil && Time.time >= _throwUntil;
+            _fireW = Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
+            if (_rifle != null)
+            {
+                _sets.SetInputWeight(0, 1f - _armW);
+                _sets.SetInputWeight(1, _armW * (1f - _fireW));
+                if (_fire != null) _sets.SetInputWeight(2, _armW * _fireW);
+            }
+            var set = firing ? _fire : rifleSet ? _rifle : _unarmed;
+            Drive(_fire, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
             Drive(_unarmed, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
             Drive(_rifle, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
 
@@ -503,9 +532,14 @@ namespace FemalePlayer
                 if (rc != null) { _reloadUntil = Time.time + Mathf.Min(rc.length, 3f); _upperClip = ""; }
             }
             if (kind == Props.Kind.Melee && click) { _meleeUntil = Time.time + 0.9f; _upperClip = ""; }
-            if (kind == Props.Kind.Throw && click) { _throwUntil = Time.time + 1.2f; _upperClip = ""; }
+            if (kind == Props.Kind.Throw && click) StartThrow();
+            string gs = Game.GrenadeState;   // the quick grenade (Throw Grenade key) is not a drawn weapon: watch its Attack FSM
+            if (gs == "fire" && _grenadeState != "fire") StartThrow();
+            _grenadeState = gs;
 
-            if (Time.time < _reloadUntil && kind != Props.Kind.None && kind != Props.Kind.Melee)
+            if (Time.time < _throwUntil && Anims.Get("Throw") != null)
+                SetUpper("Throw", 1f, 1f);
+            else if (Time.time < _reloadUntil && kind != Props.Kind.None && kind != Props.Kind.Melee)
                 SetUpper(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload", 1f, 1f);
             else if (kind == Props.Kind.Melee)
             {
@@ -523,7 +557,8 @@ namespace FemalePlayer
             else if (kind == Props.Kind.Rifle)
             {
                 string crouchFire = Anims.Get("CrouchRifleFire") != null ? "CrouchRifleFire" : Anims.Get("RifleCrouchFire") != null ? "RifleCrouchFire" : null;
-                if (fire && _crouch > 0.5f && crouchFire != null) SetUpper(crouchFire, 1f, 1f);
+                if (fire && _fire != null) SetUpper("", 0f, 0f);   // the full-body RifleFire* set does it
+                else if (fire && _crouch > 0.5f && crouchFire != null) SetUpper(crouchFire, 1f, 1f);
                 else if (fire && Anims.Get("RifleFire") != null) SetUpper("RifleFire", 1f, 1f);
                 else if (Anims.Get("RifleAim") != null) SetUpper("RifleAim", 1f, 1f);
                 else if (_rifle == null) { SetUpper(Plugin.RifleClip.Value, 1f, fire ? 1f : 0f); if (!fire) _upper.SetTime(0); }
@@ -563,11 +598,29 @@ namespace FemalePlayer
                 Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
-            if (kind == Props.Kind.Rifle) AlignProp();
+            PoseProp(kind, yaw);
         }
 
         // Rifles: the raider prop's pose was made for Flexa's left-handed raider clip; in Mixamo clips the hands hold it differently.
         // Point the barrel from her right hand toward her left (support) hand, turning about the right hand, so it lies along both hands.
+        // every frame: the prop's hand pose, then (rifles, bundle clips) the barrel along both hands, then the player's own offset for this weapon
+        // from the [Gun position] settings (her right/up/forward in cm, pitch/yaw/roll in degrees, about the hand holding it)
+        private void PoseProp(Props.Kind kind, Quaternion yaw)
+        {
+            if (_prop == null || _propHand == null) return;
+            var t = _prop.transform;
+            t.localPosition = _propPos; t.localRotation = _propRot;   // from the hand pose every frame (no drift)
+            if (_mixamo && kind == Props.Kind.Rifle) AlignProp();
+            var o = GunPose.For(_propFor);
+            if (o == null) return;
+            Vector3 right = yaw * Vector3.right, fwd = yaw * Vector3.forward;
+            Vector3 barrel = _propBarrel != Vector3.zero ? t.TransformDirection(_propBarrel) : fwd;
+            var q = Quaternion.AngleAxis(o[5], barrel) * Quaternion.AngleAxis(o[4], Vector3.up) * Quaternion.AngleAxis(-o[3], right);
+            Vector3 pivot = _propHand.position;
+            t.position = pivot + q * (t.position - pivot) + (right * o[0] + Vector3.up * o[1] + fwd * o[2]) * 0.01f;
+            t.rotation = q * t.rotation;
+        }
+
         private void AlignProp()
         {
             if (_prop == null || !Plugin.AlignGun.Value || _propBarrel == Vector3.zero) return;
@@ -576,7 +629,6 @@ namespace FemalePlayer
             Vector3 want = lh.position - rh.position;
             if (want.magnitude < 0.12f) return;   // hands together (pistol grip / reload): keep the hand pose
             var t = _prop.transform;
-            t.localPosition = _propPos; t.localRotation = _propRot;   // from the hand pose every frame (no drift)
             Vector3 have = t.TransformDirection(_propBarrel);
             var q = Quaternion.FromToRotation(have, want.normalized);
             Vector3 pivot = rh.position;
@@ -657,7 +709,7 @@ namespace FemalePlayer
             if (otherHand && Bones.TryGetValue("mixamorig:RightHand", out right)) hand = right; else otherHand = false;
             _prop = Props.Instantiate(p, hand, otherHand);
             _propBarrel = Props.Barrel(_prop);
-            _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation;
+            _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation; _propHand = hand;
             Plugin.Verbose("Third person: barrel axis of " + p.Key + " = " + _propBarrel);
             Plugin.Verbose("Third person: " + weapon + " -> " + p.Owner + "'s " + p.Source.name + " on " + p.Hand);
         }
