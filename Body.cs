@@ -647,7 +647,7 @@ namespace Apocaplayer
         private readonly Quaternion[] _carArms = new Quaternion[8];
         private bool _carArmsReady;
         private string _carWeapon = "";
-        private bool _carTurned, _carTurnedReady;
+        private bool _carTurned, _carTurnedReady, _aimHold;
         // seated, her arms come from standing gun clips whose stance twists the whole body - without that twist the gun points off to a side
         // (≈45 degrees left). Per clip, an extra chest yaw is learned from where the barrel points against the aim (sideways only), every frame
         private readonly Dictionary<string, float> _carYawFix = new Dictionary<string, float>();
@@ -1056,7 +1056,19 @@ namespace Apocaplayer
                 Plugin.Verbose("Weapon: " + (weapon == "" ? "none" : weapon + " (" + kind + ")"));
             }
             var fireSet = rifleSet ? _fire : pistolSet ? _pfire : null;
-            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && fireSet != null && !_reloading && Time.time >= _throwUntil;
+            // right mouse button (the game's Aim Down Sights) with a rifle: the rifle comes up as when shooting (the RifleFire set: raised and aimed,
+            // the spine following the view's pitch) instead of the low RifleIdle carry. Standing still the firing clip holds its first frame
+            // (the aim, no recoil) until she really shoots. Pistols are already up in PistolIdle.
+            bool aiming = !Game.Paused && rifleSet && pv < 0 && Game.AimDownSights;
+            bool shooting = !Game.Paused && (pvFire || Input.GetMouseButton(0));
+            bool firing = (shooting || aiming) && fireSet != null && !_reloading && Time.time >= _throwUntil;
+            if (_fire != null)
+            {
+                bool hold = aiming && !shooting;
+                if (hold && !_aimHold) { _fire.P[S_IDLE].SetTime(0); _fire.P[S_CIDLE].SetTime(0); }
+                _fire.P[S_IDLE].SetSpeed(hold ? 0 : 1); _fire.P[S_CIDLE].SetSpeed(hold ? 0 : 1);
+                _aimHold = hold;
+            }
             _fireW = _snap ? (firing ? 1f : 0f) : Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
             if (_snap) { _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
             if (_rifle != null || _pistol != null)
