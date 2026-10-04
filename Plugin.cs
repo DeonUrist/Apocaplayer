@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.0.2";
+        public const string VERSION = "1.0.3";
 
         internal static ManualLogSource Log;
         internal static string Dir;

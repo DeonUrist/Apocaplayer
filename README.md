@@ -53,6 +53,11 @@ Third person, right mouse button (Aim Down Sights) with a non-scoped gun: the vi
 camera a little closer) and the crosshair stays - the game's own sights are on the first-person gun, which isn't drawn in third person.
 Scoped guns keep the game's scope.
 
+Transitions: a new animation always starts at once at its own time and speed, and the previous pose fades out under it - upper-body
+clips (reload, aim, fire, throw, punches, swings) cross-fade in 0.08-0.15 s, switching between unarmed / rifle / pistol blends her
+body over 0.2 s (the gun is in her hand at its correct grip from the first frame), getting into / out of the driver's seat eases over
+0.3 s and turning off the seat in a car over 0.25 s. Nothing is delayed or made longer.
+
 Third person, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
 the cursor ON SCREEN is picked - within 6 % of the screen height, visible from the camera, within the game's own reach from her eye
 (`PickAssist.cs`, a Harmony postfix on PlayMaker's `ActionHelpers.DoMousePick`). Screen-space, so it works the same at every zoom.

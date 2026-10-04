@@ -39,6 +39,39 @@ namespace Apocaplayer
         private AnimationMixerPlayable _loco;
         private AnimationLayerMixerPlayable _layers;
         private AnimationClipPlayable _upper;
+        // upper layer = a 2-input mixer: _upper (the current clip, input 0) and _upperOld (the clip it replaced, input 1) cross-faded.
+        // The new clip always starts at once at its own time and speed - only the old pose fades out under it - so nothing gets longer.
+        private AnimationMixerPlayable _upperMix;
+        private AnimationClipPlayable _upperOld;
+        private float _upperX = 1f, _upperW, _upperWTarget;
+        private const float UpperIn = 0.08f, UpperOut = 0.15f, UpperCross = 0.12f;
+
+        private void MakeUpper(AnimationClip c)
+        {
+            _upperMix = AnimationMixerPlayable.Create(_graph, 2);
+            _upper = AnimationClipPlayable.Create(_graph, c);
+            _graph.Connect(_upper, 0, _upperMix, 0);
+            _upperMix.SetInputWeight(0, 1f); _upperMix.SetInputWeight(1, 0f);
+            _graph.Connect(_upperMix, 0, _layers, 1);
+            _layers.SetInputWeight(1, 0f);
+            _upperW = _upperWTarget = 0f; _upperX = 1f;
+        }
+
+        // every frame: the upper layer's weight eases toward what SetUpper asked (fast in, a little slower out), the cross-fade advances
+        private void TickUpper(float dt)
+        {
+            if (!_layers.IsValid() || !_upperMix.IsValid()) return;
+            if (_snap) _upperW = _upperWTarget;
+            else _upperW = Mathf.MoveTowards(_upperW, _upperWTarget, dt / (_upperWTarget > _upperW ? UpperIn : UpperOut));
+            _layers.SetInputWeight(1, _upperW);
+            if (_upperOld.IsValid())
+            {
+                _upperX = _snap ? 1f : Mathf.MoveTowards(_upperX, 1f, dt / UpperCross);
+                _upperMix.SetInputWeight(0, _upperX); _upperMix.SetInputWeight(1, 1f - _upperX);
+                if (_upperX >= 1f) { _graph.Disconnect(_upperMix, 1); _upperOld.Destroy(); }
+            }
+            else { _upperMix.SetInputWeight(0, 1f); _upperMix.SetInputWeight(1, 0f); }
+        }
         private string _upperClip = "";
         private AnimationClip _fallback;
         private bool _mixamo;                       // locomotion from the animation bundle (Mixamo clips) instead of the game's clips + procedural walk
@@ -265,9 +298,7 @@ namespace Apocaplayer
             _layers = AnimationLayerMixerPlayable.Create(_graph, 2);
             _graph.Connect(_loco, 0, _layers, 0);
             _layers.SetInputWeight(0, 1f);
-            _upper = AnimationClipPlayable.Create(_graph, idle);
-            _graph.Connect(_upper, 0, _layers, 1);
-            _layers.SetInputWeight(1, 0f);
+            MakeUpper(idle);
             var mask = new AvatarMask();
             foreach (AvatarMaskBodyPart part in Enum.GetValues(typeof(AvatarMaskBodyPart)))
             {
@@ -472,19 +503,28 @@ namespace Apocaplayer
 
         private void SetUpper(string clipName, float weight, float speed)
         {
-            if (string.IsNullOrEmpty(clipName)) { _layers.SetInputWeight(1, 0f); return; }   // keep the last clip connected, just off
+            if (string.IsNullOrEmpty(clipName)) { _upperWTarget = 0f; return; }   // keep the last clip connected, fading out
             if (clipName != _upperClip)
             {
                 _upperClip = clipName;
-                _graph.Disconnect(_layers, 1);
-                if (_upper.IsValid()) _upper.Destroy();
+                // the clip being shown fades out under the new one (only when it is visible at all)
+                if (_upperOld.IsValid()) { _graph.Disconnect(_upperMix, 1); _upperOld.Destroy(); }
+                _graph.Disconnect(_upperMix, 0);
+                if (_upper.IsValid() && _upperW > 0.01f && !_snap)
+                {
+                    _upperOld = _upper; _upperOld.SetSpeed(0);   // frozen where it was
+                    _graph.Connect(_upperOld, 0, _upperMix, 1);
+                    _upperX = 0f;
+                }
+                else { if (_upper.IsValid()) _upper.Destroy(); _upperX = 1f; }
                 var c = Clip(clipName) ?? _fallback;
                 _upper = AnimationClipPlayable.Create(_graph, c);
                 _upper.SetApplyFootIK(false);
-                _graph.Connect(_upper, 0, _layers, 1);
+                _graph.Connect(_upper, 0, _upperMix, 0);
                 _upper.SetTime(0);
+                _upperMix.SetInputWeight(0, _upperX); _upperMix.SetInputWeight(1, 1f - _upperX);
             }
-            _layers.SetInputWeight(1, weight);
+            _upperWTarget = weight;
             if (_upper.IsValid()) _upper.SetSpeed(speed);
         }
 
@@ -514,7 +554,54 @@ namespace Apocaplayer
         }
 
         // on foot: place, animate (graph is already evaluated by the Animator this frame), then the procedural layers
+        // pose fades: the last shown pose (captured after every frame) blends into the new one over a short time when she gets into / out of
+        // the driver's seat or turns off the seat in the car (bone local rotations; hips stay where the new pose puts them)
+        private readonly Dictionary<string, Quaternion> _shown = new Dictionary<string, Quaternion>(), _fadeFrom = new Dictionary<string, Quaternion>();
+        private float _fadeT, _fadeLen = 0.3f;
+        private Quaternion _fadeRoot = Quaternion.identity, _shownRoot = Quaternion.identity;
+        private bool _fadeRootOn;
+        private void CapturePose(Transform rel)
+        {
+            foreach (var kv in Bones) _shown[kv.Key] = kv.Value.localRotation;
+            _shownRoot = rel != null ? Quaternion.Inverse(rel.rotation) * Root.transform.rotation : Root.transform.rotation;
+        }
+        private void StartPoseFade(float len, bool root)
+        {
+            if (_shown.Count == 0) return;
+            _fadeFrom.Clear(); foreach (var kv in _shown) _fadeFrom[kv.Key] = kv.Value;
+            _fadeRoot = _shownRoot; _fadeRootOn = root;
+            _fadeT = _fadeLen = len;
+        }
+        private void ApplyPoseFade(float dt, Transform rel)
+        {
+            if (_fadeT <= 0f) return;
+            float k = 1f - _fadeT / _fadeLen; k = k * k * (3f - 2f * k);
+            if (_fadeRootOn && rel != null)
+            {
+                var hipsT = Bones.ContainsKey("mixamorig:Hips") ? Bones["mixamorig:Hips"] : null;
+                Vector3 hp = hipsT != null ? hipsT.position : Root.transform.position;
+                var cur = Quaternion.Inverse(rel.rotation) * Root.transform.rotation;
+                Root.transform.rotation = rel.rotation * Quaternion.Slerp(_fadeRoot, cur, k);
+                if (hipsT != null) Root.transform.position += hp - hipsT.position;   // turn about her hips
+            }
+            foreach (var kv in Bones)
+            {
+                if (kv.Key == "mixamorig:Hips") continue;
+                Quaternion from;
+                if (_fadeFrom.TryGetValue(kv.Key, out from)) kv.Value.localRotation = Quaternion.Slerp(from, kv.Value.localRotation, k);
+            }
+            _fadeT -= dt;
+        }
+
         public void LateFoot(View view, float dt)
+        {
+            TickUpper(dt);
+            if (_inCar) StartPoseFade(0.3f, false);   // out of the driver's seat: the seated pose eases into standing
+            LateFootInner(view, dt);
+            if (_mixamo) { ApplyPoseFade(dt, null); CapturePose(null); }
+        }
+
+        private void LateFootInner(View view, float dt)
         {
             if (_inCar) { _inCar = false; _animator.enabled = true; }
             var player = Game.Player.transform;
@@ -696,6 +783,15 @@ namespace Apocaplayer
 
         public void LateCar(Transform player, bool firstPerson)
         {
+            float dt = Time.deltaTime;
+            TickUpper(dt);
+            if (!_inCar && _mixamo) StartPoseFade(0.3f, false);   // into the driver's seat: the standing pose eases into the seat
+            LateCarInner(player, firstPerson);
+            if (_mixamo) { ApplyPoseFade(dt, player); CapturePose(player); }
+        }
+
+        private void LateCarInner(Transform player, bool firstPerson)
+        {
             if (!_inCar) { _inCar = true; _animator.enabled = false; _crouch = _prone = 0f; UpdateProp(""); _carArmsReady = false; _carWeapon = ""; }
             Root.transform.localScale = Vector3.one;
             Root.transform.SetPositionAndRotation(player.position, player.rotation);
@@ -727,7 +823,7 @@ namespace Apocaplayer
             }
             // past 90 degrees to a side she gets off the seat: turned to the aim, crouched, hips at the seat's height (back below 80)
             bool turned = arms && (_carTurned ? Mathf.Abs(aimYaw) > 80f : Mathf.Abs(aimYaw) > 95f);
-            if (turned != _carTurned) { _carTurned = turned; _carTurnedReady = false; }
+            if (turned != _carTurned) { _carTurned = turned; _carTurnedReady = false; StartPoseFade(0.25f, true); }
             string fixKey = throwing ? "throw:" + _throwClip : _upperClip ?? "";
 
             bool animated = arms && _carArmsReady && _animator.enabled;
@@ -925,9 +1021,7 @@ namespace Apocaplayer
             _layers = AnimationLayerMixerPlayable.Create(_graph, 3);
             _graph.Connect(_sets, 0, _layers, 0);
             _layers.SetInputWeight(0, 1f);
-            _upper = AnimationClipPlayable.Create(_graph, _fallback);
-            _graph.Connect(_upper, 0, _layers, 1);
-            _layers.SetInputWeight(1, 0f);
+            MakeUpper(_fallback);
             _layers.SetLayerMaskFromAvatarMask(1, UpperMask());
             _action = AnimationClipPlayable.Create(_graph, _fallback);   // layer 2: whole-body one-shots (Kick, Jump, RifleJump)
             _graph.Connect(_action, 0, _layers, 2);
@@ -1043,9 +1137,11 @@ namespace Apocaplayer
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
             bool pistolSet = _pistol != null && kind == Props.Kind.Pistol;
-            // the weapon type's animation set at once - no blending between unarmed / rifle / pistol animations
-            _armW = rifleSet ? 1f : 0f;
-            _armPW = pistolSet ? 1f : 0f;
+            // the weapon type's animation set: her body blends into it over 0.2 s (the new set plays at its own time at once); the gun's
+            // pose comes from the drawn weapon's own animations only, so it is in her hand correctly from the first frame
+            float armRate = _snap ? 1000f : dt / 0.2f;
+            _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, armRate);
+            _armPW = Mathf.MoveTowards(_armPW, pistolSet ? 1f : 0f, armRate);
             // another weapon drawn: nothing of the previous one carries over (fire, reload, upper-body clip, a pose being edited)
             if (weapon != _lastWeapon)
             {
