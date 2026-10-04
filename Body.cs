@@ -616,6 +616,25 @@ namespace FemalePlayer
             float wF = 1f, wB = 0f, wL = 0f, wR = 0f;
             if (sum > 0.05f) { wF = Mathf.Max(0f, local.z) / sum; wB = Mathf.Max(0f, -local.z) / sum; wL = Mathf.Max(0f, -local.x) / sum; wR = Mathf.Max(0f, local.x) / sum; }
 
+            // WeaponAdjustment, Numpad 9/3: the selected animation plays standing still so its weapon pose can be tuned
+            int pv = GunPose.Preview;
+            bool pvFire = GunPose.IsFire(pv);
+            if (pv >= 0 && pv < GunPose.P_RELOAD)
+            {
+                int sl = pv % GunPose.SLOTS;
+                bool crouched = sl >= S_CIDLE, run = sl == S_RUN || sl == S_RUNL || sl == S_RUNR, moving = sl != S_IDLE && sl != S_CIDLE;
+                _crouch = crouched ? 1f : 0f;
+                m = moving ? 1f : 0f;
+                wF = sl == S_FWD || sl == S_RUN || sl == S_CWALK ? 1f : 0f;
+                wB = sl == S_BACK || sl == S_CBACK ? 1f : 0f;
+                wL = sl == S_LEFT || sl == S_RUNL || sl == S_CLEFT ? 1f : 0f;
+                wR = sl == S_RIGHT || sl == S_RUNR || sl == S_CRIGHT ? 1f : 0f;
+                if (!moving) wF = 1f;
+                _runW = run ? 1f : 0f;
+                _speedSmooth = run ? Plugin.ClipRunSpeed.Value : crouched && moving ? Plugin.ClipCrouchSpeed.Value : moving ? Plugin.ClipWalkSpeed.Value : 0f;
+            }
+            else if (pv >= GunPose.P_RELOAD) { _crouch = 0f; m = 0f; wF = 1f; wB = wL = wR = 0f; _runW = 0f; _speedSmooth = 0f; }
+
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
@@ -628,11 +647,11 @@ namespace FemalePlayer
             {
                 _lastWeapon = weapon; _weaponSince = Time.time;
                 _fireW = 0f; _reloading = false; _reloadW = 0f; _reloadFresh = false; _upperClip = "";
-                GunPose.Flush();
+                GunPose.Flush(); GunPose.ResetSelection();
                 Plugin.Verbose("Weapon: " + (weapon == "" ? "none" : weapon + " (" + kind + ")"));
             }
             var fireSet = rifleSet ? _fire : pistolSet ? _pfire : null;
-            bool firing = !Game.Paused && Input.GetMouseButton(0) && fireSet != null && !_reloading && Time.time >= _throwUntil;
+            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && fireSet != null && !_reloading && Time.time >= _throwUntil;
             _fireW = _snap ? (firing ? 1f : 0f) : Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
             if (_snap) { _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
             if (_rifle != null || _pistol != null)
@@ -652,10 +671,16 @@ namespace FemalePlayer
 
             // upper body: fire / reload / melee / throw / aim
             bool live = !Game.Paused;
-            bool fire = live && Input.GetMouseButton(0);
+            bool fire = live && (pvFire || Input.GetMouseButton(0));
             bool click = live && Input.GetMouseButtonDown(0);
             bool reloadingNow = (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && ReloadNow(weapon);
+            if (pv == GunPose.P_RELOAD) reloadingNow = true;   // selected: over and over
             if (reloadingNow && !_reloading) { _upperClip = ""; _reloadStart = Time.time; }
+            if (pv == GunPose.P_RELOAD)
+            {
+                var rc = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
+                if (rc != null && Time.time - _reloadStart > rc.length) { _upperClip = ""; _reloadStart = Time.time; }
+            }
             _reloading = reloadingNow;
             _reloadUntil = _reloading ? Time.time + 0.05f : 0f;
 
@@ -671,15 +696,15 @@ namespace FemalePlayer
             if (jumpPress || launched)
             {
                 _jumpAt = Time.time;
-                string jc = kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump"
-                          : kind == Props.Kind.Pistol && Anims.Get("PistolJump") != null ? "PistolJump" : "Jump";
-                StartAction(jc, Plugin.JumpClipStart.Value);
+                StartAction(JumpClip(kind), Plugin.JumpClipStart.Value);
             }
             // landed (Falling -> Idle) well after the take-off: let the jump clip go (the clip's own landing may come later than the game's)
             if (_jumpState == "Falling" && js == "Idle" && _actionClip != null && _actionClip.EndsWith("Jump") && Time.time - _jumpAt > 0.25f && Time.time < _actionUntil)
                 _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.3f);
             _jumpState = js;
+            if (pv == GunPose.P_JUMP && Time.time > _actionUntil - 0.2f) StartAction(JumpClip(kind), Plugin.JumpClipStart.Value);   // selected: over and over
             UpdateAction(dt);
+            Groups(kind, rifleSet ? _rifle : pistolSet ? _pistol : _unarmed, fireSet);
 
             string meleeClip = Anims.Get("Melee") != null ? "Melee" : Plugin.MeleeClip.Value;
             // a click swings once; holding the button swings again and again (the game repeats the first-person swing too)
@@ -786,10 +811,51 @@ namespace FemalePlayer
                 _poseW[GunPose.FIRE0 + i] = (1f - R) * F * _slotW[i];
             }
             _poseW[GunPose.P_RELOAD] = R;
+            // a jump (whole-body action layer) takes over as much as its layer weight
+            float J = _actionClip != null && _actionClip.EndsWith("Jump") ? _actionW : 0f;
+            for (int i = 0; i < GunPose.P_JUMP; i++) _poseW[i] *= 1f - J;
+            _poseW[GunPose.P_JUMP] = J;
+            int pv = GunPose.Preview;
+            if (pv >= 0) for (int i = 0; i < _poseW.Length; i++) _poseW[i] = i == pv ? 1f : 0f;
+        }
+
+        private string JumpClip(Props.Kind kind)
+        {
+            return kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump"
+                 : kind == Props.Kind.Pistol && Anims.Get("PistolJump") != null ? "PistolJump" : "Jump";
+        }
+
+        // which animations the drawn weapon really has and which of them are the same clip (WalkBack = Walk reversed, a missing strafe = the walk,
+        // a firing slot without its own clip = the plain one ...): GunPose shows each clip once (Numpad 9/3) and an edit applies to every entry
+        // that plays it. Rifles: Rifle* clips, pistols / SMGs: Pistol* clips, anything else: the unarmed set.
+        private Props.Kind _groupsKind = (Props.Kind)(-1);
+        private void Groups(Props.Kind kind, LocoSet set, LocoSet fireSet)
+        {
+            if (kind == _groupsKind) return;
+            _groupsKind = kind;
+            int n = GunPose.Poses.Length;
+            var clip = new AnimationClip[n];
+            if (set != null) for (int i = 0; i < N; i++) clip[i] = set.P[i].GetAnimationClip();
+            if (fireSet != null) for (int i = 0; i < N; i++) clip[GunPose.FIRE0 + i] = fireSet.P[i].GetAnimationClip();
+            if (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) clip[GunPose.P_RELOAD] = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
+            if (kind != Props.Kind.None) clip[GunPose.P_JUMP] = Anims.Get(JumpClip(kind));
+            var rep = new int[n];
+            var names = new string[n];
+            for (int i = 0; i < n; i++)
+            {
+                rep[i] = -1;
+                if (clip[i] == null) continue;
+                rep[i] = i;
+                for (int j = 0; j < i; j++) if (clip[j] == clip[i]) { rep[i] = rep[j]; break; }
+                names[i] = clip[i].name;
+            }
+            GunPose.SetGroups(rep, names);
         }
 
         private int DominantPose()
         {
+            int pv = GunPose.Preview;
+            if (pv >= 0) return pv;
             int best = 0;
             for (int i = 1; i < _poseW.Length; i++) if (_poseW[i] > _poseW[best]) best = i;
             return best;

@@ -20,15 +20,15 @@ namespace FemalePlayer
     // weapon into absolute poses (Body.PoseProp -> ConvertLegacy), then never read again for that weapon.
     internal static class GunPose
     {
-        // 0..12: the locomotion clips (same order as Body's slots), 13..25: the same slots of the firing set, 26: reload
-        public const int SLOTS = 13, FIRE0 = 13, P_RELOAD = 26;
+        // 0..12: the locomotion clips (same order as Body's slots), 13..25: the same slots of the firing set, 26: reload, 27: jump
+        public const int SLOTS = 13, FIRE0 = 13, P_RELOAD = 26, P_JUMP = 27;
         public static readonly string[] Poses =
         {
             "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "RunStrafeLeft", "RunStrafeRight",
             "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight",
             "Fire", "FireWalk", "FireWalkBack", "FireStrafeLeft", "FireStrafeRight", "FireRun", "FireRunStrafeLeft", "FireRunStrafeRight",
             "CrouchFire", "FireCrouchWalk", "FireCrouchWalkBack", "FireCrouchStrafeLeft", "FireCrouchStrafeRight",
-            "Reload",
+            "Reload", "Jump",
         };
         public static bool IsFire(int pose) { return pose >= FIRE0 && pose < P_RELOAD; }
         private static int PoseIndex(string name) { return Array.IndexOf(Poses, name); }
@@ -198,12 +198,58 @@ namespace FemalePlayer
         // the animation's own entry (live edit > file > built in), null when it has none
         public static float[] Own(string weapon, int pose)
         {
+            var v = OwnExact(weapon, pose);
+            if (v == null && _rep != null && pose < _rep.Length && _rep[pose] >= 0 && _rep[pose] != pose) v = OwnExact(weapon, _rep[pose]);   // same clip as an earlier entry
+            return v;
+        }
+
+        private static float[] OwnExact(string weapon, int pose)
+        {
             string k = weapon + "|" + Poses[pose];
             if (_live != null && _liveKey == k) return _live;
             float[] v;
             if (_user.TryGetValue(k, out v)) return v;
             if (_builtin.TryGetValue(k, out v)) return v;
             return null;
+        }
+
+        // ---------------- which entries play the same clip (set by Body for the drawn weapon)
+        private static int[] _rep;          // pose -> first pose that plays the same clip, -1 = the weapon doesn't play it
+        private static string[] _names;     // pose -> clip name
+        private static readonly List<int> _cycle = new List<int>();
+        public static void SetGroups(int[] rep, string[] names)
+        {
+            _rep = rep; _names = names;
+            _cycle.Clear();
+            for (int i = 0; i < rep.Length; i++) if (rep[i] == i) _cycle.Add(i);
+            ResetSelection();
+        }
+        private static int Rep(int pose) { return _rep != null && pose < _rep.Length && _rep[pose] >= 0 ? _rep[pose] : pose; }
+        // every entry that plays the same clip as pose
+        private static List<int> Members(int pose)
+        {
+            var l = new List<int>();
+            int r = Rep(pose);
+            if (_rep == null) { l.Add(pose); return l; }
+            for (int i = 0; i < _rep.Length; i++) if (i == r || _rep[i] == r) l.Add(i);
+            if (!l.Contains(pose)) l.Add(pose);
+            return l;
+        }
+        private static void Put(string weapon, int pose, float[] v)
+        {
+            foreach (var i in Members(pose))
+            {
+                if (v == null) _user.Remove(weapon + "|" + Poses[i]);
+                else _user[weapon + "|" + Poses[i]] = (float[])v.Clone();
+            }
+        }
+        private static string Label(int pose)
+        {
+            string clip = _names != null && pose < _names.Length && _names[pose] != null ? _names[pose] : Poses[pose];
+            var m = Members(pose);
+            var parts = new List<string>();
+            foreach (var i in m) parts.Add(Poses[i]);
+            return clip + " (" + string.Join(", ", parts.ToArray()) + ")";
         }
 
         public static bool HasPose(string weapon, int pose) { return !string.IsNullOrEmpty(weapon) && Own(weapon, pose) != null; }
@@ -238,15 +284,17 @@ namespace FemalePlayer
 
         public static void SetLive(string weapon, int pose, float[] v)
         {
+            pose = Rep(pose);
             string k = weapon + "|" + Poses[pose];
             if (_liveKey != k) Flush();
-            _liveKey = k; _live = v;
+            _liveKey = k; _live = v; _liveWeapon = weapon; _livePose = pose;
         }
+        private static string _liveWeapon; private static int _livePose;
 
         // writes the edited pose (once, when the keys are let go / the weapon or animation changes)
         public static void Flush()
         {
-            if (_live != null && _liveKey != null) { _user[_liveKey] = _live; _live = null; _liveKey = null; Save(); }
+            if (_live != null && _liveKey != null) { var v = _live; _live = null; _liveKey = null; Put(_liveWeapon, _livePose, v); Save(); }
             _live = null; _liveKey = null;
         }
 
@@ -293,7 +341,8 @@ namespace FemalePlayer
 
         // ---------------- keys (WeaponAdjustment)
         // Numpad 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 (or 0 . Enter) switches MOVING <-> ROTATING (8/2 muzzle up/down,
-        // 6/4 muzzle right/left, 7/1 roll). The animation edited is the one she is in (walk, crouch, fire ... to tune it). Numpad - = delete the animation's own
+        // 6/4 muzzle right/left, 7/1 roll). Numpad 9/3 select the next/previous animation the drawn weapon has (each clip once; she plays it standing
+        // still), after the last one back to what she really plays. An edit applies to every entry that plays the same clip. Numpad - = delete the animation's own
         // pose (it shows the weapon's Idle pose again), Numpad / = copy the shown pose, Numpad * = paste it into the current animation.
         // Shift/Ctrl can't be used: with NumLock on, Shift+Numpad 8 arrives as the Up arrow.
         private static bool _rotateMode;
@@ -302,6 +351,17 @@ namespace FemalePlayer
         private static string _hint = "", _note = "";
 
         public static bool Editing { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value; } }
+        // Numpad 9/3: the selected animation of the drawn weapon (index into _cycle), played standing still; -1 = what she really plays
+        private static int _sel = -1;
+        public static int Preview { get { return Editing && ThirdPerson.On && _sel >= 0 && _sel < _cycle.Count ? _cycle[_sel] : -1; } }
+        public static void ResetSelection() { _sel = -1; }
+        private static void Step(int d)
+        {
+            if (_cycle.Count == 0) { _sel = -1; return; }
+            _sel += d;
+            if (_sel >= _cycle.Count) _sel = -1;
+            else if (_sel < -1) _sel = _cycle.Count - 1;
+        }
 
         private static bool Pressed(params KeyCode[] keys)
         {
@@ -326,18 +386,20 @@ namespace FemalePlayer
             _hint = "";
             if (!Editing || string.IsNullOrEmpty(weapon) || Time.timeScale < 0.01f) { Flush(); return false; }
             if (Pressed(KeyCode.Keypad5, KeyCode.Keypad0, KeyCode.KeypadPeriod, KeyCode.KeypadEnter, KeyCode.Clear)) _rotateMode = !_rotateMode;
-            if (Pressed(KeyCode.KeypadMinus)) { Flush(); if (_user.Remove(weapon + "|" + Poses[pose])) Save(); }
+            if (Pressed(KeyCode.Keypad9)) { Flush(); Step(+1); }
+            if (Pressed(KeyCode.Keypad3)) { Flush(); Step(-1); }
+            if (Pressed(KeyCode.KeypadMinus)) { Flush(); Put(weapon, pose, null); Save(); }
             if (Pressed(KeyCode.KeypadDivide)) _clip = (float[])shown.Clone();
-            if (Pressed(KeyCode.KeypadMultiply) && _clip != null) { Flush(); _user[weapon + "|" + Poses[pose]] = (float[])_clip.Clone(); Save(); }
+            if (Pressed(KeyCode.KeypadMultiply) && _clip != null) { Flush(); Put(weapon, pose, _clip); Save(); }
             float a = Axis(KeyCode.Keypad7, KeyCode.Keypad1), b = Axis(KeyCode.Keypad8, KeyCode.Keypad2), c = Axis(KeyCode.Keypad6, KeyCode.Keypad4);
             if (_rotateMode) rot = new Vector3(b, c, a) * 45f;   // pitch (muzzle up), yaw (muzzle right), roll - degrees per second
             else move = new Vector3(c, b, a) * 3f;               // right, up, forward - cm per second
             bool anyKey = a != 0f || b != 0f || c != 0f;
             if (!anyKey) Flush();
             bool own = HasPose(weapon, pose);
-            _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   animation: " + Poses[pose] + "   (" + _status + ")"
+            _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   " + (_sel >= 0 ? "SELECTED " + (_sel + 1) + "/" + _cycle.Count + ": " : "playing: ") + Label(pose) + "   [" + _status + "]"
                   + (own ? "" : pose != 0 && HasPose(weapon, 0) ? " - shows the Idle pose" : " - shows the raider grip") + "   pose " + string.Join(", ", Array.ConvertAll(shown, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
-                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/FemalePlayer/weapon-poses.txt"
+                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = next/previous animation of this weapon (then back to what she plays).  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/FemalePlayer/weapon-poses.txt"
                   + (string.IsNullOrEmpty(_note) ? "" : "\n" + _note);
             return anyKey;
         }
