@@ -36,9 +36,9 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | General | ReplaceDriver | true | She sits in the driver's seat |
 | General | ThirdPersonOnFoot | true | Change Camera works on foot |
 | General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
-| Gun position | WeaponAdjustment | false | In third person: numpad 7/1 forward-back, 8/2 up-down, 6/4 right-left, with Shift 7/1 roll, 8/2 pitch, 6/4 yaw; saved into the weapon's line |
-| Gun position | AlignRifleToHands | true | With the Mixamo clips: rifle barrel from her right hand to her left |
-| Gun position | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Fine-tune that weapon in her hand in third person: right, up, forward (cm), pitch, yaw, roll (°). Applied live |
+| Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2 up-down, 6/4 right-left, 7/1 forward-back; Numpad 5 switches to rotating (8/2 muzzle up-down, 6/4 muzzle right-left, 7/1 roll); saved into the weapon's line |
+| Weapon grip | AutoGrip | true | With the Mixamo clips: the rifle's grip is taken once from the rifle idle pose (barrel from right hand to left hand) and then kept fixed in her hand |
+| Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | That weapon's grip in her right hand, in the hand's own axes (cm, degrees) - holds in every animation |
 | Debug | VerboseLog | false | Detailed log |
 
 Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`

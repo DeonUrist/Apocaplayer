@@ -41,7 +41,8 @@ namespace FemalePlayer
                 if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
                 if (Plugin.FemaleArms.Value) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
-                GunPose.Tick(ThirdPerson.On && !Game.InCar ? Game.DrawnWeapon : "");
+                GunPose.ClearHint();                       // set again in LateUpdate while a weapon is being adjusted
+                if (!ThirdPerson.On || Game.InCar) GunPose.Flush();
             }
             catch (Exception e) { Plugin.Log.LogError("Update: " + e); }
         }

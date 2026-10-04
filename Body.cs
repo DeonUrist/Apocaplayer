@@ -45,7 +45,7 @@ namespace FemalePlayer
         private float _phase, _speedSmooth, _strafeSmooth, _crouch, _prone, _runW, _meleeUntil;
         private float _legThigh, _legShin;
         private bool _inCar;
-        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand;
+        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand; private bool _gripDone; private float _propSince;
 
         public enum View { FirstPerson, ThirdPerson }
 
@@ -608,20 +608,43 @@ namespace FemalePlayer
         // Point the barrel from her right hand toward her left (support) hand, turning about the right hand, so it lies along both hands.
         // every frame: the prop's hand pose, then (rifles, bundle clips) the barrel along both hands, then the player's own offset for this weapon
         // from the [Gun position] settings (her right/up/forward in cm, pitch/yaw/roll in degrees, about the hand holding it)
+        // every frame: the prop's grip in her right hand (raider pose, optionally turned toward the left hand) + the player's grip offset for
+        // this weapon in the HAND's axes - so it stays glued to the hand in every animation. WeaponAdjustment edits that offset with the numpad
+        // (moves/turns along her body axes, converted to the hand's axes).
         private void PoseProp(Props.Kind kind, Quaternion yaw)
         {
             if (_prop == null || _propHand == null) return;
             var t = _prop.transform;
-            t.localPosition = _propPos; t.localRotation = _propRot;   // from the hand pose every frame (no drift)
-            if (_mixamo && kind == Props.Kind.Rifle) AlignProp();
-            var o = GunPose.For(_propFor);
-            if (o == null) return;
+            t.localPosition = _propPos; t.localRotation = _propRot;
+            // auto grip: the first time she stands still with this rifle in the rifle idle, point it from her right hand at her left hand
+            // (= where the Mixamo rifle clips expect the gun) and keep that as a FIXED grip in the hand - so it is the same in every animation
+            if (_mixamo && kind == Props.Kind.Rifle && !_gripDone && Plugin.AlignGun.Value && _speedSmooth < 0.1f && _crouch < 0.01f
+                && _armW > 0.99f && _fireW < 0.01f && Time.time > _reloadUntil && Time.time > _throwUntil && Time.time > _propSince + 0.5f)
+            {
+                AlignProp();
+                _propPos = t.localPosition; _propRot = t.localRotation; _gripDone = true;
+                Plugin.Verbose("Third person: " + _propFor + " grip taken from the rifle idle pose");
+            }
+            Vector3 basePos = t.localPosition; Quaternion baseRot = t.localRotation;
+            var o = GunPose.For(_propFor) ?? new float[6];
+            t.localPosition = basePos + new Vector3(o[0], o[1], o[2]) * 0.01f;
+            t.localRotation = baseRot * Quaternion.Euler(o[3], o[4], o[5]);
+
+            Vector3 move, rot;
+            if (!GunPose.Keys(_propFor, out move, out rot)) return;
+            float dt = Time.unscaledDeltaTime;
             Vector3 right = yaw * Vector3.right, fwd = yaw * Vector3.forward;
             Vector3 barrel = _propBarrel != Vector3.zero ? t.TransformDirection(_propBarrel) : fwd;
-            var q = Quaternion.AngleAxis(o[5], barrel) * Quaternion.AngleAxis(o[4], Vector3.up) * Quaternion.AngleAxis(-o[3], right);
-            Vector3 pivot = _propHand.position;
-            t.position = pivot + q * (t.position - pivot) + (right * o[0] + Vector3.up * o[1] + fwd * o[2]) * 0.01f;
-            t.rotation = q * t.rotation;
+            var q = Quaternion.AngleAxis(rot.z * dt, barrel) * Quaternion.AngleAxis(rot.y * dt, Vector3.up) * Quaternion.AngleAxis(-rot.x * dt, right);
+            Vector3 wp = t.position + (right * move.x + Vector3.up * move.y + fwd * move.z) * (0.01f * dt);
+            Quaternion wr = q * t.rotation;
+            // back into the hand's axes
+            Vector3 lp = _propHand.InverseTransformPoint(wp);
+            Quaternion lr = Quaternion.Inverse(_propHand.rotation) * wr;
+            t.localPosition = lp; t.localRotation = lr;
+            Vector3 dp = (lp - basePos) * 100f;
+            Vector3 de = (Quaternion.Inverse(baseRot) * lr).eulerAngles;
+            GunPose.SetLive(_propFor, new[] { dp.x, dp.y, dp.z, Mathf.DeltaAngle(0f, de.x), Mathf.DeltaAngle(0f, de.y), Mathf.DeltaAngle(0f, de.z) });
         }
 
         private void AlignProp()
@@ -713,6 +736,7 @@ namespace FemalePlayer
             _prop = Props.Instantiate(p, hand, otherHand);
             _propBarrel = Props.Barrel(_prop);
             _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation; _propHand = hand;
+            _gripDone = false; _propSince = Time.time;
             Plugin.Verbose("Third person: barrel axis of " + p.Key + " = " + _propBarrel);
             Plugin.Verbose("Third person: " + weapon + " -> " + p.Owner + "'s " + p.Source.name + " on " + p.Hand);
         }

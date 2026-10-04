@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.3.1";
+        public const string VERSION = "0.3.2";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -48,8 +48,8 @@ namespace FemalePlayer
             ReplaceDriver = Config.Bind("General", "ReplaceDriver", true, "She sits in the driver's seat instead of the game's driver model (seen from the car's third-person camera, and her arms on the wheel in first person).");
             ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key also works on foot: a camera behind her shoulder (hold the middle mouse button to orbit around her). Your shots still go where the crosshair of the first-person camera points.");
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
-            AlignGun = Config.Bind("Gun position", "AlignRifleToHands", true, "Third person with the Mixamo clips: turn a rifle so the barrel runs from her right hand to her left hand. Off = the raider's own grip only (then use the per-weapon lines below).");
-            WeaponAdjust = Config.Bind("Gun position", "WeaponAdjustment", false, "On: in third person move the weapon in her hand with the numpad - 7/1 forward/back, 8/2 up/down, 6/4 right/left; hold Shift to rotate instead (7/1 roll, 8/2 pitch, 6/4 yaw). The values are saved into that weapon's line below.");
+            AlignGun = Config.Bind("Weapon grip", "AutoGrip", true, "Third person with the Mixamo clips: when she first stands still holding a rifle, the rifle is pointed from her right hand to her left hand (where the rifle clips expect it) and that grip is then kept fixed in her hand for every animation. The per-weapon lines below fine-tune it.");
+            WeaponAdjust = Config.Bind("Weapon grip", "WeaponAdjustment", false, "On: in third person move the weapon in her hand with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it - 8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll. Saved into that weapon's line below when you let go; it then holds in every animation.");
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines (what was found, which clips/props are used).");
