@@ -88,8 +88,13 @@ namespace FemalePlayer
         private float _throwFrom;
         private bool _throwFresh;
         private const float ThrowRelease = 0.85f, ThrowLead = 0.4f;
+        private float _throwAt = -10f;
+        private bool _throwAim;          // the quick grenade: aimed at where the game's grenade flies (ThrowAim)
         private void StartThrow(bool rightHand = false, bool timed = false)
         {
+            if (Time.time - _throwAt < 1.2f) return;   // one throw at a time (the lance's FSM can pass "on" again around its throw)
+            _throwAt = Time.time;
+            _throwAim = !rightHand; _aimMeasured = false;
             string n = rightHand && Anims.Get("ThrowRight") != null ? "ThrowRight" : "Throw";
             var c = Anims.Get(n);
             if (c == null) return;
@@ -112,7 +117,7 @@ namespace FemalePlayer
             string st; float tv;
             if (!Game.Attack(weapon, out st, out tv)) { if (click) StartThrow(true); _throwFor = ""; return; }
             if (weapon != _throwFor) { _throwFor = weapon; _throwState = st; return; }
-            if (_throwState == "on" && st != "on" && st != "" && st != "InMenu") StartThrow(true, true);
+            if (_throwState == "on" && st != "on" && st != "" && st != "InMenu") { Plugin.Verbose("Throw: " + weapon + " [Attack] on -> " + st); StartThrow(true, true); }
             _throwState = st;
         }
         private readonly Dictionary<string, AnimationClip> _clips = new Dictionary<string, AnimationClip>();
@@ -376,6 +381,38 @@ namespace FemalePlayer
         private readonly Dictionary<string, float> _aimYaw = new Dictionary<string, float>();
         private string _strikeHand;
         private bool _aimMeasured;
+        // the quick grenade leaves from the game's "spawn throw" point (right of her head) straight along the view: her throwing hand (left) is
+        // turned (spine yaw, learned per clip like the punches) to be on that line when she lets go
+        private Transform _throwSpawn;
+        private void ThrowAim()
+        {
+            if (!_throwAim || Time.time >= _throwUntil || !_upper.IsValid() || _upperClip != _throwClip) return;
+            float t = (float)_upper.GetTime(), rel = ThrowRelease;
+            float k = t < rel ? Mathf.Clamp01((t - _throwFrom) / 0.2f) : Mathf.Clamp01(1f - (t - rel - 0.25f) / 0.4f);
+            float aim;
+            string key = "aim:" + _throwClip;
+            _aimYaw.TryGetValue(key, out aim);
+            float d = aim * k;
+            if (Mathf.Abs(d) > 0.01f)
+            {
+                Turn("mixamorig:Spine", Vector3.up, d / 3f);
+                Turn("mixamorig:Spine1", Vector3.up, d / 3f);
+                Turn("mixamorig:Spine2", Vector3.up, d / 3f);
+            }
+            if (_aimMeasured || t < rel) return;
+            _aimMeasured = true;
+            Transform hand, chest;
+            if (!Bones.TryGetValue("mixamorig:LeftHand", out hand) || !Bones.TryGetValue("mixamorig:Spine2", out chest)) return;
+            if (_throwSpawn == null && Game.PlayerCamera != null) _throwSpawn = Game.FindDeep(Game.PlayerCamera, "spawn throw");
+            var c = _anim.InverseTransformPoint(chest.position);
+            var v = _anim.InverseTransformPoint(hand.position) - c;
+            float tx = _throwSpawn != null ? (_anim.InverseTransformPoint(_throwSpawn.position) - c).x : 0f;   // the grenade's line, sideways from her chest
+            if (v.z < 0.1f) return;
+            float off = (Mathf.Atan2(v.x, v.z) - Mathf.Atan2(tx, Mathf.Max(0.3f, v.z))) * Mathf.Rad2Deg;   // + = hand right of the grenade's line
+            _aimYaw[key] = Mathf.Clamp(aim - off * (k > 0.99f ? 1f : 0.5f), -45f, 45f);
+            Plugin.Verbose("Throw aim: hand " + off.ToString("0.0") + " deg off the grenade's line (spawn " + tx.ToString("0.00") + " m) -> spine turn " + _aimYaw[key].ToString("0.0"));
+        }
+
         private void PunchAim()
         {
             if (_strike == null || _strikeHand == null || !_striking) return;
@@ -898,7 +935,7 @@ namespace FemalePlayer
             else { _atkFor = ""; _striking = false; _strikeW = 0f; _meleeStart = 0f; }
             if (kind == Props.Kind.Throw) WatchThrow(weapon, click); else _throwFor = "";
             string gs = Game.GrenadeState;   // the quick grenade (Throw Grenade key) is not a drawn weapon: watch its Attack FSM
-            if (gs == "fire" && _grenadeState != "fire") StartThrow();
+            if (gs == "fire" && _grenadeState != "fire") StartThrow(false, true);   // fire -> 0.4 s -> throw: her release on the grenade's
             _grenadeState = gs;
 
             if (Time.time < _throwUntil && Anims.Get(_throwClip) != null)
@@ -966,6 +1003,7 @@ namespace FemalePlayer
                 Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
+            ThrowAim();
             PunchAim();
             PoseProp(kind, yaw);
         }
