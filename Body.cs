@@ -448,6 +448,26 @@ namespace FemalePlayer
         }
 
         // first person: no head; her own arms only in a car with nothing drawn (hands on the wheel) - with a gun the game draws its arms
+        // a copy of her standing in for another Player2 man (the TAB screen's player model): same layer, its torso size, its pose every frame
+        public void LateMirror(Transform[] src, int layer)
+        {
+            if (!_inCar) { _inCar = true; _animator.enabled = false; UpdateProp(""); }   // _inCar = "posed from outside, no Animator"
+            if (Root.layer != layer) foreach (var t in Root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+            Transform hips, head;
+            float k = 1f;
+            if (Bones.TryGetValue("mixamorig:Hips", out hips) && Bones.TryGetValue("mixamorig:Head", out head))
+            {
+                float dSrc = Vector3.Distance(src[0].position, src[5].position);            // spine1 -> head of the man
+                float dHer = Vector3.Distance(hips.position, head.position) / Mathf.Max(1e-4f, Root.transform.lossyScale.x);
+                if (dSrc > 1e-4f && dHer > 1e-4f) k = dSrc / dHer;
+            }
+            Root.transform.localScale = Vector3.one * k;
+            Root.transform.SetPositionAndRotation(src[0].position, src[0].rotation);
+            CarSeat.PoseFrom(src, Bones, _bindLocal);
+            if (_smr.sharedMesh != Model.Full) _smr.sharedMesh = Model.Full;
+            _smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
         public void SetMesh(bool firstPerson, bool inCar, bool gameArms = false)
         {
             var want = !firstPerson ? Model.Full : inCar && !gameArms ? Model.NoHead : Model.NoArms;

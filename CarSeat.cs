@@ -80,11 +80,24 @@ namespace FemalePlayer
         public static void Pose(Dictionary<string, Transform> bones, Dictionary<string, Quaternion> bindLocal)
         {
             if (_seat == null) return;
+            PoseFrom(_src, bones, bindLocal);
+        }
+
+        // the bones of a Player2 man (car seat, TAB-screen model) -> her skeleton
+        public static Transform[] FindSource(Transform model)
+        {
+            var src = new Transform[Pairs.Length];
+            for (int i = 0; i < Pairs.Length; i++) { src[i] = Game.FindDeep(model, Pairs[i].Src); if (src[i] == null) return null; }
+            return src;
+        }
+
+        public static void PoseFrom(Transform[] src, Dictionary<string, Transform> bones, Dictionary<string, Quaternion> bindLocal)
+        {
             for (int i = 0; i < Pairs.Length; i++)
             {
                 Transform dst;
-                if (!bones.TryGetValue(Pairs[i].Dst, out dst) || _src[i] == null) continue;
-                var s = _src[i];
+                if (!bones.TryGetValue(Pairs[i].Dst, out dst) || src[i] == null) continue;
+                var s = src[i];
                 if (i == 0) dst.position = s.TransformPoint(Pairs[i].Off);
                 dst.rotation = s.rotation * Pairs[i].Rot;
             }

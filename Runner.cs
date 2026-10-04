@@ -18,6 +18,7 @@ namespace FemalePlayer
             Game.Reset();
             Arms.OnSceneLoaded();
             Car.Reset();
+            InventoryModel.Reset();
             Props.OnSceneLoaded();
         }
 
@@ -34,7 +35,7 @@ namespace FemalePlayer
                 bool on = Plugin.Enabled.Value;
                 if (!on)
                 {
-                    if (_wasEnabled) { DestroyBody(); CarSeat.Detach(); ThirdPerson.Off(); Arms.Restore(); Plugin.Log.LogInfo("Disabled: the game's own player is back"); }
+                    if (_wasEnabled) { DestroyBody(); CarSeat.Detach(); ThirdPerson.Off(); Arms.Restore(); InventoryModel.Off(); Plugin.Log.LogInfo("Disabled: the game's own player is back"); }
                     _wasEnabled = false;
                     return;
                 }
@@ -98,6 +99,7 @@ namespace FemalePlayer
                     mode = third ? "on foot, third person" : "on foot, first person";
                 }
                 if (mode != _lastMode) { _lastMode = mode; Plugin.Verbose("View: " + mode); }
+                InventoryModel.LateTick();
             }
             catch (Exception e) { Plugin.Log.LogError("LateUpdate: " + e); _nextBuild = Time.unscaledTime + 5f; }
         }
