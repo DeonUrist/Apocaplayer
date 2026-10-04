@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // The weapon in her hand in third person = the game's own NPC prop for that weapon (Flexa's akm_trash_model, Sprokka's 22_pipe_pistol,
     // Lugnut's slamberg_500_chopped ...), at the exact spot the NPC prefab holds it on its mixamorig:LeftHand (guns) / RightHand (blades).
@@ -129,10 +129,10 @@ namespace FemalePlayer
         // a render-only copy of the prop, parented to the given hand bone at the NPC's local pose
         public static GameObject Instantiate(Prop p, Transform hand, bool mirrorToRightHand)
         {
-            var holder = new GameObject("FemalePlayer.PropHolder");
+            var holder = new GameObject("Apocaplayer.PropHolder");
             holder.SetActive(false);
             var go = UnityEngine.Object.Instantiate(p.Source, holder.transform, false);
-            go.name = "FemalePlayerProp_" + p.Key;
+            go.name = "ApocaplayerProp_" + p.Key;
             // skinned parts (the crossbow's bow limbs / string): kept when their bones are inside the copy, else turned into a plain mesh in
             // its bind pose (their bones would be the NPC's)
             var keep = new HashSet<Component>();

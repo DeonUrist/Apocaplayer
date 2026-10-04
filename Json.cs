@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // Minimal JSON reader for glTF: objects -> Dictionary<string, object>, arrays -> List<object>,
     // numbers -> double, strings, bools, null. No dependency outside mscorlib.

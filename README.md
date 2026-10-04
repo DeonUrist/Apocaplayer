@@ -1,6 +1,7 @@
-# FemalePlayer
+# Apocaplayer
 
-BepInEx 5 mod for **Apocalypter**: play as a woman.
+BepInEx 5 mod for **Apocalypter**: see your character - a full body in first person, a third-person camera on foot and in cars,
+and a choice of **Female** (her own model) or **Male** (the game's own player man), with the same animations and features for both.
 
 - **First person** – her body under the camera: legs, hips and torso when you look down, her shadow on the ground.
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
@@ -14,27 +15,32 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
 - **Cars** – she sits in the driver's seat instead of the game's seated man (car third-person camera), and in first
   person you see her legs and arms on the wheel.
 
-The default model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
+The female model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
 ## Install
 
-Copy the `FemalePlayer` folder into `BepInEx\plugins\`:
+Copy the `Apocaplayer` folder into `BepInEx\plugins\`:
 
 ```
-BepInEx\plugins\FemalePlayer\FemalePlayer.dll
-BepInEx\plugins\FemalePlayer\Models\Player_female.glb
-BepInEx\plugins\FemalePlayer\Models\Player_female.png
-BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
+BepInEx\plugins\Apocaplayer\Apocaplayer.dll
+BepInEx\plugins\Apocaplayer\Models\Player_female.glb
+BepInEx\plugins\Apocaplayer\Models\Player_female.png
+BepInEx\plugins\Apocaplayer\Models\Player2_female_arms.png
+BepInEx\plugins\Apocaplayer\Models\Player_male.glb
+BepInEx\plugins\Apocaplayer\Models\Player_male.png
+BepInEx\plugins\Apocaplayer\Models\player_character_2_UI.png
+BepInEx\plugins\Apocaplayer\Models\apocaplayer_anims.bundle   (optional: the Mixamo animations, built with UnityAnims/)
+BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mods menu)
 ```
 
-## Settings (`BepInEx\config\com.denis.apocalypter.femaleplayer.cfg`, also in the Apocasetter Mods menu)
+## Settings (`BepInEx\config\com.denis.apocalypter.apocaplayer.cfg`, also in the Apocasetter Mods menu)
 
 | Section | Key | Default | |
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
 | General | IgnitionKey | E | In the driver's seat: one press turns the key and starts the engine, another stops it (the game's own stop and its sounds); "E - Start / Ignition" shows on the left, in the game's hint font, while the engine is off |
-| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/FemalePlayer/weapon-poses.txt` (overrides the built-in poses) |
+| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
 | Debug | ToggleMiddleMouse | false | Third person: off = hold the middle mouse button to orbit around her, back behind her on release; on = a click turns orbiting on / off |
 | Debug | VerboseLog | false | Detailed log |
 
@@ -45,7 +51,7 @@ the cursor ON SCREEN is picked - within 6 % of the screen height, visible from t
 
 Everything else is fixed: her body in first person, her arms, the driver and TAB picture, the third-person camera (Change Camera key, on
 foot and in cars) and the camera offsets are always on, as `H(...)` entries in `Plugin.cs` (change one to `Config.Bind(...)` to expose
-it). The mouse-wheel camera distances are remembered in `config/FemalePlayer/camera.cfg`.
+it). The mouse-wheel camera distances are remembered in `config/Apocaplayer/camera.cfg`.
 
 ## The male body
 
@@ -97,8 +103,8 @@ or a glTF animation sampler in the plugin (not written yet).
 
 ## Better animations (optional bundle)
 
-`UnityAnims/` is a tiny Unity 2020.3.49f1 project: drop Mixamo FBX files in, run *FemalePlayer → Build animation bundle*, and it
-writes `Models/femaleplayer_anims.bundle`. With at least `Idle` + `Walk` in it, her third-person body uses those clips (walk,
+`UnityAnims/` is a tiny Unity 2020.3.49f1 project: drop Mixamo FBX files in, run *Apocaplayer → Build animation bundle*, and it
+writes `Models/apocaplayer_anims.bundle`. With at least `Idle` + `Walk` in it, her third-person body uses those clips (walk,
 back, strafe, run, crouch, a rifle set, aim/fire/reload, pistol, melee, throw) instead of the raider clips and the procedural
 walk, unmirrored, with the raider gun models moved to her right hand. See `UnityAnims/README.md` for the file names.
 
@@ -112,5 +118,5 @@ cycle (0.35 s hands, 0.4 s machete). The blow times are read off the clips (`Bod
 ## Build
 
 `./build.sh` (mcs, against the game's own DLLs; `MANAGED=… BEPCORE=…` to override the paths) or `dotnet build`
-with `FemalePlayer.csproj` (deploys DLL + Models to the game). `tools/` holds the Python scripts used to read the game
+with `Apocaplayer.csproj` (deploys DLL + Models to the game). `tools/` holds the Python scripts used to read the game
 assets (UnityPy) and to bake/verify the arm texture and the car-seat retarget; they are not part of the build.

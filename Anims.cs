@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
-    // Optional humanoid clips from an AssetBundle (Models/femaleplayer_anims.bundle) built with Unity 2020.3.49f1 from Mixamo FBX files
+    // Optional humanoid clips from an AssetBundle (Models/apocaplayer_anims.bundle) built with Unity 2020.3.49f1 from Mixamo FBX files
     // (UnityAnims/ project in the repo). Clips are named after their FBX file: Idle, Walk, WalkBack, StrafeLeft, StrafeRight, Run,
     // CrouchIdle, CrouchWalk, the same with a "Rifle" prefix, RifleAim, RifleFire, RifleReload, PistolAim, PistolFire, PistolReload,
     // Melee, Throw. Humanoid clips retarget onto her (Flexa's avatar) through the Animator, whatever character they were made on.

@@ -6,18 +6,18 @@ using BepInEx.Logging;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
-    // Plays the game as a woman: a female body under the first-person camera (legs and torso when you look down,
+    // Your character in Apocalypter (female or the game's man): a female body under the first-person camera (legs and torso when you look down,
     // a shadow), her bare arms and gloves on every first-person weapon / item animation, an optional third-person
     // camera on foot (body animated with Flexa's own humanoid clips, the NPC gun model in her hand), and her in the
     // driver's seat of every car instead of the game's seated man.
     [BepInPlugin(GUID, NAME, VERSION)]
     public class Plugin : BaseUnityPlugin
     {
-        public const string GUID = "com.denis.apocalypter.femaleplayer";
-        public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.15.0";
+        public const string GUID = "com.denis.apocalypter.apocaplayer";
+        public const string NAME = "Apocaplayer";
+        public const string VERSION = "0.16.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -51,15 +51,15 @@ namespace FemalePlayer
         {
             Log = Logger;
             Dir = Path.GetDirectoryName(Info.Location);
-            _hidden = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "FemalePlayer"), "hidden-settings.not-saved"), false) { SaveOnConfigSet = false };
+            _hidden = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "hidden-settings.not-saved"), false) { SaveOnConfigSet = false };
 
             // the config file: General (Enabled, IgnitionKey) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
-            Enabled = Config.Bind("General", "Enabled", true, "Play as a woman. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
+            Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
             Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             IgnitionKey = Config.Bind("General", "IgnitionKey", KeyCode.E, "In the driver's seat: one press turns the key and starts the engine, another stops it. None = off.");
-            WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/FemalePlayer/weapon-poses.txt (overrides the built-in poses).");
+            WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the middle mouse button to orbit around her (back on release); on = a click turns orbiting on / off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
             BodyFirstPerson = H("General", "BodyFirstPerson", true, "See her body in first person: legs and torso when you look down, and her shadow.");
@@ -72,7 +72,7 @@ namespace FemalePlayer
             FirstPersonWeaponBack = H("Camera", "FirstPersonWeaponBack", 0.08f, "First person with a weapon drawn: her body moves this much (m) further back.");
             FirstPersonChestLean = H("Camera", "FirstPersonChestLean", 20f, "First person with a weapon drawn: her chest bends back by this many degrees.");
             // the mouse-wheel distances are remembered in their own file (not shown in the config / Apocasetter)
-            string camPath = Path.Combine(Path.Combine(Paths.ConfigPath, "FemalePlayer"), "camera.cfg");
+            string camPath = Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "camera.cfg");
             bool camFresh = !File.Exists(camPath);
             var cam = new ConfigFile(camPath, true);
             ThirdDistance = cam.Bind("Camera", "ThirdPersonDistance", 2.4f, new ConfigDescription("Third person on foot: camera distance, m (mouse wheel).", new AcceptableValueRange<float>(0.8f, 8f)));
@@ -84,7 +84,7 @@ namespace FemalePlayer
             TextureFile = H("Model", "Texture", "Models/Player_female.png", "Body texture relative to the mod folder.");
             ArmsTextureFile = H("Model", "ArmsTexture", "Models/Player2_female_arms.png", "Replacement for the game's Player2 texture atlas, used only on the first-person arms and kick leg.");
 
-            AnimBundleFile = H("Model", "AnimationBundle", "Models/femaleplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
+            AnimBundleFile = H("Model", "AnimationBundle", "Models/apocaplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
             JumpClipStart = H("Animation", "JumpClipStart", 0.2f, "Jump / RifleJump / PistolJump clips start this far in (share of the clip): Mixamo jumps crouch first, the game's jump leaves the ground at once.");
             PickAssistRadius = H("Camera", "PickAssistRadius", 0.06f, "Third person: an item / part / switch this close to the cursor on screen (share of the screen height) is picked even if the eye ray misses it.");
             StrikeWindup = H("Animation", "StrikeWindup", 0.08f, "Melee / bare hands: seconds her wind-up takes before the blow lands (the game hits the moment the swing starts).");
@@ -147,7 +147,7 @@ namespace FemalePlayer
         private static void EnsureRunner()
         {
             if (_runner != null) return;
-            _runner = new GameObject("FemalePlayer.Runner") { hideFlags = HideFlags.HideAndDontSave };
+            _runner = new GameObject("Apocaplayer.Runner") { hideFlags = HideFlags.HideAndDontSave };
             UnityEngine.Object.DontDestroyOnLoad(_runner);
             _runner.AddComponent<Runner>();
         }

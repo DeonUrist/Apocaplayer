@@ -3,7 +3,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // The TAB screen (PlayerSheet: ammo, bosses killed ...) shows the player as the game's texture player_character_2_UI (512 x 1024, the bearded
     // man, front view, black background; the game's own is in the repo, tools/ref). Swapping the texture on its UI elements didn't change what
@@ -68,7 +68,7 @@ namespace FemalePlayer
                 var f = game.format;
                 bool compress = f == TextureFormat.DXT1 || f == TextureFormat.DXT5;
                 var load = f == TextureFormat.DXT1 || f == TextureFormat.RGB24 ? TextureFormat.RGB24 : compress ? TextureFormat.RGBA32 : f;
-                var t = new Texture2D(2, 2, load, game.mipmapCount > 1) { name = "FemalePlayer TAB picture" };
+                var t = new Texture2D(2, 2, load, game.mipmapCount > 1) { name = "Apocaplayer TAB picture" };
                 if (!ImageConversion.LoadImage(t, File.ReadAllBytes(path), false)) throw new InvalidDataException("not a PNG/JPG");
                 if (t.width != game.width || t.height != game.height)
                 {   // scale to the game's size (bilinear, on the CPU)
@@ -95,7 +95,7 @@ namespace FemalePlayer
 
         private static Texture2D Copy(Texture2D src)
         {
-            var b = new Texture2D(src.width, src.height, src.format, src.mipmapCount > 1) { name = GameTexture + " (FemalePlayer backup)", hideFlags = HideFlags.DontUnloadUnusedAsset };
+            var b = new Texture2D(src.width, src.height, src.format, src.mipmapCount > 1) { name = GameTexture + " (Apocaplayer backup)", hideFlags = HideFlags.DontUnloadUnusedAsset };
             if (!CopyInto(src, b)) { UnityEngine.Object.Destroy(b); return null; }
             return b;
         }

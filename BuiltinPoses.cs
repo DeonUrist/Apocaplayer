@@ -1,6 +1,6 @@
-namespace FemalePlayer
+namespace Apocaplayer
 {
-    // Weapon poses hard-coded in the mod: Denis's final tuning (config/FemalePlayer/BuiltinPoses.generated.cs, 2026-10-04 17:44), every weapon x every animation
+    // Weapon poses hard-coded in the mod: Denis's final tuning (config/Apocaplayer/BuiltinPoses.generated.cs, 2026-10-04 17:44), every weapon x every animation
     // (29 each; an animation he didn't set = the pose it showed in game: its clip's first entry, else the weapon's Idle; run strafes of
     // rifles/pistols = their Run, as they now play RifleRun/PistolRun; rochester_m24_chopped = rochester_m24's). weapon-poses.txt overrides these.
     internal static class BuiltinPoses

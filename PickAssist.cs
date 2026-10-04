@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // Third person: picking what is under the crosshair. The game's picks (grab / carry items, use, vehicle parts, doors ...) all go through
     // PlayMaker's ActionHelpers.DoMousePick: one ray from the first-person eye through the cursor, at most `distance` long, cached per frame.

@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <AssemblyName>FemalePlayer</AssemblyName>
-    <RootNamespace>FemalePlayer</RootNamespace>
+    <AssemblyName>Apocaplayer</AssemblyName>
+    <RootNamespace>Apocaplayer</RootNamespace>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -12,7 +12,7 @@
     <GameDir Condition="'$(GameDir)' == ''">E:\SteamLibrary\steamapps\common\Apocalypter</GameDir>
     <ManagedDir>$(GameDir)\Apocalypter_Data\Managed</ManagedDir>
     <BepInExCore>$(GameDir)\BepInEx\core</BepInExCore>
-    <PluginDir>$(GameDir)\BepInEx\plugins\FemalePlayer</PluginDir>
+    <PluginDir>$(GameDir)\BepInEx\plugins\Apocaplayer</PluginDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -42,6 +42,7 @@
 
   <Target Name="DeployToGame" AfterTargets="Build">
     <Copy SourceFiles="$(OutDir)$(AssemblyName).dll" DestinationFolder="$(PluginDir)" />
+    <Copy SourceFiles="icon.png" DestinationFolder="$(PluginDir)" />
     <Copy SourceFiles="@(ModelFiles)" DestinationFolder="$(PluginDir)\Models\%(RecursiveDir)" />
     <Message Importance="high" Text="Deployed $(AssemblyName).dll + Models to $(PluginDir)" />
   </Target>

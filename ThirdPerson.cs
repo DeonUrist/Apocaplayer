@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // Third person on foot. The game only has a third-person camera in cars (DriveTrigger/3rdCamera, "Change Camera" button).
     // On foot we keep the PlayerCamera exactly where the game puts it (all shooting / picking / using raycasts start there) and only

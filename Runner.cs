@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     internal class Runner : MonoBehaviour
     {

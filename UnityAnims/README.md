@@ -1,6 +1,6 @@
-# FemalePlayer animation bundle (Unity 2020.3.49f1)
+# Apocaplayer animation bundle (Unity 2020.3.49f1)
 
-Builds `femaleplayer_anims.bundle`: humanoid animation clips that the mod plays on her body. Mixamo clips are made for the
+Builds `apocaplayer_anims.bundle`: humanoid animation clips that the mod plays on her body. Mixamo clips are made for the
 same `mixamorig` skeleton she has, and as Humanoid clips they fit her through the Animator.
 
 ## One-time setup
@@ -47,9 +47,9 @@ Everything except **Idle** and **Walk** is optional: whatever is missing falls b
 Only the third-person body uses these. The first-person arms keep the game's own reload/shot animations.
 
 ## Build
-Menu **FemalePlayer → Build animation bundle**. It sets every FBX to Humanoid / in place / looping (one-shots: Reload, Melee, Throw),
-mirrors a missing strafe side, packs `Build/femaleplayer_anims.bundle`, and copies it into
-`E:\SteamLibrary\steamapps\common\Apocalypter\BepInEx\plugins\FemalePlayer\Models\` when that folder exists. Restart the game.
+Menu **Apocaplayer → Build animation bundle**. It sets every FBX to Humanoid / in place / looping (one-shots: Reload, Melee, Throw),
+mirrors a missing strafe side, packs `Build/apocaplayer_anims.bundle`, and copies it into
+`E:\SteamLibrary\steamapps\common\Apocalypter\BepInEx\plugins\Apocaplayer\Models\` when that folder exists. Restart the game.
 The log says `Animation bundle: N clips (...)` and `Animations from the bundle: unarmed ...; rifle ...`.
 
 With bundle clips she is no longer mirrored (Mixamo holds guns right-handed), and the raider gun models are moved to her right hand.

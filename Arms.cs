@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // The game's first-person arms (player_arm_left / player_arm_left.002, 8 bones each, one pair per weapon, tool and item animation)
     // and the kick leg (Player_leg) all use the material "Player2" - the same texture atlas as the seated driver. We give those
@@ -28,7 +28,7 @@ namespace FemalePlayer
                 if (m == null || !m.name.StartsWith("Player2")) continue;
                 if (_mat == null)
                 {
-                    _mat = new Material(m) { name = "Player2 (FemalePlayer)", mainTexture = tex };
+                    _mat = new Material(m) { name = "Player2 (Apocaplayer)", mainTexture = tex };
                     _mat.hideFlags = HideFlags.DontUnloadUnusedAsset;
                 }
                 _orig[smr] = m;

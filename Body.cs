@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.Playables;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // Her body: a clone of Flexa's "Anim" object (Animator with the humanoid avatar enemy_1_IdleAvatar + the 22 mixamorig bones +
     // the skinned mesh), stripped of props/colliders/FSMs, with our mesh and texture. Animated by a PlayableGraph with the game's own
@@ -144,7 +144,7 @@ namespace FemalePlayer
             if (animSrc == null) { Plugin.Log.LogError("Flexa prefab has no Anim child"); return null; }
 
             var b = new Body();
-            b.Root = new GameObject("FemalePlayerBody");
+            b.Root = new GameObject("ApocaplayerBody");
             b.Root.SetActive(false);   // nothing in the clone wakes up until it is stripped
             var clone = UnityEngine.Object.Instantiate(animSrc.gameObject, b.Root.transform, false);
             clone.name = "Anim";
@@ -169,7 +169,7 @@ namespace FemalePlayer
             foreach (var t in clone.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = 0; if (t.name.StartsWith("mixamorig:")) b.Bones[t.name] = t; }
 
             if (!Model.Build(b._smr)) { UnityEngine.Object.Destroy(b.Root); return null; }
-            b._mat = new Material(b._smr.sharedMaterial) { name = "FemalePlayer body" };
+            b._mat = new Material(b._smr.sharedMaterial) { name = "Apocaplayer body" };
             var tex = Model.Body();
             if (tex != null) b._mat.mainTexture = tex;
             b._smr.sharedMesh = Model.NoArms;
@@ -178,7 +178,7 @@ namespace FemalePlayer
             b._smr.localBounds = new Bounds(Vector3.zero, Vector3.one * 2.5f);
             b._smr.gameObject.SetActive(true);
 
-            var sh = new GameObject("FemalePlayerShadow");
+            var sh = new GameObject("ApocaplayerShadow");
             sh.transform.SetParent(b._smr.transform.parent, false);
             b._shadow = sh.AddComponent<SkinnedMeshRenderer>();
             b._shadow.bones = b._smr.bones;
@@ -244,7 +244,7 @@ namespace FemalePlayer
 
         private void BuildGraph(GameObject flexa)
         {
-            _graph = PlayableGraph.Create("FemalePlayer");
+            _graph = PlayableGraph.Create("Apocaplayer");
             _graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
             var output = AnimationPlayableOutput.Create(_graph, "body", _animator);
             _mixamo = Anims.Loaded && Anims.Get("Idle") != null && Anims.Get("Walk") != null;

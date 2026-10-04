@@ -1,4 +1,4 @@
-# Player2 (the game's man, 27-bone Armature) -> a glb on Flexa's mixamo skeleton (Player_female.glb's nodes), for FemalePlayer's Male mode.
+# Player2 (the game's man, 27-bone Armature) -> a glb on Flexa's mixamo skeleton (Player_female.glb's nodes), for Apocaplayer's Male mode.
 # Each of his bones follows the mixamo bone it maps to (CarSeat.Pairs / retarget.py MAP): his bind mesh is overlaid on her bind skeleton
 # (R4: his mesh space -> hers) and each part turned by the same swing CarSeat uses (his bone direction onto hers), so at runtime
 # herBone * Inverse(D) == his bone, exactly like the seated driver.
@@ -125,7 +125,7 @@ iB = add(ibm.transpose(0,2,1).reshape(-1,16).astype(np.float32),5126,'MAT4')
 nodes = json.loads(json.dumps(js['nodes']))
 for n in nodes: n.pop('mesh',None); n.pop('skin',None)
 nodes[mesh_node]['mesh'] = 0; nodes[mesh_node]['skin'] = 0; nodes[mesh_node]['name'] = 'Player_male'
-out_js = {'asset':{'version':'2.0','generator':'FemalePlayer bake_male.py'},'scene':0,'scenes':js.get('scenes',[{'nodes':[0]}]),'nodes':nodes,
+out_js = {'asset':{'version':'2.0','generator':'Apocaplayer bake_male.py'},'scene':0,'scenes':js.get('scenes',[{'nodes':[0]}]),'nodes':nodes,
           'meshes':[{'name':'Player_male','primitives':[{'attributes':{'POSITION':iP,'NORMAL':iN,'TEXCOORD_0':iU,'JOINTS_0':iJ,'WEIGHTS_0':iW},'indices':iI}]}],
           'skins':[{'joints':joints,'inverseBindMatrices':iB,**({'skeleton':js['skins'][0]['skeleton']} if 'skeleton' in js['skins'][0] else {})}],
           'accessors':accs,'bufferViews':views,'buffers':[{'byteLength':sum(len(b) for b in bufs)}]}

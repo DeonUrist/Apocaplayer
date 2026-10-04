@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using HutongGames.PlayMaker;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // References to the game's player objects, re-found after a scene load / when lost.
     internal static class Game

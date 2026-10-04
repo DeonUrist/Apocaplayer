@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace FemalePlayer
+namespace Apocaplayer
 {
     // Her body meshes (built once from the .glb against Flexa's 22-bone skeleton) and textures.
     //  Full    - everything (third person, the shadow)
@@ -69,9 +69,9 @@ namespace FemalePlayer
                 dom[v] = names[idx4[v * 4]];
             }
 
-            Full = Make("FemalePlayer", verts, nrms, uvs, bws, bp, model.Tris, model.HasNormals);
-            NoHead = Make("FemalePlayer_nohead", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadBones, null), model.HasNormals);
-            NoArms = Make("FemalePlayer_noarms", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadNeckBones, ArmBones), model.HasNormals);
+            Full = Make("Apocaplayer", verts, nrms, uvs, bws, bp, model.Tris, model.HasNormals);
+            NoHead = Make("Apocaplayer_nohead", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadBones, null), model.HasNormals);
+            NoArms = Make("Apocaplayer_noarms", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadNeckBones, ArmBones), model.HasNormals);
 
             // the skeleton of the file vs Flexa's (must be ~0: same armature)
             float worst = 0f; string worstName = "";
@@ -132,13 +132,13 @@ namespace FemalePlayer
 
         public static Texture2D Body()
         {
-            if (!_texTried) { _texTried = true; BodyTex = Load(Plugin.BodyTextureFile, Plugin.Female ? "FemalePlayer" : "FemalePlayer_male"); }
+            if (!_texTried) { _texTried = true; BodyTex = Load(Plugin.BodyTextureFile, Plugin.Female ? "Apocaplayer" : "Apocaplayer_male"); }
             return BodyTex;
         }
 
         public static Texture2D Arms()
         {
-            if (!_armsTried) { _armsTried = true; ArmsTex = Load(Plugin.ArmsTextureFile.Value, "FemalePlayer_arms"); }
+            if (!_armsTried) { _armsTried = true; ArmsTex = Load(Plugin.ArmsTextureFile.Value, "Apocaplayer_arms"); }
             return ArmsTex;
         }
 
