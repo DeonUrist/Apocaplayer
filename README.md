@@ -80,6 +80,13 @@ sit/drive or jump — those are procedural here (walk cycle, strafe twist, squat
 Better animations need either an AssetBundle built with Unity 2020.3.49f1 (humanoid clips retarget to her automatically)
 or a glTF animation sampler in the plugin (not written yet).
 
+## Better animations (optional bundle)
+
+`UnityAnims/` is a tiny Unity 2020.3.49f1 project: drop Mixamo FBX files in, run *FemalePlayer → Build animation bundle*, and it
+writes `Models/femaleplayer_anims.bundle`. With at least `Idle` + `Walk` in it, her third-person body uses those clips (walk,
+back, strafe, run, crouch, a rifle set, aim/fire/reload, pistol, melee, throw) instead of the raider clips and the procedural
+walk, unmirrored, with the raider gun models moved to her right hand. See `UnityAnims/README.md` for the file names.
+
 ## Build
 
 `./build.sh` (mcs, against the game's own DLLs; `MANAGED=… BEPCORE=…` to override the paths) or `dotnet build`

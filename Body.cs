@@ -26,6 +26,10 @@ namespace FemalePlayer
         private AnimationClipPlayable _upper;
         private string _upperClip = "";
         private AnimationClip _fallback;
+        private bool _mixamo;                       // locomotion from the animation bundle (Mixamo clips) instead of the game's clips + procedural walk
+        private LocoSet _unarmed, _rifle;
+        private AnimationMixerPlayable _sets;
+        private float _armW, _reloadUntil, _throwUntil;
         private readonly Dictionary<string, AnimationClip> _clips = new Dictionary<string, AnimationClip>();
 
         private float _phase, _speedSmooth, _strafeSmooth, _crouch, _prone, _runW, _meleeUntil;
@@ -127,13 +131,16 @@ namespace FemalePlayer
         private AnimationClip Clip(string name)
         {
             AnimationClip c;
+            if (string.IsNullOrEmpty(name)) return null;
             if (_clips.TryGetValue(name, out c)) return c;
+            c = Anims.Get(name);
+            if (c != null) { _clips[name] = c; return c; }
             foreach (var a in Resources.FindObjectsOfTypeAll<AnimationClip>())
                 if (a != null && a.name == name && a.humanMotion) { c = a; break; }
             if (c == null)
                 foreach (var a in Resources.FindObjectsOfTypeAll<AnimationClip>())
                     if (a != null && a.name == name) { c = a; break; }
-            if (c == null) Plugin.Log.LogWarning("Animation clip " + name + " not found");
+            if (c == null) Plugin.Verbose("Animation clip " + name + " not found");
             _clips[name] = c;
             return c;
         }
@@ -143,6 +150,8 @@ namespace FemalePlayer
             _graph = PlayableGraph.Create("FemalePlayer");
             _graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
             var output = AnimationPlayableOutput.Create(_graph, "body", _animator);
+            _mixamo = Anims.Loaded && Anims.Get("Idle") != null && Anims.Get("Walk") != null;
+            if (_mixamo) { BuildMixamo(output); return; }
             _loco = AnimationMixerPlayable.Create(_graph, 2);
             var idle = Clip(Plugin.IdleClip.Value);
             var run = Clip(Plugin.RunClip.Value);
@@ -248,9 +257,11 @@ namespace FemalePlayer
                 pos = feet - yaw * Vector3.forward * (1.45f * _prone) + Vector3.up * (0.12f * _prone);
             }
             Root.transform.SetPositionAndRotation(pos, rot);
-            bool mirror = Plugin.MirrorBody.Value;
+            bool mirror = Plugin.MirrorBody.Value && !_mixamo;   // Mixamo clips hold guns right-handed already
             Root.transform.localScale = new Vector3(mirror ? -1f : 1f, 1f, 1f);
             _anim.localPosition = Vector3.zero; _anim.localRotation = Quaternion.identity;
+
+            if (_mixamo) { LateMixamo(view, dt, yaw, camPitch); return; }
 
             // locomotion
             Vector3 v = Game.Velocity; v.y = 0f;
@@ -334,6 +345,187 @@ namespace FemalePlayer
             if (_smr.shadowCastingMode != mode) _smr.shadowCastingMode = mode;
         }
 
+        // ---------------------------------------------------------------- Mixamo mode (animation bundle)
+        private sealed class LocoSet
+        {
+            public AnimationMixerPlayable Mix;
+            public readonly AnimationClipPlayable[] P = new AnimationClipPlayable[8];
+            public bool BackIsWalk, StrafeIsWalk, CrouchMissing;
+            public string Info;
+        }
+        private const int S_IDLE = 0, S_FWD = 1, S_BACK = 2, S_LEFT = 3, S_RIGHT = 4, S_RUN = 5, S_CIDLE = 6, S_CWALK = 7;
+
+        // one locomotion set (unarmed: no prefix, rifle: "Rifle"); null when the set has no idle clip
+        private LocoSet MakeSet(string pre)
+        {
+            var idle = Anims.Get(pre + "Idle");
+            var walk = Anims.Get(pre + "Walk") ?? Anims.Get("Walk");
+            if (idle == null || walk == null) return null;
+            var s = new LocoSet();
+            var back = Anims.Get(pre + "WalkBack") ?? Anims.Get("WalkBack");
+            var left = Anims.Get(pre + "StrafeLeft") ?? Anims.Get("StrafeLeft");
+            var right = Anims.Get(pre + "StrafeRight") ?? Anims.Get("StrafeRight");
+            var run = Anims.Get(pre + "Run") ?? Anims.Get("Run") ?? walk;
+            var cidle = Anims.Get(pre + "CrouchIdle") ?? Anims.Get("CrouchIdle");
+            var cwalk = Anims.Get(pre + "CrouchWalk") ?? Anims.Get("CrouchWalk");
+            s.BackIsWalk = back == null; s.StrafeIsWalk = left == null || right == null; s.CrouchMissing = cidle == null || cwalk == null;
+            var clips = new[] { idle, walk, back ?? walk, left ?? walk, right ?? walk, run, cidle ?? idle, cwalk ?? walk };
+            s.Mix = AnimationMixerPlayable.Create(_graph, 8);
+            for (int i = 0; i < 8; i++)
+            {
+                s.P[i] = AnimationClipPlayable.Create(_graph, clips[i]);
+                s.P[i].SetApplyFootIK(true);
+                _graph.Connect(s.P[i], 0, s.Mix, i);
+                s.Mix.SetInputWeight(i, i == 0 ? 1f : 0f);
+            }
+            var n = new List<string>();
+            foreach (var c in clips) n.Add(c.name);
+            s.Info = string.Join("/", n.ToArray());
+            return s;
+        }
+
+        private void BuildMixamo(AnimationPlayableOutput output)
+        {
+            _unarmed = MakeSet("");
+            _rifle = MakeSet("Rifle");
+            _sets = AnimationMixerPlayable.Create(_graph, 2);
+            _graph.Connect(_unarmed.Mix, 0, _sets, 0);
+            _sets.SetInputWeight(0, 1f);
+            if (_rifle != null) { _graph.Connect(_rifle.Mix, 0, _sets, 1); _sets.SetInputWeight(1, 0f); }
+            _fallback = Anims.Get("Idle");
+            _layers = AnimationLayerMixerPlayable.Create(_graph, 2);
+            _graph.Connect(_sets, 0, _layers, 0);
+            _layers.SetInputWeight(0, 1f);
+            _upper = AnimationClipPlayable.Create(_graph, _fallback);
+            _graph.Connect(_upper, 0, _layers, 1);
+            _layers.SetInputWeight(1, 0f);
+            _layers.SetLayerMaskFromAvatarMask(1, UpperMask());
+            output.SetSourcePlayable(_layers);
+            _graph.Play();
+            Plugin.Log.LogInfo("Animations from the bundle: unarmed " + _unarmed.Info + (_rifle != null ? "; rifle " + _rifle.Info : "; no rifle set (RifleIdle) - rifle aim on the upper body only"));
+        }
+
+        private static AvatarMask UpperMask()
+        {
+            var mask = new AvatarMask();
+            foreach (AvatarMaskBodyPart part in Enum.GetValues(typeof(AvatarMaskBodyPart)))
+            {
+                if (part == AvatarMaskBodyPart.LastBodyPart) continue;
+                bool upper = part == AvatarMaskBodyPart.Body || part == AvatarMaskBodyPart.Head || part == AvatarMaskBodyPart.LeftArm || part == AvatarMaskBodyPart.RightArm
+                          || part == AvatarMaskBodyPart.LeftFingers || part == AvatarMaskBodyPart.RightFingers || part == AvatarMaskBodyPart.LeftHandIK || part == AvatarMaskBodyPart.RightHandIK;
+                mask.SetHumanoidBodyPartActive(part, upper);
+            }
+            return mask;
+        }
+
+        private static float ClipSpeed(float speed, float native) { return Mathf.Clamp(speed / Mathf.Max(0.2f, native), 0.5f, 2f); }
+
+        private void Drive(LocoSet s, float m, float r, float wF, float wB, float wL, float wR, float c, float speed)
+        {
+            if (s == null) return;
+            float st = 1f - c;
+            s.Mix.SetInputWeight(S_IDLE, (1f - m) * st);
+            s.Mix.SetInputWeight(S_FWD, m * wF * (1f - r) * st);
+            s.Mix.SetInputWeight(S_RUN, m * wF * r * st);
+            s.Mix.SetInputWeight(S_BACK, m * wB * st);
+            s.Mix.SetInputWeight(S_LEFT, m * wL * st);
+            s.Mix.SetInputWeight(S_RIGHT, m * wR * st);
+            s.Mix.SetInputWeight(S_CIDLE, (1f - m) * c);
+            s.Mix.SetInputWeight(S_CWALK, m * c);
+            float walk = ClipSpeed(speed, Plugin.ClipWalkSpeed.Value);
+            s.P[S_FWD].SetSpeed(walk);
+            s.P[S_LEFT].SetSpeed(walk);
+            s.P[S_RIGHT].SetSpeed(walk);
+            s.P[S_BACK].SetSpeed(s.BackIsWalk ? -walk : walk);
+            s.P[S_RUN].SetSpeed(ClipSpeed(speed, Plugin.ClipRunSpeed.Value));
+            s.P[S_CWALK].SetSpeed(ClipSpeed(speed, Plugin.ClipCrouchSpeed.Value));
+        }
+
+        private void LateMixamo(View view, float dt, Quaternion yaw, float camPitch)
+        {
+            Vector3 v = Game.Velocity; v.y = 0f;
+            var local = Quaternion.Inverse(yaw) * v;
+            float speed = v.magnitude;
+            _speedSmooth = Mathf.Lerp(_speedSmooth, speed, 1f - Mathf.Exp(-dt * 10f));
+            float m = Mathf.Clamp01(_speedSmooth / 0.4f);
+            float r = Mathf.Clamp01((_speedSmooth - Plugin.RunFrom.Value) / 0.8f);
+            if (_crouch > 0.5f) r = 0f;
+            _runW = Mathf.MoveTowards(_runW, r, dt * 4f);
+            float ax = Mathf.Abs(local.x), az = Mathf.Abs(local.z), sum = ax + az;
+            float wF = 1f, wB = 0f, wL = 0f, wR = 0f;
+            if (sum > 0.05f) { wF = Mathf.Max(0f, local.z) / sum; wB = Mathf.Max(0f, -local.z) / sum; wL = Mathf.Max(0f, -local.x) / sum; wR = Mathf.Max(0f, local.x) / sum; }
+
+            string weapon = Game.DrawnWeapon;
+            var kind = Props.KindOf(weapon);
+            bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
+            _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, dt * 5f);
+            if (_rifle != null) { _sets.SetInputWeight(0, 1f - _armW); _sets.SetInputWeight(1, _armW); }
+            var set = rifleSet ? _rifle : _unarmed;
+            Drive(_unarmed, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
+            Drive(_rifle, m, _runW, wF, wB, wL, wR, set.CrouchMissing ? 0f : _crouch, _speedSmooth);
+
+            // upper body: fire / reload / melee / throw / aim
+            bool live = !Game.Paused;
+            bool fire = live && Input.GetMouseButton(0);
+            bool click = live && Input.GetMouseButtonDown(0);
+            bool reloadPressed = false;
+            try { reloadPressed = live && Input.GetButtonDown("Reload"); } catch (Exception) { }
+            if ((kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && reloadPressed)
+            {
+                var rc = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
+                if (rc != null) { _reloadUntil = Time.time + Mathf.Min(rc.length, 3f); _upperClip = ""; }
+            }
+            if (kind == Props.Kind.Melee && click) { _meleeUntil = Time.time + 0.9f; _upperClip = ""; }
+            if (kind == Props.Kind.Throw && click) { _throwUntil = Time.time + 1.2f; _upperClip = ""; }
+
+            if (Time.time < _reloadUntil && kind != Props.Kind.None && kind != Props.Kind.Melee)
+                SetUpper(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload", 1f, 1f);
+            else if (kind == Props.Kind.Melee)
+            {
+                if (Time.time < _meleeUntil) SetUpper(Anims.Get("Melee") != null ? "Melee" : Plugin.MeleeClip.Value, 1f, 1f); else SetUpper("", 0f, 0f);
+            }
+            else if (kind == Props.Kind.Throw)
+            {
+                if (Time.time < _throwUntil && Anims.Get("Throw") != null) SetUpper("Throw", 1f, 1f); else SetUpper("", 0f, 0f);
+            }
+            else if (kind == Props.Kind.Pistol)
+            {
+                string aim = Anims.Get("PistolAim") != null ? "PistolAim" : Plugin.PistolClip.Value;
+                SetUpper(fire && Anims.Get("PistolFire") != null ? "PistolFire" : aim, 1f, 1f);
+            }
+            else if (kind == Props.Kind.Rifle)
+            {
+                if (fire && Anims.Get("RifleFire") != null) SetUpper("RifleFire", 1f, 1f);
+                else if (Anims.Get("RifleAim") != null) SetUpper("RifleAim", 1f, 1f);
+                else if (_rifle == null) { SetUpper(Plugin.RifleClip.Value, 1f, fire ? 1f : 0f); if (!fire) _upper.SetTime(0); }
+                else SetUpper("", 0f, 0f);
+            }
+            else SetUpper("", 0f, 0f);
+            UpdateProp(view == View.ThirdPerson ? weapon : "");
+
+            // what the bundle doesn't have is still procedural
+            if (set.StrafeIsWalk)
+            {
+                float strafe = speed > 0.3f ? Mathf.Clamp(Mathf.Atan2(local.x, Mathf.Abs(local.z)) * Mathf.Rad2Deg, -60f, 60f) : 0f;
+                _strafeSmooth = Mathf.Lerp(_strafeSmooth, strafe * (1f - _prone), 1f - Mathf.Exp(-dt * 8f));
+                if (Mathf.Abs(_strafeSmooth) > 0.5f)
+                {
+                    Turn("mixamorig:Hips", Vector3.up, _strafeSmooth);
+                    Turn("mixamorig:Spine", Vector3.up, -_strafeSmooth * 0.5f);
+                    Turn("mixamorig:Spine1", Vector3.up, -_strafeSmooth * 0.5f);
+                }
+            }
+            if (set.CrouchMissing && _crouch > 0.001f) Crouch(_crouch);
+            float pitch = view == View.FirstPerson ? 0f : camPitch * Plugin.AimPitchShare.Value * (1f - _prone);
+            if (Mathf.Abs(pitch) > 0.5f)
+            {
+                Turn("mixamorig:Spine", Vector3.right, pitch * 0.3f);
+                Turn("mixamorig:Spine1", Vector3.right, pitch * 0.3f);
+                Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
+                Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
+            }
+        }
+
         // ---------------------------------------------------------------- procedural helpers
         // rotate a bone by 'deg' about an axis given in the Anim object's local space (mirror-safe: only local rotations are used)
         private void Turn(string bone, Vector3 axisAnim, float deg)
@@ -402,7 +594,10 @@ namespace FemalePlayer
             if (p == null) { Plugin.Verbose("No third-person model for " + weapon); return; }
             Transform hand;
             if (!Bones.TryGetValue(p.Hand, out hand)) return;
-            _prop = Props.Instantiate(p, hand);
+            bool otherHand = _mixamo && p.Hand == "mixamorig:LeftHand";   // raider guns sit in the left hand; Mixamo clips hold them right-handed
+            Transform right;
+            if (otherHand && Bones.TryGetValue("mixamorig:RightHand", out right)) hand = right; else otherHand = false;
+            _prop = Props.Instantiate(p, hand, otherHand);
             Plugin.Verbose("Third person: " + weapon + " -> " + p.Owner + "'s " + p.Source.name + " on " + p.Hand);
         }
     }

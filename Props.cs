@@ -83,7 +83,7 @@ namespace FemalePlayer
         }
 
         // a render-only copy of the prop, parented to the given hand bone at the NPC's local pose
-        public static GameObject Instantiate(Prop p, Transform hand)
+        public static GameObject Instantiate(Prop p, Transform hand, bool mirrorToRightHand)
         {
             var holder = new GameObject("FemalePlayer.PropHolder");
             holder.SetActive(false);
@@ -103,10 +103,29 @@ namespace FemalePlayer
             go.transform.SetParent(hand, false);
             go.transform.localPosition = src.localPosition;
             go.transform.localRotation = src.localRotation;
+            if (mirrorToRightHand)
+            {
+                // the left-hand pose reflected across the body's middle plane (in Flexa's bind pose), expressed under the right hand
+                var L = BindWorld("mixamorig:LeftHand"); var R = BindWorld("mixamorig:RightHand");
+                var S = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
+                var P = Matrix4x4.TRS(src.localPosition, src.localRotation, Vector3.one);
+                var M = R.inverse * S * L * P * S;
+                go.transform.localPosition = M.GetColumn(3);
+                go.transform.localRotation = Quaternion.LookRotation(M.GetColumn(2), M.GetColumn(1));
+            }
             go.transform.localScale = src.localScale;
             go.SetActive(true);
             UnityEngine.Object.Destroy(holder);
             return go;
+        }
+
+        private static Matrix4x4 BindWorld(string bone)
+        {
+            float[] v;
+            var m = Matrix4x4.identity;
+            if (!Bindposes.Human.TryGetValue(bone, out v)) return m;
+            for (int r = 0; r < 3; r++) for (int c = 0; c < 4; c++) m[r, c] = v[r * 4 + c];
+            return m.inverse;
         }
 
         public static void OnSceneLoaded() { _built = false; _catalog.Clear(); }

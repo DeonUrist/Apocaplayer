@@ -1,0 +1,49 @@
+# FemalePlayer animation bundle (Unity 2020.3.49f1)
+
+Builds `femaleplayer_anims.bundle`: humanoid animation clips that the mod plays on her body. Mixamo clips are made for the
+same `mixamorig` skeleton she has, and as Humanoid clips they fit her through the Animator.
+
+## One-time setup
+1. Install **Unity Hub**, then the editor **2020.3.49f1** (Hub → Installs → Install Editor → Archive → "download archive" page → 2020.x → 2020.3.49 → Unity Hub button). Exactly this version — the game is built with it, and bundles from other
+   versions may not load. Only the *Windows Build Support (Mono)* module is needed (it comes with the editor).
+2. Hub → Projects → Add → pick this `UnityAnims` folder. The first time it opens it creates its Library (a few minutes).
+
+## Getting the clips (mixamo.com, free Adobe account)
+- Upload `Models/Boss_lady.glb` converted to FBX (Blender: File → Export → FBX) as your character, or just use any Mixamo character (Y Bot) —
+  either works, the clips are retargeted in the game.
+- For each clip: **Download → Format: FBX for Unity (.fbx), Skin: With Skin, Frames per second: 30, Keyframe Reduction: none**.
+  For walk/run/strafe/crouch-walk tick **In Place** before downloading.
+- Save it into `Assets/Mixamo/` named **exactly** as in the first column (the file name becomes the clip name the mod looks for).
+
+| File name | What | Suggested Mixamo search |
+|---|---|---|
+| **Idle.fbx** | standing, unarmed (required) | "Idle", "Breathing Idle", "Happy Idle" |
+| **Walk.fbx** | walking forward (required) | "Walking", "Female Walk", "Catwalk Walk" |
+| WalkBack.fbx | walking backwards | "Walking Backwards" |
+| StrafeLeft.fbx / StrafeRight.fbx | side steps (one is enough: the other is mirrored) | "Left Strafe Walking" |
+| Run.fbx | running | "Running", "Fast Run" |
+| CrouchIdle.fbx / CrouchWalk.fbx | crouched | "Crouching Idle", "Crouched Walking" |
+| RifleIdle.fbx, RifleWalk.fbx, RifleWalkBack.fbx, RifleStrafeLeft.fbx, RifleRun.fbx, RifleCrouchIdle.fbx, RifleCrouchWalk.fbx | the same set holding a rifle (used with rifles, SMGs, shotguns, crossbow) | "Rifle Idle", "Rifle Walk", "Walking Backwards Rifle", "Strafe Left Rifle", "Rifle Run", "Crouch Rifle Idle", "Crouch Walk Rifle" (Mixamo's *Pro Rifle Pack* has all of them) |
+| RifleAim.fbx | rifle raised to the shoulder (upper body) | "Rifle Aiming Idle" |
+| RifleFire.fbx | firing a rifle, looped while you hold the mouse button | "Firing Rifle" |
+| RifleReload.fbx | rifle reload, played when you press Reload | "Reloading", "Rifle Reload" |
+| PistolAim.fbx / PistolFire.fbx / PistolReload.fbx | pistol / revolver | "Pistol Idle", "Shooting", "Pistol Reload" |
+| Melee.fbx | a swing (knife, machete, wrench) | "Sword And Shield Slash", "Stabbing", "Punching" |
+| Throw.fbx | grenade / blast lance | "Throw", "Throw Grenade" |
+
+Everything except **Idle** and **Walk** is optional: whatever is missing falls back to the game's raider clips or the procedural motion.
+Only the third-person body uses these. The first-person arms keep the game's own reload/shot animations.
+
+## Build
+Menu **FemalePlayer → Build animation bundle**. It sets every FBX to Humanoid / in place / looping (one-shots: Reload, Melee, Throw),
+mirrors a missing strafe side, packs `Build/femaleplayer_anims.bundle`, and copies it into
+`E:\SteamLibrary\steamapps\common\Apocalypter\BepInEx\plugins\FemalePlayer\Models\` when that folder exists. Restart the game.
+The log says `Animation bundle: N clips (...)` and `Animations from the bundle: unarmed ...; rifle ...`.
+
+With bundle clips she is no longer mirrored (Mixamo holds guns right-handed), and the raider gun models are moved to her right hand.
+
+Speeds (hidden settings in Plugin.cs): BundleWalkSpeed 1.4, BundleRunSpeed 3.8, BundleCrouchSpeed 1.0 m/s = the ground speed at which a clip plays at
+normal speed (the game walks at 2 m/s and runs at 5).
+
+Mixamo's terms allow using the animations in your own projects but not handing out the raw files; keep the FBX files out of git
+(`.gitignore` does) and ship only the built bundle with the mod.

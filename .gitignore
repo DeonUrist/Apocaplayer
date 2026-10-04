@@ -5,3 +5,13 @@ obj/
 *.cfg
 LogOutput.log
 tools/__pycache__/
+UnityAnims/Library/
+UnityAnims/Temp/
+UnityAnims/Logs/
+UnityAnims/UserSettings/
+UnityAnims/Build/
+UnityAnims/obj/
+UnityAnims/Assets/Clips/
+UnityAnims/Assets/Mixamo/*.fbx
+UnityAnims/Assets/Mixamo/*.fbx.meta
+*.csproj.user
