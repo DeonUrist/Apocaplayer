@@ -1011,6 +1011,7 @@ namespace FemalePlayer
             ThrowAim();
             PunchAim();
             PoseProp(kind, yaw);
+            LanceAlign(kind);
         }
 
         // Rifles: the raider prop's pose was made for Flexa's left-handed raider clip; in Mixamo clips the hands hold it differently.
@@ -1118,6 +1119,28 @@ namespace FemalePlayer
             if (!_reloadFresh) return false;                           // already "reloading" when drawn: stale
             if (_fsmReloadSince <= 0f) _fsmReloadSince = Time.time;
             return Time.time - _fsmReloadSince < 8f;
+        }
+
+        // the blast lance in a throw: the throwing hand turns it end over end (it pointed backwards). Its forward/backward sense (the barrel axis
+        // against her facing) is learned while she just holds it; during the throw, whenever it points the other way, it is turned 180 degrees
+        // about the vertical (kept until it clearly points the held way again, so it doesn't flicker when it's sideways)
+        private float _lanceSense;   // + = held pointing forward along _propBarrel, - = backward, 0 = unknown
+        private bool _lanceFlip;
+        private void LanceAlign(Props.Kind kind)
+        {
+            if (kind != Props.Kind.Throw || _prop == null || _propBarrel == Vector3.zero) { _lanceSense = 0f; _lanceFlip = false; return; }
+            var t = _prop.transform;
+            float d = Vector3.Dot(t.TransformDirection(_propBarrel), _anim.forward);
+            bool throwing = Time.time < _throwUntil && _throwClip == "ThrowRight" || Time.time < _throwUntil && _throwClip == "Throw" && !_throwAim;
+            if (!throwing)
+            {
+                if (Mathf.Abs(d) > 0.2f) _lanceSense = Mathf.Lerp(_lanceSense, Mathf.Sign(d), 0.1f);
+                _lanceFlip = false;
+                return;
+            }
+            if (Mathf.Abs(_lanceSense) < 0.3f) _lanceSense = 1f;   // never seen held: the barrel axis is the tip
+            if (Mathf.Abs(d) > 0.3f) _lanceFlip = Mathf.Sign(d) != Mathf.Sign(_lanceSense);
+            if (_lanceFlip) t.rotation = Quaternion.AngleAxis(180f, _anim.up) * t.rotation;
         }
 
         private void PoseProp(Props.Kind kind, Quaternion yaw)
