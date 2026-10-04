@@ -1440,11 +1440,14 @@ namespace Apocaplayer
 
         // ---------------------------------------------------------------- weapon in hand (third person)
         private bool _propShown;
+        // the weapon model: drawn in third person; in first person (the game draws its own gun) only its shadow, next to her body's shadow
         private void ShowProp(bool on)
         {
             if (_prop == null || _propShown == on) return;
             _propShown = on;
-            foreach (var r in _prop.GetComponentsInChildren<Renderer>(true)) r.enabled = on;
+            bool shadow = !on && Plugin.BodyFirstPerson.Value;
+            var mode = on ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+            foreach (var r in _prop.GetComponentsInChildren<Renderer>(true)) { r.enabled = on || shadow; r.shadowCastingMode = mode; }
         }
 
         private void UpdateProp(string weapon)
