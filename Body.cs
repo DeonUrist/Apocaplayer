@@ -647,29 +647,100 @@ namespace FemalePlayer
         private readonly Quaternion[] _carArms = new Quaternion[8];
         private bool _carArmsReady;
         private string _carWeapon = "";
+        private bool _carTurned, _carTurnedReady;
+        private readonly Dictionary<string, Quaternion> _carAll = new Dictionary<string, Quaternion>();
+
+        // chest to the aim: yaw over Spine/Spine1/Spine2, pitch like on foot
+        private void AimPitch(float pitch, float yaw)
+        {
+            if (Mathf.Abs(yaw) > 0.1f)
+            {
+                Turn("mixamorig:Spine", Vector3.up, yaw / 3f);
+                Turn("mixamorig:Spine1", Vector3.up, yaw / 3f);
+                Turn("mixamorig:Spine2", Vector3.up, yaw / 3f);
+            }
+            float p = pitch * Plugin.AimPitchShare.Value;
+            if (Mathf.Abs(p) > 0.5f)
+            {
+                Turn("mixamorig:Spine", Vector3.right, p * 0.3f);
+                Turn("mixamorig:Spine1", Vector3.right, p * 0.3f);
+                Turn("mixamorig:Spine2", Vector3.right, p * 0.3f);
+                Turn("mixamorig:Neck", Vector3.right, p * 0.1f);
+            }
+        }
+
+        // the base layer in the car: the drawn gun's set, crouch idle (used when she has turned off the seat)
+        private void CarBase(Props.Kind kind, bool crouch)
+        {
+            if (!_sets.IsValid()) return;
+            var set = kind == Props.Kind.Pistol && _pistol != null ? _pistol : kind == Props.Kind.Rifle && _rifle != null ? _rifle : _unarmed;
+            int idx = set == _rifle ? 1 : set == _pistol ? 3 : 0;
+            for (int i = 0; i < _sets.GetInputCount(); i++) _sets.SetInputWeight(i, i == idx ? 1f : 0f);
+            for (int i = 0; i < N; i++) set.Mix.SetInputWeight(i, i == (crouch ? S_CIDLE : S_IDLE) ? 1f : 0f);
+            _layers.SetInputWeight(0, 1f);
+        }
+
         public void LateCar(Transform player, bool firstPerson)
         {
             if (!_inCar) { _inCar = true; _animator.enabled = false; _crouch = _prone = 0f; UpdateProp(""); _carArmsReady = false; _carWeapon = ""; }
             Root.transform.localScale = Vector3.one;
             Root.transform.SetPositionAndRotation(player.position, player.rotation);
+            _anim.localPosition = Vector3.zero; _anim.localRotation = Quaternion.identity;
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
             bool gun = _mixamo && _layers.IsValid() && (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol);
-            if (weapon != _carWeapon) { _carWeapon = weapon; _carArmsReady = false; _weaponSince = Time.time; _upperClip = ""; }
-            // the arms the Animator evaluated this frame (from the clip set last frame)
-            bool arms = gun && _carArmsReady && _animator.enabled;
-            if (arms)
-                for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) _carArms[i] = b.localRotation; }
-            CarSeat.Pose(Bones, _bindLocal);
-            if (arms)
-                for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) b.localRotation = _carArms[i]; }
+            if (weapon != _carWeapon) { _carWeapon = weapon; _carArmsReady = false; _carTurnedReady = false; _weaponSince = Time.time; _upperClip = ""; }
+
+            // where she aims (the game shoots along the first-person camera), relative to her seat: yaw + = right, pitch + = down
+            float aimYaw = 0f, aimPitch = 0f;
+            if (gun && Game.PlayerCamera != null)
+            {
+                var l = Quaternion.Inverse(player.rotation) * Game.PlayerCamera.forward;
+                aimYaw = Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg;
+                aimPitch = -Mathf.Asin(Mathf.Clamp(l.y, -1f, 1f)) * Mathf.Rad2Deg;
+            }
+            // past 90 degrees to a side she gets off the seat: turned to the aim, crouched, hips at the seat's height (back below 80)
+            bool turned = gun && (_carTurned ? Mathf.Abs(aimYaw) > 80f : Mathf.Abs(aimYaw) > 95f);
+            if (turned != _carTurned) { _carTurned = turned; _carTurnedReady = false; }
+
+            bool animated = gun && _carArmsReady && _animator.enabled;
+            if (turned && animated && _carTurnedReady)
+            {
+                // the whole body from the Animator (crouch idle + gun clip); only the seat's hip position is used
+                foreach (var kv in Bones) _carAll[kv.Key] = kv.Value.localRotation;
+                Transform hips; Vector3 hipsLocal = Vector3.zero;
+                bool hasHips = Bones.TryGetValue("mixamorig:Hips", out hips);
+                if (hasHips) hipsLocal = hips.localPosition;
+                CarSeat.Pose(Bones, _bindLocal);
+                Vector3 seatHips = hasHips ? hips.position : Root.transform.position;
+                foreach (var kv in Bones) { Quaternion q; if (_carAll.TryGetValue(kv.Key, out q)) kv.Value.localRotation = q; }
+                if (hasHips) hips.localPosition = hipsLocal;
+                Root.transform.rotation = player.rotation * Quaternion.Euler(0f, aimYaw, 0f);
+                if (hasHips) Root.transform.position += seatHips - hips.position;
+                AimPitch(aimPitch, 0f);
+            }
+            else
+            {
+                // seated: the arms the Animator evaluated this frame (from the clip set last frame) over the seat pose, the chest turned to the aim
+                if (animated)
+                    for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) _carArms[i] = b.localRotation; }
+                CarSeat.Pose(Bones, _bindLocal);
+                if (animated)
+                {
+                    for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) b.localRotation = _carArms[i]; }
+                    AimPitch(aimPitch, Mathf.Clamp(aimYaw, -90f, 90f));
+                }
+            }
             if (!gun)
             {
                 if (_animator.enabled) _animator.enabled = false;
-                _carArmsReady = false;
+                _carArmsReady = false; _carTurned = false;
                 UpdateProp("");
                 return;
             }
+            // base layer for the next frame: the gun set's crouch idle when turned (seated: not used)
+            CarBase(kind, turned);
+            if (turned) _carTurnedReady = true;
             // next frame's arms
             bool reload = ReloadNow(weapon);
             bool fire = !reload && !Game.Paused && Input.GetMouseButton(0);
