@@ -6,7 +6,7 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
-  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); `[Debug] OrbitMiddleMouse` lets the middle mouse button orbit around her. Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
+  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); the middle mouse button orbits around her. Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
   It works in cars too (instead of the game's own car view, where nothing in the car can be used): ignition, cassette player and Exit (F) at the door work as in first person, and you stay in third person when you get out.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
@@ -31,23 +31,15 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 
 | Section | Key | Default | |
 |---|---|---|---|
-| General | Enabled | true | Off = the game's own player (arms, driver) comes back at once |
-| General | BodyFirstPerson | true | Her legs/torso and shadow in first person |
-| General | FemaleArms | true | Her arms and gloves on the first-person animations |
-| General | ReplaceDriver | true | She sits in the driver's seat; on the TAB screen `Models/player_character_2_UI.png` (her picture, 512 × 1024, black background) replaces the game's player picture (the game's own is in `tools/ref`) |
-| General | ThirdPersonOnFoot | true | Change Camera switches to a camera behind her, on foot and in cars (replaces the game's car view) |
-| General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
-| Camera | FirstPersonBodyBack | 0.08 | First person on foot: how far (m) her head sits behind the camera; looking down you see her body up to the collar |
-| Camera | FirstPersonWeaponBack / FirstPersonChestLean | 0.08 / 20 | First person with a weapon drawn: her body moves back (m) and her chest bends back (degrees) so the game's arms don't sink into her chest |
-| Camera | ThirdPersonDistance / ThirdPersonCarDistance | 2.4 / 5.5 | Third-person camera distance on foot / in cars; the mouse wheel changes and saves them |
-| Car | IgnitionKey | E | In the driver's seat: turn the key and start the engine; "E - Start / Ignition" shows on the left while the engine is off |
-| Camera | CarCameraForward | 0.12 | Driving in first person: the view is drawn this many metres further forward so her body doesn't block it (only the picture moves) |
-| Debug | OrbitMiddleMouse | false | Third person: middle mouse click toggles orbiting around her |
-| Debug | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) per weapon and animation; Numpad 9/3 step through the animations the drawn weapon has (its Rifle* / Pistol* clips incl. reload, jump and kick, each clip once, played standing still) - every clip has its own exact pose in her right hand, entries playing the same clip share it; Numpad - deletes one (shows the Idle pose); Numpad / copies a pose, Numpad * pastes it. Saved as absolute values in `config/FemalePlayer/weapon-poses.txt`; every save also writes `BuiltinPoses.generated.cs` (copy over `BuiltinPoses.cs` to hard-code them). Nothing else changes them (no automatic grip) Your poses (config/FemalePlayer/weapon-poses.txt) override the built-in ones. |
+| General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
+| General | IgnitionKey | E | In the driver's seat: one press turns the key and starts the engine, another stops it (the game's own stop and its sounds); "E - Start / Ignition" shows on the left, in the game's hint font, while the engine is off |
+| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/FemalePlayer/weapon-poses.txt` (overrides the built-in poses) |
+| Debug | ToggleMiddleMouse | false | Third person: off = hold the middle mouse button to orbit around her, back behind her on release; on = a click turns orbiting on / off |
 | Debug | VerboseLog | false | Detailed log |
 
-Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`
-entries; change one to `Config.Bind(...)` to expose it.
+Everything else is fixed: her body in first person, her arms, the driver and TAB picture, the third-person camera (Change Camera key, on
+foot and in cars) and the camera offsets are always on, as `H(...)` entries in `Plugin.cs` (change one to `Config.Bind(...)` to expose
+it). The mouse-wheel camera distances are remembered in `config/FemalePlayer/camera.cfg`.
 
 ## Using another model
 

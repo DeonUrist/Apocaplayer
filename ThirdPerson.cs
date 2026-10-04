@@ -49,11 +49,12 @@ namespace FemalePlayer
                 Plugin.Verbose("Third person: " + (On ? "on" : "off"));
             }
             if (!allowed && On) On = false;
-            // middle mouse button = orbit on / off (toggle)
-            bool click = false;
-            try { click = On && !Game.Paused && Plugin.OrbitMiddleMouse.Value && Input.GetMouseButtonDown(2); } catch (System.Exception) { }
-            if (click) _orbitOn = !_orbitOn;
-            if (!On || !Plugin.OrbitMiddleMouse.Value) _orbitOn = false;
+            // middle mouse button orbits the camera around her: held (back behind her on release), or with ToggleMiddleMouse a click turns it on / off
+            bool click = false, held = false;
+            try { click = On && !Game.Paused && Input.GetMouseButtonDown(2); held = On && !Game.Paused && Input.GetMouseButton(2); } catch (System.Exception) { }
+            if (Plugin.ToggleMiddleMouse.Value) { if (click) _orbitOn = !_orbitOn; }
+            else _orbitOn = held;
+            if (!On) _orbitOn = false;
             Zoom();
             Orbiting = false;
             if (On && !Game.Paused)

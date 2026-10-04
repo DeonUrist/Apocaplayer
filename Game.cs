@@ -279,6 +279,14 @@ namespace FemalePlayer
             }
         }
 
+        public static string PathOf(Transform t)
+        {
+            if (t == null) return "";
+            string p = t.name;
+            for (var x = t.parent; x != null; x = x.parent) p = x.name + "/" + p;
+            return p;
+        }
+
         public static Transform FindDeep(Transform t, string name)
         {
             if (t == null) return null;

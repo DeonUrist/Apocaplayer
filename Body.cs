@@ -14,6 +14,21 @@ namespace FemalePlayer
     {
         public GameObject Root;          // mirror lives here (scale x -1)
         private Transform _anim;         // clone of Flexa/Anim
+        private RootMotionTap _rootMotion;
+        private Vector3 _sway;           // standing still in third person: the clips' own sideways/forward root motion (Idle sways 16 cm), Anim-parent space
+
+        // the Animator's root motion each evaluation (OnAnimatorMove = handled by script: nothing moves by itself)
+        internal sealed class RootMotionTap : MonoBehaviour
+        {
+            private Animator _a;
+            public Vector3 Delta;
+            private void OnAnimatorMove()
+            {
+                if (_a == null) _a = GetComponent<Animator>();
+                if (_a != null) Delta += _a.deltaPosition;
+            }
+            public Vector3 Take() { var d = Delta; Delta = Vector3.zero; return d; }
+        }
         private Animator _animator;
         private SkinnedMeshRenderer _smr, _shadow;
         private Material _mat;
@@ -155,6 +170,7 @@ namespace FemalePlayer
             b._animator = clone.GetComponent<Animator>();
             b._animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
             b._animator.applyRootMotion = false;
+            b._rootMotion = clone.AddComponent<RootMotionTap>();
             b.Root.SetActive(true);
             b.BuildGraph(flexa);
             b.MeasureLegs();
@@ -460,7 +476,7 @@ namespace FemalePlayer
             _anim.localPosition = Vector3.zero; _anim.localRotation = Quaternion.identity;
 
             if (view != _lastView) { _lastView = view; _snap = true; }
-            if (_mixamo) { LateMixamo(view, dt, yaw, camPitch); _snap = false; FitFirstPerson(view, yaw, camPitch); return; }
+            if (_mixamo) { Sway(view, dt); LateMixamo(view, dt, yaw, camPitch); _snap = false; FitFirstPerson(view, yaw, camPitch); return; }
 
             // locomotion
             Vector3 v = Game.Velocity; v.y = 0f;
@@ -614,6 +630,13 @@ namespace FemalePlayer
             if (c[S_LEFT] == null) c[S_LEFT] = walk;
             if (c[S_RIGHT] == null) c[S_RIGHT] = walk;
             if (c[S_RUN] == null) c[S_RUN] = walk;
+            // a weapon set without its own run strafes runs with its own Run (RifleRun / PistolRun), not the unarmed RunStrafe clips
+            if (pre != "")
+            {
+                string bpre = pre.EndsWith("Fire") ? pre.Substring(0, pre.Length - 4) : pre;
+                if (Anims.Get(pre + "RunStrafeLeft") == null && Anims.Get(bpre + "RunStrafeLeft") == null) c[S_RUNL] = c[S_RUN];
+                if (Anims.Get(pre + "RunStrafeRight") == null && Anims.Get(bpre + "RunStrafeRight") == null) c[S_RUNR] = c[S_RUN];
+            }
             if (c[S_RUNL] == null) c[S_RUNL] = s.StrafeIsWalk ? c[S_RUN] : c[S_LEFT];
             if (c[S_RUNR] == null) c[S_RUNR] = s.StrafeIsWalk ? c[S_RUN] : c[S_RIGHT];
             if (c[S_CIDLE] == null) c[S_CIDLE] = idle;
@@ -716,6 +739,25 @@ namespace FemalePlayer
                 float sp = ClipSpeed(speed, Native(s.P[i], native));
                 s.P[i].SetSpeed(s.Reverse[i] ? -sp : sp);
             }
+        }
+
+        // standing still in third person her whole body follows the clip's root motion (the bundle puts a clip's sideways/forward motion in the
+        // root): the Idle's sway moves her hips and body while the feet stay planted. Moving / first person: back to the middle at once.
+        // A slow pull to the middle keeps a clip whose loop doesn't close from drifting away.
+        private void Sway(View view, float dt)
+        {
+            var d = _rootMotion != null ? _rootMotion.Take() : Vector3.zero;
+            bool still = view == View.ThirdPerson && _speedSmooth < 0.15f && Game.Velocity.sqrMagnitude < 0.04f;
+            if (still && _anim.parent != null)
+            {
+                var l = _anim.parent.InverseTransformVector(d);
+                l.y = 0f;
+                if (l.sqrMagnitude < 0.04f) _sway += l;   // a loop wrap / teleport is not a sway
+                _sway *= 1f - Mathf.Clamp01(dt * 0.15f);
+            }
+            else _sway = Vector3.MoveTowards(_sway, Vector3.zero, dt * 0.6f);
+            _sway = Vector3.ClampMagnitude(_sway, 0.25f);
+            _anim.localPosition = _sway;
         }
 
         private void LateMixamo(View view, float dt, Quaternion yaw, float camPitch)
