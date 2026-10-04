@@ -29,6 +29,8 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | RifleCrouchWalkBack.fbx, RifleCrouchStrafeLeft.fbx | crouched with a rifle, backwards / sideways | "Crouch Walk Back Rifle", "Crouch Walk Left Rifle" |
 | RifleFireWalk.fbx, RifleFireWalkBack.fbx, RifleFireStrafeLeft.fbx, RifleFireCrouchWalk.fbx, RifleFireCrouchWalkBack.fbx, RifleFireCrouchStrafeLeft.fbx | walking / crouching while firing a rifle (whole body; used while you hold fire and move) | "Walking Firing Rifle", "Walk Backward Firing Rifle", "Strafe Left Firing Rifle", "Crouch Walk Firing Rifle" |
 | CrouchRifleFire.fbx | firing while crouched (upper body, looped while you hold the button) | "Crouch Rifle Fire" |
+| Kick.fbx | a front kick, played when you use the game's Kick key | "Front Kick", "Mma Kick" |
+| Jump.fbx / RifleJump.fbx | jumping, unarmed / with a rifle (jump on the spot; the game lifts her) | "Jump", "Rifle Jump" |
 | RifleAim.fbx | rifle raised to the shoulder (upper body) | "Rifle Aiming Idle" |
 | RifleFire.fbx | firing a rifle, looped while you hold the mouse button | "Firing Rifle" |
 | RifleReload.fbx | rifle reload, played when you press Reload | "Reloading", "Rifle Reload" |

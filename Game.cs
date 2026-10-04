@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HutongGames.PlayMaker;
 using UnityEngine;
 
@@ -15,7 +16,7 @@ namespace FemalePlayer
         public static PlayMakerFSM GrenadeFsm;      // PlayerCamera/QuickItems/grenade [Attack]: on -> (Throw Grenade) -> checkGrenade -> fire 0.4 s -> wait 0.35 s -> throw      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
         private static float _nextFind;
 
-        public static void Reset() { GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
+        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
 
         public static bool Ready
         {
@@ -120,6 +121,62 @@ namespace FemalePlayer
 
         // the first-person camera is rendering (false while the car's third-person camera is on: the game deactivates the PlayerCamera hierarchy)
         public static bool FirstPersonCameraOn { get { return Cam != null && Cam.isActiveAndEnabled; } }
+
+        private static PlayMakerFSM _jumpFsm, _kickFsm;
+        private static readonly Dictionary<string, PlayMakerFSM[]> _reloadFsms = new Dictionary<string, PlayMakerFSM[]>();
+
+        // Player [Jump]: Idle -> (Jump button) Jump -> Grounded -> Idle; Falling when walking off an edge
+        public static string JumpState
+        {
+            get
+            {
+                try
+                {
+                    if (_jumpFsm == null && Player != null) foreach (var f in Player.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Jump") _jumpFsm = f;
+                    return _jumpFsm != null && _jumpFsm.enabled ? _jumpFsm.ActiveStateName : "";
+                }
+                catch (Exception) { return ""; }
+            }
+        }
+
+        // WeaponsArm/Parent/kick [Attack]: on -> (Kick button) fire 0.55 s -> wait -> on
+        public static string KickState
+        {
+            get
+            {
+                try
+                {
+                    if (_kickFsm == null && WeaponsParent != null)
+                    {
+                        var k = WeaponsParent.Find("kick");
+                        if (k != null) foreach (var f in k.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Attack") _kickFsm = f;
+                    }
+                    return _kickFsm != null && _kickFsm.gameObject.activeInHierarchy ? _kickFsm.ActiveStateName : "";
+                }
+                catch (Exception) { return ""; }
+            }
+        }
+
+        // the drawn gun really reloads: its [ReloadAnimation] FSM is "on" (akms etc.), or its [Reload] FSM is past idle/checkAmmo
+        public static bool IsReloading(string weapon)
+        {
+            if (string.IsNullOrEmpty(weapon) || WeaponsParent == null) return false;
+            try
+            {
+                PlayMakerFSM[] f;
+                if (!_reloadFsms.TryGetValue(weapon, out f) || f[0] == null && f[1] == null)
+                {
+                    f = new PlayMakerFSM[2];
+                    var w = WeaponsParent.Find(weapon);
+                    if (w != null) foreach (var x in w.GetComponents<PlayMakerFSM>()) { if (x.FsmName == "ReloadAnimation") f[0] = x; else if (x.FsmName == "Reload") f[1] = x; }
+                    _reloadFsms[weapon] = f;
+                }
+                if (f[0] != null) { string s = f[0].ActiveStateName; if (s != "off" && !string.IsNullOrEmpty(s)) return true; }
+                if (f[1] != null) { string s = f[1].ActiveStateName; return !string.IsNullOrEmpty(s) && s != "idle" && s != "checkAmmo" && s != f[1].Fsm.StartState; }
+            }
+            catch (Exception) { }
+            return false;
+        }
 
         public static string GrenadeState
         {

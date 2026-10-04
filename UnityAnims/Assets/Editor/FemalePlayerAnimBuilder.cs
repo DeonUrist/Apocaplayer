@@ -25,7 +25,7 @@ public static class FemalePlayerAnimBuilder
         "RifleCrouchIdle", "RifleCrouchWalk", "RifleCrouchWalkBack", "RifleCrouchStrafeLeft", "RifleCrouchStrafeRight",
         "RifleFireWalk", "RifleFireWalkBack", "RifleFireStrafeLeft", "RifleFireStrafeRight",
         "RifleFireCrouchWalk", "RifleFireCrouchWalkBack", "RifleFireCrouchStrafeLeft", "RifleFireCrouchStrafeRight",
-        "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
+        "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
     };
 
     // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)
@@ -34,7 +34,7 @@ public static class FemalePlayerAnimBuilder
     // the grenade is thrown with the LEFT hand (the right one holds the gun)
     const bool MirrorThrow = true;
 
-    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n == "Throw"; }
+    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n == "Throw" || n == "Kick" || n.Contains("Jump"); }
 
     [MenuItem("FemalePlayer/Build animation bundle")]
     public static void Build()
@@ -120,7 +120,8 @@ public static class FemalePlayerAnimBuilder
             // ignores - so she walks on the spot whether or not the clip was downloaded "In Place", and the mod can read the
             // clip's own walking speed (averageSpeed) to play it in step with the player
             lockRootRotation = true, keepOriginalOrientation = true,
-            lockRootHeightY = true, keepOriginalPositionY = true, heightFromFeet = false,
+            // jumps: the game lifts her body itself - their height goes to the (ignored) root so she doesn't rise twice
+            lockRootHeightY = !name.Contains("Jump"), keepOriginalPositionY = true, heightFromFeet = false,
             lockRootPositionXZ = false, keepOriginalPositionXZ = true,
         };
         return a;

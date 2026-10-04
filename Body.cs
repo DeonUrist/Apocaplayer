@@ -30,7 +30,37 @@ namespace FemalePlayer
         private LocoSet _unarmed, _rifle, _fire;   // _fire: RifleFire* clips = walking/crouching while shooting (full body)
         private float _fireW;
         private AnimationMixerPlayable _sets;
-        private float _armW, _reloadUntil, _throwUntil;
+        private float _armW, _reloadUntil, _throwUntil, _reloadStart;
+        private bool _reloading;
+        private string _kickState = "", _jumpState = "";
+        private AnimationClipPlayable _action;
+        private string _actionClip = "";
+        private float _actionUntil, _actionW;
+
+        private void StartAction(string name)
+        {
+            var c = Anims.Get(name);
+            if (c == null || !_action.IsValid()) return;
+            if (_actionClip != name)
+            {
+                _actionClip = name;
+                _graph.Disconnect(_layers, 2);
+                _action.Destroy();
+                _action = AnimationClipPlayable.Create(_graph, c);
+                _action.SetApplyFootIK(true);
+                _graph.Connect(_action, 0, _layers, 2);
+            }
+            _action.SetTime(0); _action.SetSpeed(1);
+            _actionUntil = Time.time + c.length;
+        }
+
+        private void UpdateAction(float dt)
+        {
+            if (!_action.IsValid()) return;
+            bool on = Time.time < _actionUntil - 0.15f;
+            _actionW = Mathf.MoveTowards(_actionW, on ? 1f : 0f, dt * (on ? 10f : 6f));
+            _layers.SetInputWeight(2, _actionW);
+        }
         private string _grenadeState = "";
 
         private void StartThrow()
@@ -44,7 +74,8 @@ namespace FemalePlayer
 
         private float _phase, _speedSmooth, _strafeSmooth, _crouch, _prone, _runW, _meleeUntil;
         private float _legThigh, _legShin;
-        private bool _inCar;
+        private bool _inCar, _snap;
+        private View _lastView = View.FirstPerson;
         private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand; private bool _gripDone; private float _propSince;
 
         public enum View { FirstPerson, ThirdPerson }
@@ -271,7 +302,8 @@ namespace FemalePlayer
             Root.transform.localScale = new Vector3(mirror ? -1f : 1f, 1f, 1f);
             _anim.localPosition = Vector3.zero; _anim.localRotation = Quaternion.identity;
 
-            if (_mixamo) { LateMixamo(view, dt, yaw, camPitch); return; }
+            if (view != _lastView) { _lastView = view; _snap = true; }
+            if (_mixamo) { LateMixamo(view, dt, yaw, camPitch); _snap = false; return; }
 
             // locomotion
             Vector3 v = Game.Velocity; v.y = 0f;
@@ -302,7 +334,7 @@ namespace FemalePlayer
                 SetUpper(clip, 1f, fire ? 1f : 0f);
                 if (!fire && _upper.IsValid()) _upper.SetTime(0);
             }
-            UpdateProp(view == View.ThirdPerson ? weapon : "");
+            UpdateProp(weapon); ShowProp(view == View.ThirdPerson);
 
             // ---- procedural, in the (unmirrored) space of the Anim object ----
             float walkW = (1f - _runW) * Mathf.Clamp01(_speedSmooth / 0.6f) * (1f - _prone);
@@ -432,13 +464,16 @@ namespace FemalePlayer
             if (_rifle != null) { _graph.Connect(_rifle.Mix, 0, _sets, 1); _sets.SetInputWeight(1, 0f); }
             if (_fire != null) { _graph.Connect(_fire.Mix, 0, _sets, 2); _sets.SetInputWeight(2, 0f); }
             _fallback = Anims.Get("Idle");
-            _layers = AnimationLayerMixerPlayable.Create(_graph, 2);
+            _layers = AnimationLayerMixerPlayable.Create(_graph, 3);
             _graph.Connect(_sets, 0, _layers, 0);
             _layers.SetInputWeight(0, 1f);
             _upper = AnimationClipPlayable.Create(_graph, _fallback);
             _graph.Connect(_upper, 0, _layers, 1);
             _layers.SetInputWeight(1, 0f);
             _layers.SetLayerMaskFromAvatarMask(1, UpperMask());
+            _action = AnimationClipPlayable.Create(_graph, _fallback);   // layer 2: whole-body one-shots (Kick, Jump, RifleJump)
+            _graph.Connect(_action, 0, _layers, 2);
+            _layers.SetInputWeight(2, 0f);
             output.SetSourcePlayable(_layers);
             _graph.Play();
             Plugin.Log.LogInfo("Animations from the bundle: unarmed " + _unarmed.Info + (_rifle != null ? "; rifle " + _rifle.Info : "; no rifle set (RifleIdle) - rifle aim on the upper body only")
@@ -522,8 +557,9 @@ namespace FemalePlayer
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
             _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, dt * 5f);
-            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && rifleSet && _fire != null && Time.time >= _reloadUntil && Time.time >= _throwUntil;
-            _fireW = Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
+            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && rifleSet && _fire != null && !_reloading && Time.time >= _throwUntil;
+            _fireW = _snap ? (firing ? 1f : 0f) : Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
+            if (_snap) { _armW = rifleSet ? 1f : 0f; _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
             if (_rifle != null)
             {
                 _sets.SetInputWeight(0, 1f - _armW);
@@ -539,14 +575,27 @@ namespace FemalePlayer
             bool live = !Game.Paused;
             bool fire = live && (pvFire || Input.GetMouseButton(0));
             bool click = live && Input.GetMouseButtonDown(0);
-            bool reloadPressed = false;
-            try { reloadPressed = live && Input.GetButtonDown("Reload"); } catch (Exception) { }
-            if (pv == GunPose.P_RELOAD && Time.time >= _reloadUntil) reloadPressed = true;   // preview: reload over and over
-            if ((kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && reloadPressed)
+            // reload: only while the game really reloads (the weapon's Reload FSM went past checkAmmo), not on every R press
+            bool reloadingNow = (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && Game.IsReloading(weapon);
+            if (pv == GunPose.P_RELOAD) reloadingNow = true;   // preview: over and over
+            if (reloadingNow && !_reloading) { _upperClip = ""; _reloadStart = Time.time; }
+            if (pv == GunPose.P_RELOAD)
             {
                 var rc = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
-                if (rc != null) { _reloadUntil = Time.time + Mathf.Min(rc.length, 3f); _upperClip = ""; }
+                if (rc != null && Time.time - _reloadStart > rc.length) { _upperClip = ""; _reloadStart = Time.time; }
             }
+            _reloading = reloadingNow;
+            _reloadUntil = _reloading ? Time.time + 0.05f : 0f;
+
+            // kick (the game's Kick button: kick [Attack] FSM goes on -> fire) and jump (Player [Jump] FSM Idle -> Jump): whole-body one-shots
+            string ks = Game.KickState;
+            if (ks == "fire" && _kickState != "fire") StartAction("Kick");
+            _kickState = ks;
+            string js = Game.JumpState;
+            if (js == "Jump" && _jumpState != "Jump") StartAction(kind == Props.Kind.Rifle && Anims.Get("RifleJump") != null ? "RifleJump" : "Jump");
+            _jumpState = js;
+            UpdateAction(dt);
+
             if (kind == Props.Kind.Melee && click) { _meleeUntil = Time.time + 0.9f; _upperClip = ""; }
             if (kind == Props.Kind.Throw && click) StartThrow();
             string gs = Game.GrenadeState;   // the quick grenade (Throw Grenade key) is not a drawn weapon: watch its Attack FSM
@@ -555,7 +604,7 @@ namespace FemalePlayer
 
             if (Time.time < _throwUntil && Anims.Get("Throw") != null)
                 SetUpper("Throw", 1f, 1f);
-            else if (Time.time < _reloadUntil && kind != Props.Kind.None && kind != Props.Kind.Melee)
+            else if (_reloading && kind != Props.Kind.None && kind != Props.Kind.Melee)
                 SetUpper(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload", 1f, 1f);
             else if (kind == Props.Kind.Melee)
             {
@@ -581,7 +630,7 @@ namespace FemalePlayer
                 else SetUpper("", 0f, 0f);
             }
             else SetUpper("", 0f, 0f);
-            UpdateProp(view == View.ThirdPerson ? weapon : "");
+            UpdateProp(weapon); ShowProp(view == View.ThirdPerson);
 
             // keep her over the player: a clip whose forward motion was baked into the pose (not exported "In Place") walks
             // the hips away from the body root for a whole cycle and snaps back - pin them horizontally
@@ -629,7 +678,7 @@ namespace FemalePlayer
         private float _reloadW;
         private void PoseWeights()
         {
-            _reloadW = Mathf.MoveTowards(_reloadW, Time.time < _reloadUntil ? 1f : 0f, Time.deltaTime * 8f);
+            _reloadW = Mathf.MoveTowards(_reloadW, _reloading ? 1f : 0f, Time.deltaTime * 8f);
             int pv = GunPose.Preview;
             float R = _reloadW, F = _fireW, c = _crouch, mv = Mathf.Clamp01(_speedSmooth / 0.4f), run = _runW;
             if (!_mixamo) { F = 0f; }
@@ -664,10 +713,11 @@ namespace FemalePlayer
             // auto grip: the first time she stands still with this rifle in the rifle idle, point it from her right hand at her left hand
             // (= where the Mixamo rifle clips expect the gun) and keep that as a FIXED grip in the hand
             if (_mixamo && kind == Props.Kind.Rifle && !_gripDone && Plugin.AlignGun.Value && _speedSmooth < 0.1f && _crouch < 0.01f
-                && _armW > 0.99f && _fireW < 0.01f && Time.time > _reloadUntil && Time.time > _throwUntil && Time.time > _propSince + 0.5f && GunPose.Preview < 0)
+                && _armW > 0.99f && _fireW < 0.01f && !_reloading && Time.time > _throwUntil && Time.time > _propSince + 0.5f && GunPose.Preview < 0)
             {
                 AlignProp();
                 _propPos = t.localPosition; _propRot = t.localRotation; _gripDone = true;
+                _gripCache[_propFor] = new KeyValuePair<Vector3, Quaternion>(_propPos, _propRot);
                 Plugin.Verbose("Third person: " + _propFor + " grip taken from the rifle idle pose");
             }
             Vector3 basePos = t.localPosition; Quaternion baseRot = t.localRotation;
@@ -679,7 +729,7 @@ namespace FemalePlayer
 
             int pose = DominantPose();
             Vector3 move, rot;
-            if (GunPose.Keys(_propFor, pose, out move, out rot)) Adjust(t, basePos, baseRot, yaw, move, rot, pose);
+            if (_propShown && GunPose.Keys(_propFor, pose, out move, out rot)) Adjust(t, basePos, baseRot, yaw, move, rot, pose);
 
             // shooting without a Fire grip of its own: the fire clips raise the left hand to another spot - follow it with the barrel
             float follow = 0f;
@@ -784,6 +834,15 @@ namespace FemalePlayer
         }
 
         // ---------------------------------------------------------------- weapon in hand (third person)
+        private readonly Dictionary<string, KeyValuePair<Vector3, Quaternion>> _gripCache = new Dictionary<string, KeyValuePair<Vector3, Quaternion>>();
+        private bool _propShown;
+        private void ShowProp(bool on)
+        {
+            if (_prop == null || _propShown == on) return;
+            _propShown = on;
+            foreach (var r in _prop.GetComponentsInChildren<Renderer>(true)) r.enabled = on;
+        }
+
         private void UpdateProp(string weapon)
         {
             if (weapon == _propFor && (_prop != null || weapon == "")) return;
@@ -801,6 +860,9 @@ namespace FemalePlayer
             _propBarrel = Props.Barrel(_prop);
             _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation; _propHand = hand;
             _gripDone = false; _propSince = Time.time;
+            KeyValuePair<Vector3, Quaternion> g;
+            if (_gripCache.TryGetValue(weapon, out g)) { _propPos = g.Key; _propRot = g.Value; _gripDone = true; }   // AutoGrip done before for this weapon
+            _propShown = true; ShowProp(false);
             Plugin.Verbose("Third person: barrel axis of " + p.Key + " = " + _propBarrel);
             Plugin.Verbose("Third person: " + weapon + " -> " + p.Owner + "'s " + p.Source.name + " on " + p.Hand);
         }
