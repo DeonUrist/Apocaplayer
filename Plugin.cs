@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.0.3";
+        public const string VERSION = "1.0.4";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -31,7 +31,7 @@ namespace Apocaplayer
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
         internal static ConfigEntry<bool> ToggleMiddleMouse;
-        internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius;
+        internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime;
         internal static ConfigEntry<KeyCode> IgnitionKey;
         internal enum Gender { Female, Male }
         internal static ConfigEntry<Gender> Character;
@@ -86,6 +86,7 @@ namespace Apocaplayer
 
             AnimBundleFile = H("Model", "AnimationBundle", "Models/apocaplayer_anims.bundle", "AssetBundle with humanoid clips (Mixamo) built by the UnityAnims project; when it has Idle + Walk her locomotion comes from it.");
             JumpClipStart = H("Animation", "JumpClipStart", 0.2f, "Jump / RifleJump / PistolJump clips start this far in (share of the clip): Mixamo jumps crouch first, the game's jump leaves the ground at once.");
+            AdsTime = H("Camera", "AimDownSightsTime", 0.2f, "First person: seconds the gun takes to move between hip and sights (right mouse button) and back; 0 = the game's own (instant).");
             PickAssistRadius = H("Camera", "PickAssistRadius", 0.06f, "Third person: an item / part / switch this close to the cursor on screen (share of the screen height) is picked even if the eye ray misses it.");
             StrikeWindup = H("Animation", "StrikeWindup", 0.08f, "Melee / bare hands: seconds her wind-up takes before the blow lands (the game hits the moment the swing starts).");
             HipsDrift = H("Animation", "HipsDrift", 0.25f, "Bundle clips: how far (m) her hips may move away from the player sideways/forward (room for the idle sway; stops clips with baked forward motion from walking ahead of you).");
@@ -146,6 +147,8 @@ namespace Apocaplayer
             catch (Exception e) { Log.LogError("Harmony patch failed, lances may hit your own car: " + e.Message); }
             try { PickAssist.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Harmony patch failed, no third-person pick assist: " + e.Message); }
+            try { AimTransition.Patch(new HarmonyLib.Harmony(GUID)); }
+            catch (Exception e) { Log.LogError("Harmony patch failed, aiming down sights stays instant: " + e.Message); }
 
             SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); };
             EnsureRunner();

@@ -57,6 +57,8 @@ Transitions: a new animation always starts at once at its own time and speed, an
 clips (reload, aim, fire, throw, punches, swings) cross-fade in 0.08-0.15 s, switching between unarmed / rifle / pistol blends her
 body over 0.2 s (the gun is in her hand at its correct grip from the first frame), getting into / out of the driver's seat eases over
 0.3 s and turning off the seat in a car over 0.25 s. Nothing is delayed or made longer.
+Aiming down sights in first person (right mouse button) moves the gun from the hip to the sights and back over 0.2 s
+(easing out) instead of jumping there; hidden setting `[Camera] AimDownSightsTime`, 0 = the game's instant move.
 
 Third person, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
 the cursor ON SCREEN is picked - within 6 % of the screen height, visible from the camera, within the game's own reach from her eye
