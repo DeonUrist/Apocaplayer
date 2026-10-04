@@ -391,6 +391,9 @@ namespace FemalePlayer
             s.StrafeIsWalk = c[S_LEFT] == null || c[S_RIGHT] == null;
             s.CrouchMissing = c[S_CIDLE] == null || c[S_CWALK] == null;
             s.CrouchStrafeMissing = c[S_CLEFT] == null || c[S_CRIGHT] == null;
+            // backwards: the set's own back clip, else ITS OWN forward clip played in reverse (RifleFireWalk reversed beats the non-firing RifleWalkBack)
+            if (pre != "" && Anims.Get(pre + "WalkBack") == null && Anims.Get(pre + "Walk") != null) c[S_BACK] = null;
+            if (pre != "" && Anims.Get(pre + "CrouchWalkBack") == null && Anims.Get(pre + "CrouchWalk") != null) c[S_CBACK] = null;
             if (c[S_BACK] == null) { c[S_BACK] = walk; s.Reverse[S_BACK] = true; }
             if (c[S_LEFT] == null) c[S_LEFT] = walk;
             if (c[S_RIGHT] == null) c[S_RIGHT] = walk;
