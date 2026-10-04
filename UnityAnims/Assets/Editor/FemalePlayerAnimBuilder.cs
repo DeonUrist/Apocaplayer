@@ -105,10 +105,12 @@ public static class FemalePlayerAnimBuilder
             lastFrame = c.lastFrame,
             loopTime = !OneShot(name),
             loopPose = false,
-            // in place: root rotation / height / position baked into the pose, as recorded
+            // rotation and height baked into the pose; forward/sideways motion NOT baked: it goes to the root, which the mod
+            // ignores - so she walks on the spot whether or not the clip was downloaded "In Place", and the mod can read the
+            // clip's own walking speed (averageSpeed) to play it in step with the player
             lockRootRotation = true, keepOriginalOrientation = true,
             lockRootHeightY = true, keepOriginalPositionY = true, heightFromFeet = false,
-            lockRootPositionXZ = true, keepOriginalPositionXZ = true,
+            lockRootPositionXZ = false, keepOriginalPositionXZ = true,
         };
         return a;
     }

@@ -420,6 +420,15 @@ namespace FemalePlayer
 
         private static float ClipSpeed(float speed, float native) { return Mathf.Clamp(speed / Mathf.Max(0.2f, native), 0.5f, 2f); }
 
+        // the clip's own ground speed when it was exported with root motion (not "In Place"), else the configured one
+        private static float Native(AnimationClipPlayable p, float fallback)
+        {
+            var c = p.GetAnimationClip();
+            if (c == null) return fallback;
+            float v = new Vector2(c.averageSpeed.x, c.averageSpeed.z).magnitude;
+            return v > 0.3f ? v : fallback;
+        }
+
         private void Drive(LocoSet s, float m, float r, float wF, float wB, float wL, float wR, float c, float speed)
         {
             if (s == null) return;
@@ -432,13 +441,14 @@ namespace FemalePlayer
             s.Mix.SetInputWeight(S_RIGHT, m * wR * st);
             s.Mix.SetInputWeight(S_CIDLE, (1f - m) * c);
             s.Mix.SetInputWeight(S_CWALK, m * c);
-            float walk = ClipSpeed(speed, Plugin.ClipWalkSpeed.Value);
-            s.P[S_FWD].SetSpeed(walk);
-            s.P[S_LEFT].SetSpeed(walk);
-            s.P[S_RIGHT].SetSpeed(walk);
-            s.P[S_BACK].SetSpeed(s.BackIsWalk ? -walk : walk);
-            s.P[S_RUN].SetSpeed(ClipSpeed(speed, Plugin.ClipRunSpeed.Value));
-            s.P[S_CWALK].SetSpeed(ClipSpeed(speed, Plugin.ClipCrouchSpeed.Value));
+            float wv = Plugin.ClipWalkSpeed.Value;
+            s.P[S_FWD].SetSpeed(ClipSpeed(speed, Native(s.P[S_FWD], wv)));
+            s.P[S_LEFT].SetSpeed(ClipSpeed(speed, Native(s.P[S_LEFT], wv)));
+            s.P[S_RIGHT].SetSpeed(ClipSpeed(speed, Native(s.P[S_RIGHT], wv)));
+            float back = ClipSpeed(speed, Native(s.P[S_BACK], wv));
+            s.P[S_BACK].SetSpeed(s.BackIsWalk ? -back : back);
+            s.P[S_RUN].SetSpeed(ClipSpeed(speed, Native(s.P[S_RUN], Plugin.ClipRunSpeed.Value)));
+            s.P[S_CWALK].SetSpeed(ClipSpeed(speed, Native(s.P[S_CWALK], Plugin.ClipCrouchSpeed.Value)));
         }
 
         private void LateMixamo(View view, float dt, Quaternion yaw, float camPitch)
@@ -502,6 +512,16 @@ namespace FemalePlayer
             }
             else SetUpper("", 0f, 0f);
             UpdateProp(view == View.ThirdPerson ? weapon : "");
+
+            // keep her over the player: a clip whose forward motion was baked into the pose (not exported "In Place") walks
+            // the hips away from the body root for a whole cycle and snaps back - pin them horizontally
+            Transform hips;
+            if (Bones.TryGetValue("mixamorig:Hips", out hips))
+            {
+                var hp = hips.localPosition;
+                var xz = Vector2.ClampMagnitude(new Vector2(hp.x, hp.z), Plugin.HipsDrift.Value);
+                if (xz.x != hp.x || xz.y != hp.z) hips.localPosition = new Vector3(xz.x, hp.y, xz.y);
+            }
 
             // what the bundle doesn't have is still procedural
             if (set.StrafeIsWalk)

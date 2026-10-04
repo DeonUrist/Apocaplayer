@@ -12,7 +12,7 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 - Upload `Models/Boss_lady.glb` converted to FBX (Blender: File → Export → FBX) as your character, or just use any Mixamo character (Y Bot) —
   either works, the clips are retargeted in the game.
 - For each clip: **Download → Format: FBX for Unity (.fbx), Skin: With Skin, Frames per second: 30, Keyframe Reduction: none**.
-  For walk/run/strafe/crouch-walk tick **In Place** before downloading.
+  For walk/run/strafe/crouch-walk leave **In Place unticked**: the builder keeps her on the spot anyway, and the clip's real walking speed lets the mod play it in step with you (In Place clips use the BundleWalkSpeed/BundleRunSpeed guesses).
 - Save it into `Assets/Mixamo/` named **exactly** as in the first column (the file name becomes the clip name the mod looks for).
 
 | File name | What | Suggested Mixamo search |
