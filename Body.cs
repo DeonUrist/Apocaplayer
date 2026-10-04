@@ -616,35 +616,25 @@ namespace FemalePlayer
             float wF = 1f, wB = 0f, wL = 0f, wR = 0f;
             if (sum > 0.05f) { wF = Mathf.Max(0f, local.z) / sum; wB = Mathf.Max(0f, -local.z) / sum; wL = Mathf.Max(0f, -local.x) / sum; wR = Mathf.Max(0f, local.x) / sum; }
 
-            // WeaponAdjustment pose preview (Numpad 9/3): play that pose standing still so the grip can be tuned in it
-            int pv = GunPose.Preview;
-            bool pvFire = GunPose.IsFire(pv);
-            if (pv >= 0 && pv != GunPose.P_RELOAD)
-            {
-                int sl = pv % GunPose.SLOTS;
-                bool crouched = sl >= S_CIDLE, run = sl == S_RUN || sl == S_RUNL || sl == S_RUNR, moving = sl != S_IDLE && sl != S_CIDLE;
-                _crouch = crouched ? 1f : 0f;
-                m = moving ? 1f : 0f;
-                wF = sl == S_FWD || sl == S_RUN || sl == S_CWALK ? 1f : 0f;
-                wB = sl == S_BACK || sl == S_CBACK ? 1f : 0f;
-                wL = sl == S_LEFT || sl == S_RUNL || sl == S_CLEFT ? 1f : 0f;
-                wR = sl == S_RIGHT || sl == S_RUNR || sl == S_CRIGHT ? 1f : 0f;
-                if (!moving) wF = 1f;
-                _runW = run ? 1f : 0f;
-                _speedSmooth = run ? Plugin.ClipRunSpeed.Value : crouched && moving ? Plugin.ClipCrouchSpeed.Value : moving ? Plugin.ClipWalkSpeed.Value : 0f;
-            }
-            else if (pv == GunPose.P_RELOAD) { _crouch = 0f; m = 0f; wF = 1f; wB = wL = wR = 0f; _runW = 0f; _speedSmooth = 0f; }
-
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
             bool pistolSet = _pistol != null && kind == Props.Kind.Pistol;
-            _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, dt * 5f);
-            _armPW = Mathf.MoveTowards(_armPW, pistolSet ? 1f : 0f, dt * 5f);
+            // the weapon type's animation set at once - no blending between unarmed / rifle / pistol animations
+            _armW = rifleSet ? 1f : 0f;
+            _armPW = pistolSet ? 1f : 0f;
+            // another weapon drawn: nothing of the previous one carries over (fire, reload, upper-body clip, a pose being edited)
+            if (weapon != _lastWeapon)
+            {
+                _lastWeapon = weapon; _weaponSince = Time.time;
+                _fireW = 0f; _reloading = false; _reloadW = 0f; _reloadFresh = false; _upperClip = "";
+                GunPose.Flush();
+                Plugin.Verbose("Weapon: " + (weapon == "" ? "none" : weapon + " (" + kind + ")"));
+            }
             var fireSet = rifleSet ? _fire : pistolSet ? _pfire : null;
-            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && fireSet != null && !_reloading && Time.time >= _throwUntil;
+            bool firing = !Game.Paused && Input.GetMouseButton(0) && fireSet != null && !_reloading && Time.time >= _throwUntil;
             _fireW = _snap ? (firing ? 1f : 0f) : Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
-            if (_snap) { _armW = rifleSet ? 1f : 0f; _armPW = pistolSet ? 1f : 0f; _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
+            if (_snap) { _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
             if (_rifle != null || _pistol != null)
             {
                 _sets.SetInputWeight(0, Mathf.Clamp01(1f - _armW - _armPW));
@@ -662,17 +652,10 @@ namespace FemalePlayer
 
             // upper body: fire / reload / melee / throw / aim
             bool live = !Game.Paused;
-            bool fire = live && (pvFire || Input.GetMouseButton(0));
+            bool fire = live && Input.GetMouseButton(0);
             bool click = live && Input.GetMouseButtonDown(0);
-            // reload: only while the game really reloads (the weapon's Reload FSM went past checkAmmo), not on every R press
-            bool reloadingNow = (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && Game.IsReloading(weapon);
-            if (pv == GunPose.P_RELOAD) reloadingNow = true;   // preview: over and over
+            bool reloadingNow = (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && ReloadNow(weapon);
             if (reloadingNow && !_reloading) { _upperClip = ""; _reloadStart = Time.time; }
-            if (pv == GunPose.P_RELOAD)
-            {
-                var rc = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
-                if (rc != null && Time.time - _reloadStart > rc.length) { _upperClip = ""; _reloadStart = Time.time; }
-            }
             _reloading = reloadingNow;
             _reloadUntil = _reloading ? Time.time + 0.05f : 0f;
 
@@ -789,8 +772,6 @@ namespace FemalePlayer
         private void PoseWeights()
         {
             _reloadW = Mathf.MoveTowards(_reloadW, _reloading ? 1f : 0f, Time.deltaTime * 8f);
-            int pv = GunPose.Preview;
-            if (pv >= 0) { for (int i = 0; i < _poseW.Length; i++) _poseW[i] = i == pv ? 1f : 0f; return; }
             if (!_mixamo)
             {   // game clips: no slots - idle / walk / run, crouched or not
                 float mv = Mathf.Clamp01(_speedSmooth / 0.4f), c = _crouch;
@@ -809,8 +790,6 @@ namespace FemalePlayer
 
         private int DominantPose()
         {
-            int pv = GunPose.Preview;
-            if (pv >= 0) return pv;
             int best = 0;
             for (int i = 1; i < _poseW.Length; i++) if (_poseW[i] > _poseW[best]) best = i;
             return best;
@@ -819,6 +798,30 @@ namespace FemalePlayer
         // every frame: the weapon model's pose in her right hand = the absolute poses of the animations she is in (GunPose, weapon-poses.txt),
         // blended by the animations' weights. Nothing changes them but the numpad (WeaponAdjustment). Grips from 0.5/0.6 (offsets on the raider
         // grip, for rifles on the AutoGrip one) are converted once per weapon.
+        // reload, robustly: a reload is shown only
+        //  - while the game's first-person arms of this weapon play their reload (Animator state "reload" / a clip named *reload*), once this
+        //    weapon was seen doing that together with its Reload FSM (then that is all that counts), else
+        //  - while its Reload / ReloadAnimation FSM reloads - but only if it started reloading AFTER the weapon was drawn (a state left over
+        //    from before never counts) and for at most 8 s
+        //  never in the first 0.3 s after drawing.
+        private string _lastWeapon = "";
+        private float _weaponSince, _fsmReloadSince;
+        private bool _reloadFresh;                                     // the FSM was seen not reloading since the weapon was drawn
+        private readonly HashSet<string> _armsShowReload = new HashSet<string>();   // weapons whose FP arms are known to play a recognisable reload
+        private bool ReloadNow(string weapon)
+        {
+            if (Time.time - _weaponSince < 0.3f) return false;
+            bool known;
+            bool arms = Game.ArmsReloading(weapon, out known);
+            bool fsm = Game.IsReloading(weapon);
+            if (fsm && arms && _armsShowReload.Add(weapon)) Plugin.Verbose("Reload: " + weapon + " - following its first-person arms' reload animation");
+            if (known && _armsShowReload.Contains(weapon)) return arms;
+            if (!fsm) { _reloadFresh = true; _fsmReloadSince = 0f; return false; }
+            if (!_reloadFresh) return false;                           // already "reloading" when drawn: stale
+            if (_fsmReloadSince <= 0f) _fsmReloadSince = Time.time;
+            return Time.time - _fsmReloadSince < 8f;
+        }
+
         private void PoseProp(Props.Kind kind, Quaternion yaw)
         {
             if (_prop == null || _propHand == null) return;
@@ -829,7 +832,7 @@ namespace FemalePlayer
                 // once more, the same way and in the same pose, then convert; everything else was tuned on the raider grip
                 if (!(_mixamo && kind == Props.Kind.Rifle)) GunPose.ConvertLegacy(_propFor, _propPos, _propRot);
                 else if (_speedSmooth < 0.1f && _crouch < 0.01f && _armW > 0.99f && _fireW < 0.01f && !_reloading && Time.time > _throwUntil
-                         && Time.time > _propSince + 0.5f && GunPose.Preview < 0)
+                         && Time.time > _propSince + 0.5f)
                 {
                     t.localPosition = _propPos; t.localRotation = _propRot;
                     AlignProp();
@@ -846,6 +849,7 @@ namespace FemalePlayer
             int pose = DominantPose();
             var shown = GunPose.Effective(_propFor, pose, GunPose.Abs(_propPos, _propRot));
             Vector3 move, rot;
+            GunPose.Status((kind == Props.Kind.Pistol ? "pistol" : kind == Props.Kind.Rifle ? "rifle" : kind.ToString().ToLowerInvariant()) + " animations" + (_reloading ? ", RELOADING" : "") + (_fireW > 0.5f ? ", firing" : ""));
             if (_propShown && GunPose.Keys(_propFor, pose, shown, out move, out rot)) Adjust(t, yaw, move, rot, pose);
         }
 

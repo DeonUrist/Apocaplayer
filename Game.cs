@@ -16,7 +16,7 @@ namespace FemalePlayer
         public static PlayMakerFSM GrenadeFsm;      // PlayerCamera/QuickItems/grenade [Attack]: on -> (Throw Grenade) -> checkGrenade -> fire 0.4 s -> wait 0.35 s -> throw      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
         private static float _nextFind;
 
-        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
+        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _arms.Clear(); GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
 
         public static bool Ready
         {
@@ -177,6 +177,34 @@ namespace FemalePlayer
             catch (Exception) { }
             return false;
         }
+
+        // the drawn weapon's first-person arms play their reload: Animator (WeaponsArm/Parent/<weapon>/...) in a state named "reload" (the
+        // ReloadAnimation FSM's AnimatorPlay) or playing a clip whose name contains "reload". known = there is an active Animator to ask.
+        private static readonly Dictionary<string, Animator> _arms = new Dictionary<string, Animator>();
+        public static bool ArmsReloading(string weapon, out bool known)
+        {
+            known = false;
+            if (string.IsNullOrEmpty(weapon) || WeaponsParent == null) return false;
+            try
+            {
+                Animator an;
+                if (!_arms.TryGetValue(weapon, out an) || an == null)
+                {
+                    var w = WeaponsParent.Find(weapon);
+                    an = w != null ? w.GetComponentInChildren<Animator>(true) : null;
+                    _arms[weapon] = an;
+                }
+                if (an == null || !an.isActiveAndEnabled || an.runtimeAnimatorController == null) return false;
+                known = true;
+                if (IsReload(an.GetCurrentAnimatorStateInfo(0))) return true;
+                if (an.IsInTransition(0) && IsReload(an.GetNextAnimatorStateInfo(0))) return true;
+                foreach (var ci in an.GetCurrentAnimatorClipInfo(0))
+                    if (ci.clip != null && ci.weight > 0.5f && ci.clip.name.IndexOf("reload", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            }
+            catch (Exception) { }
+            return false;
+        }
+        private static bool IsReload(AnimatorStateInfo s) { return s.IsName("reload") || s.IsName("Reload") || s.IsName("Base Layer.reload") || s.IsName("Base Layer.Reload"); }
 
         public static string GrenadeState
         {

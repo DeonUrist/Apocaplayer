@@ -293,16 +293,14 @@ namespace FemalePlayer
 
         // ---------------- keys (WeaponAdjustment)
         // Numpad 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 (or 0 . Enter) switches MOVING <-> ROTATING (8/2 muzzle up/down,
-        // 6/4 muzzle right/left, 7/1 roll). Numpad 9 / 3 = preview the next / previous animation (then live), Numpad - = delete the animation's own
+        // 6/4 muzzle right/left, 7/1 roll). The animation edited is the one she is in (walk, crouch, fire ... to tune it). Numpad - = delete the animation's own
         // pose (it shows the weapon's Idle pose again), Numpad / = copy the shown pose, Numpad * = paste it into the current animation.
         // Shift/Ctrl can't be used: with NumLock on, Shift+Numpad 8 arrives as the Up arrow.
         private static bool _rotateMode;
         private static readonly Dictionary<KeyCode, bool> _held = new Dictionary<KeyCode, bool>();
-        private static int _preview = -1;     // -1 = live
         private static float[] _clip;
         private static string _hint = "", _note = "";
 
-        public static int Preview { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value && ThirdPerson.On ? _preview : -1; } }
         public static bool Editing { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value; } }
 
         private static bool Pressed(params KeyCode[] keys)
@@ -319,6 +317,8 @@ namespace FemalePlayer
         }
 
         public static void Note(string s) { _note = s ?? ""; }
+        private static string _status = "";
+        public static void Status(string s) { _status = s ?? ""; }
 
         public static bool Keys(string weapon, int pose, float[] shown, out Vector3 move, out Vector3 rot)
         {
@@ -326,8 +326,6 @@ namespace FemalePlayer
             _hint = "";
             if (!Editing || string.IsNullOrEmpty(weapon) || Time.timeScale < 0.01f) { Flush(); return false; }
             if (Pressed(KeyCode.Keypad5, KeyCode.Keypad0, KeyCode.KeypadPeriod, KeyCode.KeypadEnter, KeyCode.Clear)) _rotateMode = !_rotateMode;
-            if (Pressed(KeyCode.Keypad9)) { Flush(); _preview = _preview + 1 >= Poses.Length ? -1 : _preview + 1; }
-            if (Pressed(KeyCode.Keypad3)) { Flush(); _preview = _preview - 1 < -1 ? Poses.Length - 1 : _preview - 1; }
             if (Pressed(KeyCode.KeypadMinus)) { Flush(); if (_user.Remove(weapon + "|" + Poses[pose])) Save(); }
             if (Pressed(KeyCode.KeypadDivide)) _clip = (float[])shown.Clone();
             if (Pressed(KeyCode.KeypadMultiply) && _clip != null) { Flush(); _user[weapon + "|" + Poses[pose]] = (float[])_clip.Clone(); Save(); }
@@ -337,9 +335,9 @@ namespace FemalePlayer
             bool anyKey = a != 0f || b != 0f || c != 0f;
             if (!anyKey) Flush();
             bool own = HasPose(weapon, pose);
-            _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   animation: " + Poses[pose] + (_preview >= 0 ? " (PREVIEW)" : "")
+            _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   animation: " + Poses[pose] + "   (" + _status + ")"
                   + (own ? "" : pose != 0 && HasPose(weapon, 0) ? " - shows the Idle pose" : " - shows the raider grip") + "   pose " + string.Join(", ", Array.ConvertAll(shown, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
-                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = preview next/previous animation.  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/FemalePlayer/weapon-poses.txt"
+                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/FemalePlayer/weapon-poses.txt"
                   + (string.IsNullOrEmpty(_note) ? "" : "\n" + _note);
             return anyKey;
         }
