@@ -35,7 +35,7 @@ namespace FemalePlayer
         private float _phase, _speedSmooth, _strafeSmooth, _crouch, _prone, _runW, _meleeUntil;
         private float _legThigh, _legShin;
         private bool _inCar;
-        private GameObject _prop; private string _propFor = "";
+        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot;
 
         public enum View { FirstPerson, ThirdPerson }
 
@@ -349,38 +349,54 @@ namespace FemalePlayer
         private sealed class LocoSet
         {
             public AnimationMixerPlayable Mix;
-            public readonly AnimationClipPlayable[] P = new AnimationClipPlayable[8];
-            public bool BackIsWalk, StrafeIsWalk, CrouchMissing;
+            public readonly AnimationClipPlayable[] P = new AnimationClipPlayable[N];
+            public readonly bool[] Reverse = new bool[N];   // a missing "back" clip = the forward one played backwards
+            public bool StrafeIsWalk, CrouchStrafeMissing, CrouchMissing;
             public string Info;
         }
-        private const int S_IDLE = 0, S_FWD = 1, S_BACK = 2, S_LEFT = 3, S_RIGHT = 4, S_RUN = 5, S_CIDLE = 6, S_CWALK = 7;
+        private const int S_IDLE = 0, S_FWD = 1, S_BACK = 2, S_LEFT = 3, S_RIGHT = 4, S_RUN = 5, S_RUNL = 6, S_RUNR = 7,
+                          S_CIDLE = 8, S_CWALK = 9, S_CBACK = 10, S_CLEFT = 11, S_CRIGHT = 12, N = 13;
+        private static readonly string[] SlotNames = { "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "RunStrafeLeft", "RunStrafeRight",
+                                                       "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight" };
+
+        // the set's own clip ("Rifle" + name), else the unarmed one
+        private static AnimationClip G(string pre, string name) { return Anims.Get(pre + name) ?? Anims.Get(name); }
 
         // one locomotion set (unarmed: no prefix, rifle: "Rifle"); null when the set has no idle clip
         private LocoSet MakeSet(string pre)
         {
             var idle = Anims.Get(pre + "Idle");
-            var walk = Anims.Get(pre + "Walk") ?? Anims.Get("Walk");
+            var walk = G(pre, "Walk");
             if (idle == null || walk == null) return null;
             var s = new LocoSet();
-            var back = Anims.Get(pre + "WalkBack") ?? Anims.Get("WalkBack");
-            var left = Anims.Get(pre + "StrafeLeft") ?? Anims.Get("StrafeLeft");
-            var right = Anims.Get(pre + "StrafeRight") ?? Anims.Get("StrafeRight");
-            var run = Anims.Get(pre + "Run") ?? Anims.Get("Run") ?? walk;
-            var cidle = Anims.Get(pre + "CrouchIdle") ?? Anims.Get("CrouchIdle");
-            var cwalk = Anims.Get(pre + "CrouchWalk") ?? Anims.Get("CrouchWalk");
-            s.BackIsWalk = back == null; s.StrafeIsWalk = left == null || right == null; s.CrouchMissing = cidle == null || cwalk == null;
-            var clips = new[] { idle, walk, back ?? walk, left ?? walk, right ?? walk, run, cidle ?? idle, cwalk ?? walk };
-            s.Mix = AnimationMixerPlayable.Create(_graph, 8);
-            for (int i = 0; i < 8; i++)
+            var c = new AnimationClip[N];
+            for (int i = 0; i < N; i++) c[i] = G(pre, SlotNames[i]);
+            c[S_IDLE] = idle;
+            s.StrafeIsWalk = c[S_LEFT] == null || c[S_RIGHT] == null;
+            s.CrouchMissing = c[S_CIDLE] == null || c[S_CWALK] == null;
+            s.CrouchStrafeMissing = c[S_CLEFT] == null || c[S_CRIGHT] == null;
+            if (c[S_BACK] == null) { c[S_BACK] = walk; s.Reverse[S_BACK] = true; }
+            if (c[S_LEFT] == null) c[S_LEFT] = walk;
+            if (c[S_RIGHT] == null) c[S_RIGHT] = walk;
+            if (c[S_RUN] == null) c[S_RUN] = walk;
+            if (c[S_RUNL] == null) c[S_RUNL] = s.StrafeIsWalk ? c[S_RUN] : c[S_LEFT];
+            if (c[S_RUNR] == null) c[S_RUNR] = s.StrafeIsWalk ? c[S_RUN] : c[S_RIGHT];
+            if (c[S_CIDLE] == null) c[S_CIDLE] = idle;
+            if (c[S_CWALK] == null) c[S_CWALK] = walk;
+            if (c[S_CBACK] == null) { c[S_CBACK] = c[S_CWALK]; s.Reverse[S_CBACK] = true; }
+            if (c[S_CLEFT] == null) c[S_CLEFT] = c[S_CWALK];
+            if (c[S_CRIGHT] == null) c[S_CRIGHT] = c[S_CWALK];
+            s.Mix = AnimationMixerPlayable.Create(_graph, N);
+            var n = new List<string>();
+            for (int i = 0; i < N; i++)
             {
-                s.P[i] = AnimationClipPlayable.Create(_graph, clips[i]);
+                s.P[i] = AnimationClipPlayable.Create(_graph, c[i]);
                 s.P[i].SetApplyFootIK(true);
                 _graph.Connect(s.P[i], 0, s.Mix, i);
                 s.Mix.SetInputWeight(i, i == 0 ? 1f : 0f);
+                n.Add(SlotNames[i] + "=" + c[i].name + (s.Reverse[i] ? "(reversed)" : ""));
             }
-            var n = new List<string>();
-            foreach (var c in clips) n.Add(c.name);
-            s.Info = string.Join("/", n.ToArray());
+            s.Info = string.Join(", ", n.ToArray());
             return s;
         }
 
@@ -433,22 +449,23 @@ namespace FemalePlayer
         {
             if (s == null) return;
             float st = 1f - c;
-            s.Mix.SetInputWeight(S_IDLE, (1f - m) * st);
-            s.Mix.SetInputWeight(S_FWD, m * wF * (1f - r) * st);
-            s.Mix.SetInputWeight(S_RUN, m * wF * r * st);
-            s.Mix.SetInputWeight(S_BACK, m * wB * st);
-            s.Mix.SetInputWeight(S_LEFT, m * wL * st);
-            s.Mix.SetInputWeight(S_RIGHT, m * wR * st);
-            s.Mix.SetInputWeight(S_CIDLE, (1f - m) * c);
-            s.Mix.SetInputWeight(S_CWALK, m * c);
-            float wv = Plugin.ClipWalkSpeed.Value;
-            s.P[S_FWD].SetSpeed(ClipSpeed(speed, Native(s.P[S_FWD], wv)));
-            s.P[S_LEFT].SetSpeed(ClipSpeed(speed, Native(s.P[S_LEFT], wv)));
-            s.P[S_RIGHT].SetSpeed(ClipSpeed(speed, Native(s.P[S_RIGHT], wv)));
-            float back = ClipSpeed(speed, Native(s.P[S_BACK], wv));
-            s.P[S_BACK].SetSpeed(s.BackIsWalk ? -back : back);
-            s.P[S_RUN].SetSpeed(ClipSpeed(speed, Native(s.P[S_RUN], Plugin.ClipRunSpeed.Value)));
-            s.P[S_CWALK].SetSpeed(ClipSpeed(speed, Native(s.P[S_CWALK], Plugin.ClipCrouchSpeed.Value)));
+            var w = new float[N];
+            w[S_IDLE] = (1f - m) * st;
+            w[S_FWD] = m * wF * (1f - r) * st;   w[S_RUN] = m * wF * r * st;
+            w[S_BACK] = m * wB * st;
+            w[S_LEFT] = m * wL * (1f - r) * st;  w[S_RUNL] = m * wL * r * st;
+            w[S_RIGHT] = m * wR * (1f - r) * st; w[S_RUNR] = m * wR * r * st;
+            w[S_CIDLE] = (1f - m) * c;
+            w[S_CWALK] = m * wF * c; w[S_CBACK] = m * wB * c; w[S_CLEFT] = m * wL * c; w[S_CRIGHT] = m * wR * c;
+            for (int i = 0; i < N; i++)
+            {
+                s.Mix.SetInputWeight(i, w[i]);
+                if (i == S_IDLE || i == S_CIDLE) continue;
+                float native = i == S_RUN || i == S_RUNL || i == S_RUNR ? Plugin.ClipRunSpeed.Value
+                             : i >= S_CWALK ? Plugin.ClipCrouchSpeed.Value : Plugin.ClipWalkSpeed.Value;
+                float sp = ClipSpeed(speed, Native(s.P[i], native));
+                s.P[i].SetSpeed(s.Reverse[i] ? -sp : sp);
+            }
         }
 
         private void LateMixamo(View view, float dt, Quaternion yaw, float camPitch)
@@ -505,7 +522,9 @@ namespace FemalePlayer
             }
             else if (kind == Props.Kind.Rifle)
             {
-                if (fire && Anims.Get("RifleFire") != null) SetUpper("RifleFire", 1f, 1f);
+                string crouchFire = Anims.Get("CrouchRifleFire") != null ? "CrouchRifleFire" : Anims.Get("RifleCrouchFire") != null ? "RifleCrouchFire" : null;
+                if (fire && _crouch > 0.5f && crouchFire != null) SetUpper(crouchFire, 1f, 1f);
+                else if (fire && Anims.Get("RifleFire") != null) SetUpper("RifleFire", 1f, 1f);
                 else if (Anims.Get("RifleAim") != null) SetUpper("RifleAim", 1f, 1f);
                 else if (_rifle == null) { SetUpper(Plugin.RifleClip.Value, 1f, fire ? 1f : 0f); if (!fire) _upper.SetTime(0); }
                 else SetUpper("", 0f, 0f);
@@ -524,7 +543,7 @@ namespace FemalePlayer
             }
 
             // what the bundle doesn't have is still procedural
-            if (set.StrafeIsWalk)
+            if (_crouch > 0.5f && !set.CrouchMissing ? set.CrouchStrafeMissing : set.StrafeIsWalk)
             {
                 float strafe = speed > 0.3f ? Mathf.Clamp(Mathf.Atan2(local.x, Mathf.Abs(local.z)) * Mathf.Rad2Deg, -60f, 60f) : 0f;
                 _strafeSmooth = Mathf.Lerp(_strafeSmooth, strafe * (1f - _prone), 1f - Mathf.Exp(-dt * 8f));
@@ -544,6 +563,25 @@ namespace FemalePlayer
                 Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
+            if (kind == Props.Kind.Rifle) AlignProp();
+        }
+
+        // Rifles: the raider prop's pose was made for Flexa's left-handed raider clip; in Mixamo clips the hands hold it differently.
+        // Point the barrel from her right hand toward her left (support) hand, turning about the right hand, so it lies along both hands.
+        private void AlignProp()
+        {
+            if (_prop == null || !Plugin.AlignGun.Value || _propBarrel == Vector3.zero) return;
+            Transform rh, lh;
+            if (!Bones.TryGetValue("mixamorig:RightHand", out rh) || !Bones.TryGetValue("mixamorig:LeftHand", out lh)) return;
+            Vector3 want = lh.position - rh.position;
+            if (want.magnitude < 0.12f) return;   // hands together (pistol grip / reload): keep the hand pose
+            var t = _prop.transform;
+            t.localPosition = _propPos; t.localRotation = _propRot;   // from the hand pose every frame (no drift)
+            Vector3 have = t.TransformDirection(_propBarrel);
+            var q = Quaternion.FromToRotation(have, want.normalized);
+            Vector3 pivot = rh.position;
+            t.position = pivot + q * (t.position - pivot);
+            t.rotation = q * t.rotation;
         }
 
         // ---------------------------------------------------------------- procedural helpers
@@ -618,6 +656,9 @@ namespace FemalePlayer
             Transform right;
             if (otherHand && Bones.TryGetValue("mixamorig:RightHand", out right)) hand = right; else otherHand = false;
             _prop = Props.Instantiate(p, hand, otherHand);
+            _propBarrel = Props.Barrel(_prop);
+            _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation;
+            Plugin.Verbose("Third person: barrel axis of " + p.Key + " = " + _propBarrel);
             Plugin.Verbose("Third person: " + weapon + " -> " + p.Owner + "'s " + p.Source.name + " on " + p.Hand);
         }
     }

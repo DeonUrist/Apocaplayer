@@ -119,6 +119,40 @@ namespace FemalePlayer
             return go;
         }
 
+        // the barrel direction in the prop's own space: toward the muzzle flash light ("fire_effect" / "muzzle*") when the raider model has one,
+        // else along the longest side of its meshes, toward the end farther from the grip (the prop's origin sits in the hand)
+        public static Vector3 Barrel(GameObject prop)
+        {
+            if (prop == null) return Vector3.zero;
+            var t = prop.transform;
+            foreach (var c in prop.GetComponentsInChildren<Transform>(true))
+            {
+                string n = c.name.ToLowerInvariant();
+                if (c != t && (n.StartsWith("fire_effect") || n.StartsWith("muzzle")))
+                {
+                    var d = t.InverseTransformPoint(c.position);
+                    if (d.sqrMagnitude > 1e-4f) return d.normalized;
+                }
+            }
+            bool any = false; var b = new Bounds();
+            foreach (var mf in prop.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh == null) continue;
+                var mb = mf.sharedMesh.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = mb.center + Vector3.Scale(mb.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                    var lp = t.InverseTransformPoint(mf.transform.TransformPoint(corner));
+                    if (!any) { b = new Bounds(lp, Vector3.zero); any = true; } else b.Encapsulate(lp);
+                }
+            }
+            if (!any) return Vector3.zero;
+            var s = b.size; int axis = s.x >= s.y && s.x >= s.z ? 0 : s.y >= s.z ? 1 : 2;
+            var dir = Vector3.zero;
+            dir[axis] = Mathf.Abs(b.max[axis]) >= Mathf.Abs(b.min[axis]) ? 1f : -1f;
+            return dir;
+        }
+
         private static Matrix4x4 BindWorld(string bone)
         {
             float[] v;

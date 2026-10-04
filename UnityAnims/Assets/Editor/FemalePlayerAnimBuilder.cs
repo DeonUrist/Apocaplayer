@@ -19,10 +19,15 @@ public static class FemalePlayerAnimBuilder
 
     static readonly string[] Known =
     {
-        "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "CrouchIdle", "CrouchWalk",
-        "RifleIdle", "RifleWalk", "RifleWalkBack", "RifleStrafeLeft", "RifleStrafeRight", "RifleRun", "RifleCrouchIdle", "RifleCrouchWalk",
-        "RifleAim", "RifleFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
+        "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "RunStrafeLeft", "RunStrafeRight",
+        "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight",
+        "RifleIdle", "RifleWalk", "RifleWalkBack", "RifleStrafeLeft", "RifleStrafeRight", "RifleRun", "RifleRunStrafeLeft", "RifleRunStrafeRight",
+        "RifleCrouchIdle", "RifleCrouchWalk", "RifleCrouchWalkBack", "RifleCrouchStrafeLeft", "RifleCrouchStrafeRight",
+        "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
     };
+
+    // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)
+    static string Norm(string n) { return n.Replace("LeftStrafe", "StrafeLeft").Replace("RightStrafe", "StrafeRight"); }
 
     static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n == "Throw"; }
 
@@ -33,14 +38,14 @@ public static class FemalePlayerAnimBuilder
         foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { Src })) fbx.Add(AssetDatabase.GUIDToAssetPath(guid));
         if (fbx.Count == 0) { EditorUtility.DisplayDialog("FemalePlayer", "No FBX files in " + Src, "OK"); return; }
         var have = new HashSet<string>();
-        foreach (var p in fbx) have.Add(Path.GetFileNameWithoutExtension(p));
+        foreach (var p in fbx) have.Add(Norm(Path.GetFileNameWithoutExtension(p)));
         var known = new HashSet<string>(Known);
         foreach (var n in have) if (!known.Contains(n)) Debug.LogWarning("FemalePlayer: " + n + ".fbx is not a name the mod uses (it is packed anyway)");
 
         // 1 + 2: importer settings
         foreach (var path in fbx)
         {
-            string name = Path.GetFileNameWithoutExtension(path);
+            string name = Norm(Path.GetFileNameWithoutExtension(path));
             var imp = (ModelImporter)AssetImporter.GetAtPath(path);
             imp.animationType = ModelImporterAnimationType.Human;
             imp.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;

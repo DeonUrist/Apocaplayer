@@ -23,7 +23,11 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | StrafeLeft.fbx / StrafeRight.fbx | side steps (one is enough: the other is mirrored) | "Left Strafe Walking" |
 | Run.fbx | running | "Running", "Fast Run" |
 | CrouchIdle.fbx / CrouchWalk.fbx | crouched | "Crouching Idle", "Crouched Walking" |
+| CrouchWalkBack.fbx, CrouchStrafeLeft.fbx | crouched backwards / sideways (one strafe side is enough) | "Crouched Walking Backwards", "Crouched Sneaking Left" |
+| RunStrafeLeft.fbx | running sideways (one side is enough; also RifleRunStrafeLeft.fbx) | "Left Strafe" (run), "Rifle Run Left" |
 | RifleIdle.fbx, RifleWalk.fbx, RifleWalkBack.fbx, RifleStrafeLeft.fbx, RifleRun.fbx, RifleCrouchIdle.fbx, RifleCrouchWalk.fbx | the same set holding a rifle (used with rifles, SMGs, shotguns, crossbow) | "Rifle Idle", "Rifle Walk", "Walking Backwards Rifle", "Strafe Left Rifle", "Rifle Run", "Crouch Rifle Idle", "Crouch Walk Rifle" (Mixamo's *Pro Rifle Pack* has all of them) |
+| RifleCrouchWalkBack.fbx, RifleCrouchStrafeLeft.fbx | crouched with a rifle, backwards / sideways | "Crouch Walk Back Rifle", "Crouch Walk Left Rifle" |
+| CrouchRifleFire.fbx | firing while crouched (upper body, looped while you hold the button) | "Crouch Rifle Fire" |
 | RifleAim.fbx | rifle raised to the shoulder (upper body) | "Rifle Aiming Idle" |
 | RifleFire.fbx | firing a rifle, looped while you hold the mouse button | "Firing Rifle" |
 | RifleReload.fbx | rifle reload, played when you press Reload | "Reloading", "Rifle Reload" |

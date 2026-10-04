@@ -45,7 +45,7 @@ namespace FemalePlayer
                 {
                     if (c == null || c.name.StartsWith("__preview__")) continue;
                     c.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                    _clips[c.name] = c;
+                    _clips[c.name.Replace("LeftStrafe", "StrafeLeft").Replace("RightStrafe", "StrafeRight")] = c;
                 }
                 var names = new List<string>(_clips.Keys); names.Sort();
                 int nonHuman = 0; foreach (var c in _clips.Values) if (!c.humanMotion) nonHuman++;
