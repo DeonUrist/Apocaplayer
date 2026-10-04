@@ -17,13 +17,13 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.3.0";
+        public const string VERSION = "0.3.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
 
         // player-facing
-        internal static ConfigEntry<bool> AlignGun, Enabled, BodyFirstPerson, FemaleArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
+        internal static ConfigEntry<bool> WeaponAdjust, AlignGun, Enabled, BodyFirstPerson, FemaleArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
         // hidden (fixed values, never written to the file; change H( to Config.Bind( to expose one)
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
@@ -49,6 +49,7 @@ namespace FemalePlayer
             ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key also works on foot: a camera behind her shoulder (hold the middle mouse button to orbit around her). Your shots still go where the crosshair of the first-person camera points.");
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
             AlignGun = Config.Bind("Gun position", "AlignRifleToHands", true, "Third person with the Mixamo clips: turn a rifle so the barrel runs from her right hand to her left hand. Off = the raider's own grip only (then use the per-weapon lines below).");
+            WeaponAdjust = Config.Bind("Gun position", "WeaponAdjustment", false, "On: in third person move the weapon in her hand with the numpad - 7/1 forward/back, 8/2 up/down, 6/4 right/left; hold Shift to rotate instead (7/1 roll, 8/2 pitch, 6/4 yaw). The values are saved into that weapon's line below.");
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines (what was found, which clips/props are used).");

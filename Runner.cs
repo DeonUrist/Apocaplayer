@@ -41,6 +41,7 @@ namespace FemalePlayer
                 if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
                 if (Plugin.FemaleArms.Value) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
+                GunPose.Tick(ThirdPerson.On && !Game.InCar ? Game.DrawnWeapon : "");
             }
             catch (Exception e) { Plugin.Log.LogError("Update: " + e); }
         }
@@ -95,6 +96,8 @@ namespace FemalePlayer
             }
             catch (Exception e) { Plugin.Log.LogError("LateUpdate: " + e); _nextBuild = Time.unscaledTime + 5f; }
         }
+
+        private void OnGUI() { try { GunPose.OnGUI(); } catch (Exception) { } }
 
         private void OnDestroy() { ThirdPerson.Off(); }
     }
