@@ -22,6 +22,19 @@ namespace FemalePlayer
             Props.OnSceneLoaded();
         }
 
+        // Male / Female: rebuild the body from the other model; her arms texture and TAB picture only for her
+        public static void CharacterChanged()
+        {
+            try
+            {
+                DestroyBody();
+                Model.Reset();
+                if (!Plugin.Female) { Arms.Restore(); InventoryModel.Off(); } else InventoryModel.Reset();
+                Plugin.Log.LogInfo("Character: " + Plugin.Character.Value);
+            }
+            catch (Exception e) { Plugin.Log.LogError("Character switch: " + e); }
+        }
+
         private static void DestroyBody()
         {
             if (_body != null) _body.Destroy();
@@ -41,7 +54,7 @@ namespace FemalePlayer
                 }
                 _wasEnabled = true;
                 if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
-                if (Plugin.FemaleArms.Value) Arms.Tick(); else Arms.Restore();
+                if (Plugin.FemaleArms.Value && Plugin.Female) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
                 Car.Tick();
                 GunPose.ClearHint();                       // set again in LateUpdate while a weapon is being adjusted

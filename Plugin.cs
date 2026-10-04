@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.13.2";
+        public const string VERSION = "0.14.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -33,6 +33,13 @@ namespace FemalePlayer
         internal static ConfigEntry<bool> ToggleMiddleMouse;
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup;
         internal static ConfigEntry<KeyCode> IgnitionKey;
+        internal enum Gender { Female, Male }
+        internal static ConfigEntry<Gender> Character;
+        public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
+        // the body: hers (Boss_lady, made from Flexa) or the game's own man (Player2 + hair, beard, bags, re-rigged onto Flexa's skeleton by
+        // tools/bake_male.py) - same skeleton, so every animation, weapon pose and feature is the same
+        public static string BodyModelFile { get { return Female ? ModelFile.Value : "Models/Player_male.glb"; } }
+        public static string BodyTextureFile { get { return Female ? TextureFile.Value : "Models/Player_male.png"; } }
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -49,6 +56,8 @@ namespace FemalePlayer
             // the config file: General (Enabled, IgnitionKey) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Play as a woman. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
+            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Everything else is the same.");
+            Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             IgnitionKey = Config.Bind("General", "IgnitionKey", KeyCode.E, "In the driver's seat: one press turns the key and starts the engine, another stops it. None = off.");
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/FemalePlayer/weapon-poses.txt (overrides the built-in poses).");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the middle mouse button to orbit around her (back on release); on = a click turns orbiting on / off.");

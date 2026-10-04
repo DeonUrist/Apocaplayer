@@ -32,6 +32,7 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | Section | Key | Default | |
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
+| General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
 | General | IgnitionKey | E | In the driver's seat: one press turns the key and starts the engine, another stops it (the game's own stop and its sounds); "E - Start / Ignition" shows on the left, in the game's hint font, while the engine is off |
 | Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/FemalePlayer/weapon-poses.txt` (overrides the built-in poses) |
 | Debug | ToggleMiddleMouse | false | Third person: off = hold the middle mouse button to orbit around her, back behind her on release; on = a click turns orbiting on / off |
@@ -40,6 +41,15 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 Everything else is fixed: her body in first person, her arms, the driver and TAB picture, the third-person camera (Change Camera key, on
 foot and in cars) and the camera offsets are always on, as `H(...)` entries in `Plugin.cs` (change one to `Config.Bind(...)` to expose
 it). The mouse-wheel camera distances are remembered in `config/FemalePlayer/camera.cfg`.
+
+## The male body
+
+`Models/Player_male.glb` + `Models/Player_male.png` = the game's own player man (mesh `Player2` of the cars' `PlayerModel_Sit`, his
+`PlayerHair.002`, `PlayerBeard.003`, `bag1`, `bag2`, `pouch1.001`; texture `Player2`), re-rigged onto Flexa's skeleton by
+`tools/bake_male.py`: each of his bones follows the mixamo bone it maps to (the same pairs and swing as the car-seat retarget), the
+rigid extras are baked in on his head / spine bone, and the beard (own texture `hair3`, not exported) takes one hair-coloured texel
+of the `Player2` atlas. Inputs: `_export/Player2.json`, `_export/extras.json`, `_export/prefabs.json` (UnityPy dumps), `Boss_lady.glb`
+(for the skeleton nodes).
 
 ## Using another model
 

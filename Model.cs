@@ -29,7 +29,7 @@ namespace FemalePlayer
             if (Full != null) return true;
             if (_tried) return false;
             _tried = true;
-            string path = Plugin.ModPath(Plugin.ModelFile.Value);
+            string path = Plugin.ModPath(Plugin.BodyModelFile);
             SkinModel model;
             try { model = Gltf.Load(path); }
             catch (Exception e) { Plugin.Log.LogError("Model " + path + " could not be read: " + e.Message); return false; }
@@ -127,9 +127,12 @@ namespace FemalePlayer
             return mesh;
         }
 
+        // Character switched: the next body is built from the other model
+        public static void Reset() { Full = NoHead = NoArms = null; BodyTex = null; _tried = _texTried = false; }
+
         public static Texture2D Body()
         {
-            if (!_texTried) { _texTried = true; BodyTex = Load(Plugin.TextureFile.Value, "FemalePlayer"); }
+            if (!_texTried) { _texTried = true; BodyTex = Load(Plugin.BodyTextureFile, Plugin.Female ? "FemalePlayer" : "FemalePlayer_male"); }
             return BodyTex;
         }
 

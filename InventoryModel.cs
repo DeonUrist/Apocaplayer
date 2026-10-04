@@ -27,7 +27,7 @@ namespace FemalePlayer
         public static void LateTick()
         {
             if (!_hooked) { _hooked = true; Plugin.Enabled.SettingChanged += (s, e) => { if (Plugin.Enabled.Value) { _applied = false; _tries = 0; } else Off(); }; }
-            if (_applied || !Plugin.Enabled.Value || !Plugin.ReplaceDriver.Value || _loadFailed) return;
+            if (_applied || !Plugin.Enabled.Value || !Plugin.ReplaceDriver.Value || !Plugin.Female || _loadFailed) return;
             if (Time.unscaledTime < _nextTry || _tries >= 15) return;   // the texture may load a moment after the scene: retry for ~30 s
             _nextTry = Time.unscaledTime + 2f; _tries++;
             Apply();
