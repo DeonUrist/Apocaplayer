@@ -1,0 +1,101 @@
+using System;
+using UnityEngine;
+
+namespace FemalePlayer
+{
+    internal class Runner : MonoBehaviour
+    {
+        private static Body _body;
+        private static float _nextBuild;
+        private static bool _wasEnabled;
+        private static string _lastMode = "";
+
+        public static void OnSceneLoaded()
+        {
+            DestroyBody();
+            CarSeat.Detach();
+            ThirdPerson.Off();
+            Game.Reset();
+            Arms.OnSceneLoaded();
+            Props.OnSceneLoaded();
+        }
+
+        private static void DestroyBody()
+        {
+            if (_body != null) _body.Destroy();
+            _body = null;
+        }
+
+        private void Update()
+        {
+            try
+            {
+                bool on = Plugin.Enabled.Value;
+                if (!on)
+                {
+                    if (_wasEnabled) { DestroyBody(); CarSeat.Detach(); ThirdPerson.Off(); Arms.Restore(); Plugin.Log.LogInfo("Disabled: the game's own player is back"); }
+                    _wasEnabled = false;
+                    return;
+                }
+                _wasEnabled = true;
+                if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
+                if (Plugin.FemaleArms.Value) Arms.Tick(); else Arms.Restore();
+                ThirdPerson.Tick();
+            }
+            catch (Exception e) { Plugin.Log.LogError("Update: " + e); }
+        }
+
+        private void LateUpdate()
+        {
+            try
+            {
+                if (!Plugin.Enabled.Value || !Game.Ready) return;
+                if (_body == null || !_body.Alive)
+                {
+                    _body = null;
+                    if (Time.unscaledTime < _nextBuild) return;
+                    _nextBuild = Time.unscaledTime + 2f;
+                    _body = Body.Create();
+                    if (_body == null) return;
+                }
+
+                bool inCar = Game.InCar;
+                bool fpCam = Game.FirstPersonCameraOn;
+                string mode;
+                if (inCar)
+                {
+                    bool seated = CarSeat.Attach(Game.Player.transform);
+                    if (!seated || !Plugin.ReplaceDriver.Value)
+                    {
+                        // no seat to copy (or the player wants the game's driver): no body in the car
+                        if (!Plugin.ReplaceDriver.Value) CarSeat.Detach();
+                        _body.SetVisible(false, false);
+                        mode = "car (game driver)";
+                    }
+                    else
+                    {
+                        _body.LateCar(Game.Player.transform);
+                        bool firstPerson = fpCam;
+                        _body.SetMesh(firstPerson, true);
+                        _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
+                        mode = firstPerson ? "car, first person" : "car, third person";
+                    }
+                }
+                else
+                {
+                    CarSeat.Detach();
+                    bool third = ThirdPerson.On;
+                    _body.LateFoot(third ? Body.View.ThirdPerson : Body.View.FirstPerson, Time.deltaTime);
+                    _body.SetMesh(!third, false);
+                    bool show = third || Plugin.BodyFirstPerson.Value;
+                    _body.SetVisible(show && fpCam, !third && show && fpCam);
+                    mode = third ? "on foot, third person" : "on foot, first person";
+                }
+                if (mode != _lastMode) { _lastMode = mode; Plugin.Verbose("View: " + mode); }
+            }
+            catch (Exception e) { Plugin.Log.LogError("LateUpdate: " + e); _nextBuild = Time.unscaledTime + 5f; }
+        }
+
+        private void OnDestroy() { ThirdPerson.Off(); }
+    }
+}
