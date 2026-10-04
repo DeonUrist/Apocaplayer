@@ -36,9 +36,9 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | General | ReplaceDriver | true | She sits in the driver's seat |
 | General | ThirdPersonOnFoot | true | Change Camera works on foot |
 | General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
-| Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) for the pose she is in; Numpad 9/3 preview the poses Idle, Walk, Run, Crouch, Fire, CrouchFire, Reload; Numpad - clears a pose. Per-pose grips go to config/FemalePlayer/weapon-grips.cfg |
+| Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) for the animation she is in - every clip has its own grip (StrafeLeft and the mirrored StrafeRight separately, every crouch and fire variant too); Numpad 9/3 preview the animations; Numpad - clears one; Numpad / copies a grip, Numpad * pastes it. Grips go to config/FemalePlayer/weapon-grips.cfg |
 | Weapon grip | AutoGrip | true | With the Mixamo clips: the rifle's grip is taken once from the rifle idle pose (barrel from right hand to left hand) and then kept fixed in her hand |
-| Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Base grip in her right hand (hand axes, cm / degrees), used by every pose without its own grip |
+| Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Base grip in her right hand (hand axes, cm / degrees), used by every animation without its own grip |
 | Debug | VerboseLog | false | Detailed log |
 
 Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`

@@ -504,11 +504,12 @@ namespace FemalePlayer
             return v > 0.3f ? v : fallback;
         }
 
+        private readonly float[] _slotW = new float[N];   // the locomotion slots' blend weights (the same in every set) - used for the per-animation grips
         private void Drive(LocoSet s, float m, float r, float wF, float wB, float wL, float wR, float c, float speed)
         {
             if (s == null) return;
             float st = 1f - c;
-            var w = new float[N];
+            var w = _slotW;
             w[S_IDLE] = (1f - m) * st;
             w[S_FWD] = m * wF * (1f - r) * st;   w[S_RUN] = m * wF * r * st;
             w[S_BACK] = m * wB * st;
@@ -543,15 +544,22 @@ namespace FemalePlayer
 
             // WeaponAdjustment pose preview (Numpad 9/3): play that pose standing still so the grip can be tuned in it
             int pv = GunPose.Preview;
-            bool pvFire = pv == GunPose.P_FIRE || pv == GunPose.P_CFIRE;
-            if (pv >= 0)
+            bool pvFire = GunPose.IsFire(pv);
+            if (pv >= 0 && pv != GunPose.P_RELOAD)
             {
-                _crouch = pv == GunPose.P_CROUCH || pv == GunPose.P_CFIRE ? 1f : 0f;
-                bool moving = pv == GunPose.P_WALK || pv == GunPose.P_RUN;
-                m = moving ? 1f : 0f; wF = 1f; wB = wL = wR = 0f;
-                _runW = pv == GunPose.P_RUN ? 1f : 0f;
-                _speedSmooth = pv == GunPose.P_RUN ? Plugin.ClipRunSpeed.Value : moving ? Plugin.ClipWalkSpeed.Value : 0f;
+                int sl = pv % GunPose.SLOTS;
+                bool crouched = sl >= S_CIDLE, run = sl == S_RUN || sl == S_RUNL || sl == S_RUNR, moving = sl != S_IDLE && sl != S_CIDLE;
+                _crouch = crouched ? 1f : 0f;
+                m = moving ? 1f : 0f;
+                wF = sl == S_FWD || sl == S_RUN || sl == S_CWALK ? 1f : 0f;
+                wB = sl == S_BACK || sl == S_CBACK ? 1f : 0f;
+                wL = sl == S_LEFT || sl == S_RUNL || sl == S_CLEFT ? 1f : 0f;
+                wR = sl == S_RIGHT || sl == S_RUNR || sl == S_CRIGHT ? 1f : 0f;
+                if (!moving) wF = 1f;
+                _runW = run ? 1f : 0f;
+                _speedSmooth = run ? Plugin.ClipRunSpeed.Value : crouched && moving ? Plugin.ClipCrouchSpeed.Value : moving ? Plugin.ClipWalkSpeed.Value : 0f;
             }
+            else if (pv == GunPose.P_RELOAD) { _crouch = 0f; m = 0f; wF = 1f; wB = wL = wR = 0f; _runW = 0f; _speedSmooth = 0f; }
 
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
@@ -673,25 +681,28 @@ namespace FemalePlayer
         // every frame: the prop's grip in her right hand (raider pose, optionally turned toward the left hand) + the player's grip offset for
         // this weapon in the HAND's axes - so it stays glued to the hand in every animation. WeaponAdjustment edits that offset with the numpad
         // (moves/turns along her body axes, converted to the hand's axes).
-        // how much she is in each grip pose (GunPose.Poses): reload > fire (crouched or not) > crouch > idle / walk / run
-        private readonly float[] _poseW = new float[7];
+        // how much she is in each grip animation (GunPose.Poses): reload, else the locomotion slots split into firing / not firing
+        private readonly float[] _poseW = new float[GunPose.Poses.Length];
         private float _reloadW;
         private void PoseWeights()
         {
             _reloadW = Mathf.MoveTowards(_reloadW, _reloading ? 1f : 0f, Time.deltaTime * 8f);
             int pv = GunPose.Preview;
-            float R = _reloadW, F = _fireW, c = _crouch, mv = Mathf.Clamp01(_speedSmooth / 0.4f), run = _runW;
-            if (!_mixamo) { F = 0f; }
-            float rest = 1f - R, nf = rest * (1f - F);
+            if (pv >= 0) { for (int i = 0; i < _poseW.Length; i++) _poseW[i] = i == pv ? 1f : 0f; return; }
+            if (!_mixamo)
+            {   // game clips: no slots - idle / walk / run, crouched or not
+                float mv = Mathf.Clamp01(_speedSmooth / 0.4f), c = _crouch;
+                for (int i = 0; i < N; i++) _slotW[i] = 0f;
+                _slotW[S_IDLE] = (1f - mv) * (1f - c); _slotW[S_FWD] = mv * (1f - _runW) * (1f - c); _slotW[S_RUN] = mv * _runW * (1f - c);
+                _slotW[S_CIDLE] = (1f - mv) * c; _slotW[S_CWALK] = mv * c;
+            }
+            float R = _reloadW, F = _mixamo && _fire != null ? _fireW : 0f;
+            for (int i = 0; i < N; i++)
+            {
+                _poseW[i] = (1f - R) * (1f - F) * _slotW[i];
+                _poseW[GunPose.FIRE0 + i] = (1f - R) * F * _slotW[i];
+            }
             _poseW[GunPose.P_RELOAD] = R;
-            _poseW[GunPose.P_CFIRE] = rest * F * c;
-            _poseW[GunPose.P_FIRE] = rest * F * (1f - c);
-            _poseW[GunPose.P_CROUCH] = nf * c;
-            float st = nf * (1f - c);
-            _poseW[GunPose.P_IDLE] = st * (1f - mv);
-            _poseW[GunPose.P_WALK] = st * mv * (1f - run);
-            _poseW[GunPose.P_RUN] = st * mv * run;
-            if (pv >= 0) { for (int i = 0; i < _poseW.Length; i++) _poseW[i] = i == pv ? 1f : 0f; }
         }
 
         private int DominantPose()
@@ -733,8 +744,7 @@ namespace FemalePlayer
 
             // shooting without a Fire grip of its own: the fire clips raise the left hand to another spot - follow it with the barrel
             float follow = 0f;
-            if (!GunPose.HasPose(_propFor, GunPose.P_FIRE)) follow += _poseW[GunPose.P_FIRE];
-            if (!GunPose.HasPose(_propFor, GunPose.P_CFIRE)) follow += _poseW[GunPose.P_CFIRE];
+            for (int i = GunPose.FIRE0; i < GunPose.P_RELOAD; i++) if (_poseW[i] > 0f && !GunPose.HasPose(_propFor, i)) follow += _poseW[i];
             if (_mixamo && kind == Props.Kind.Rifle && Plugin.AlignGun.Value && follow > 0.01f)
             {
                 Vector3 lp = t.localPosition; Quaternion lr = t.localRotation;
