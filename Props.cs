@@ -22,7 +22,8 @@ namespace FemalePlayer
             string w = weapon.ToLowerInvariant();
             if (w.Contains("blastlance") || w.Contains("grenade")) return Kind.Throw;
             if (w.Contains("shiv") || w.Contains("knife") || w.Contains("machete") || w.Contains("wrench") || w.Contains("pipe_wrench")) return Kind.Melee;
-            if (w.Contains("pistol") || w.Contains("revolver") || w.Contains("folk_17")) return Kind.Pistol;
+            // SMGs (borz_smg, 22_pipe_smg) are held and animated like pistols (Pistol* clips, PistolReload)
+            if (w.Contains("pistol") || w.Contains("revolver") || w.Contains("folk_17") || w.Contains("smg") || w.Contains("borz")) return Kind.Pistol;
             return Kind.Rifle;
         }
 
@@ -68,7 +69,7 @@ namespace FemalePlayer
             string[] standIn;
             switch (KindOf(weapon))
             {
-                case Kind.Pistol: standIn = new[] { "22_pipe_pistol", "folk_17" }; break;
+                case Kind.Pistol: standIn = w.Contains("smg") || w.Contains("borz") ? new[] { "borz_smg", "22_pipe_smg" } : new[] { "22_pipe_pistol", "folk_17" }; break;
                 case Kind.Melee: standIn = new[] { "machete", "old_knife", "shiv" }; break;
                 case Kind.Throw: return null;
                 default:
