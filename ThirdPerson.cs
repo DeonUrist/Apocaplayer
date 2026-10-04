@@ -96,9 +96,17 @@ namespace Apocaplayer
             bool peek = On && Game.Binoculars;
             if (Peek && !peek) { _dist = 0.3f; _nextScan = 0f; }   // binoculars down: the camera comes back out from behind her head, first-person renderers hidden again at once
             Peek = peek;
-            // middle mouse button orbits the camera around her: held (back behind her on release), or with ToggleMiddleMouse a click turns it on / off
+            // the observing key (RebindObserving, LeftAlt) - and the middle mouse button only with EnableMMB, the game rotates held items with it -
+            // orbits the camera around her: held (back behind her on release), or with ToggleMiddleMouse a press turns it on / off
             bool click = false, held = false;
-            try { click = On && !Game.Paused && Input.GetMouseButtonDown(2); held = On && !Game.Paused && Input.GetMouseButton(2); } catch (System.Exception) { }
+            if (On && !Game.Paused)
+                try
+                {
+                    var key = Plugin.ObserveKey.Value;
+                    if (key != KeyCode.None) { click = Input.GetKeyDown(key); held = Input.GetKey(key); }
+                    if (Plugin.EnableMMB.Value) { click |= Input.GetMouseButtonDown(2); held |= Input.GetMouseButton(2); }
+                }
+                catch (System.Exception) { }
             if (Plugin.ToggleMiddleMouse.Value) { if (click) _orbitOn = !_orbitOn; }
             else _orbitOn = held;
             if (!On || Peek) _orbitOn = false;

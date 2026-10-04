@@ -7,7 +7,7 @@ and a choice of **Female** (her own model) or **Male** (the game's own player ma
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
-  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); the middle mouse button orbits around her. Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
+  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); holding Left Alt (`RebindObserving`) orbits the camera around her (the middle mouse button too with `EnableMMB` - off by default, the game rotates held items with it). Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
   It works in cars too (instead of the game's own car view, where nothing in the car can be used): ignition, cassette player and Exit (F) at the door work as in first person, and you stay in third person when you get out.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
@@ -40,8 +40,10 @@ BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mod
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
 | General | IgnitionKey | E | In the driver's seat: one press turns the key and starts the engine, another stops it (the game's own stop and its sounds); "E - Start / Ignition" shows on the left, in the game's hint font, while the engine is off |
+| General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around her (off by default: the game rotates a held item with it) |
+| General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around her, back behind her on release; None = no key |
 | Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
-| Debug | ToggleMiddleMouse | false | Third person: off = hold the middle mouse button to orbit around her, back behind her on release; on = a click turns orbiting on / off |
+| Debug | ToggleMiddleMouse | false | Third person: off = hold the observing key / middle mouse button to orbit around her, back behind her on release; on = a press turns orbiting on / off |
 | Debug | VerboseLog | false | Detailed log |
 
 Throws from the driver's seat (blast lance, quick grenade) work like guns there: her chest turns to the aim (a learned per-clip

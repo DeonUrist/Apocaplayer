@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.0.6";
+        public const string VERSION = "1.0.7";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -30,9 +30,9 @@ namespace Apocaplayer
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
-        internal static ConfigEntry<bool> ToggleMiddleMouse;
+        internal static ConfigEntry<bool> ToggleMiddleMouse, EnableMMB;
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime;
-        internal static ConfigEntry<KeyCode> IgnitionKey;
+        internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey;
         internal enum Gender { Female, Male }
         internal static ConfigEntry<Gender> Character;
         public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
@@ -53,14 +53,16 @@ namespace Apocaplayer
             Dir = Path.GetDirectoryName(Info.Location);
             _hidden = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "hidden-settings.not-saved"), false) { SaveOnConfigSet = false };
 
-            // the config file: General (Enabled, IgnitionKey) and Debug only - everything else is fixed (H) or kept in its own file
+            // the config file: General (Enabled, Character, IgnitionKey, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
             Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             IgnitionKey = Config.Bind("General", "IgnitionKey", KeyCode.E, "In the driver's seat: one press turns the key and starts the engine, another stops it. None = off.");
+            EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
+            ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
-            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the middle mouse button to orbit around her (back on release); on = a click turns orbiting on / off.");
+            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
             BodyFirstPerson = H("General", "BodyFirstPerson", true, "See her body in first person: legs and torso when you look down, and her shadow.");
             FemaleArms = H("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person animations (and the kick leg).");
