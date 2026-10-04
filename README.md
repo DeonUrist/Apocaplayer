@@ -6,7 +6,7 @@ BepInEx 5 mod for **Apocalypter**: play as a woman.
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
-  a camera over her right shoulder; hold the middle mouse button to orbit around her. Shots still come from the first-person camera, so aim with the crosshair.
+  a camera over her right shoulder; click the middle mouse button to orbit around her (click again to stop). Shots still come from the first-person camera, so aim with the crosshair.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
   (Flexa's AKM, Sprokka's pipe pistol, Lugnut's shotgun …) at the spot the raiders hold it.
@@ -36,9 +36,9 @@ BepInEx\plugins\FemalePlayer\Models\Player2_female_arms.png
 | General | ReplaceDriver | true | She sits in the driver's seat |
 | General | ThirdPersonOnFoot | true | Change Camera works on foot |
 | General | RightHanded | true | Mirror her body so the raider gun animations hold the gun in her right hand |
-| Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2 up-down, 6/4 right-left, 7/1 forward-back; Numpad 5 switches to rotating (8/2 muzzle up-down, 6/4 muzzle right-left, 7/1 roll); saved into the weapon's line |
+| Weapon grip | WeaponAdjustment | false | In third person: numpad 8/2, 6/4, 7/1 move the weapon (Numpad 5: rotate instead) for the pose she is in; Numpad 9/3 preview the poses Idle, Walk, Run, Crouch, Fire, CrouchFire, Reload; Numpad - clears a pose. Per-pose grips go to config/FemalePlayer/weapon-grips.cfg |
 | Weapon grip | AutoGrip | true | With the Mixamo clips: the rifle's grip is taken once from the rifle idle pose (barrel from right hand to left hand) and then kept fixed in her hand |
-| Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | That weapon's grip in her right hand, in the hand's own axes (cm, degrees) - holds in every animation |
+| Weapon grip | akms, m16a1, … (one per weapon) | 0, 0, 0, 0, 0, 0 | Base grip in her right hand (hand axes, cm / degrees), used by every pose without its own grip |
 | Debug | VerboseLog | false | Detailed log |
 
 Fixed values (model/texture paths, clip names, walk/crouch amounts, camera offsets) are in `Plugin.cs` as `H(...)`

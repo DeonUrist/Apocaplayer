@@ -12,6 +12,7 @@ namespace FemalePlayer
         public static bool On;
         public static bool Orbiting;               // middle mouse held: the mouse turns the camera around her, the game's mouse look is paused
         private static float _orbitYaw, _orbitPitch;
+        private static bool _orbitOn;
 
         // Harmony prefix on PlayMaker's MouseLook: no player/camera turning while orbiting
         public static bool BeforeMouseLook() { return !Orbiting; }
@@ -32,12 +33,17 @@ namespace FemalePlayer
                 Plugin.Verbose("Third person on foot: " + (On ? "on" : "off"));
             }
             if (!allowed && On) On = false;
+            // middle mouse button = orbit on / off (toggle)
+            bool click = false;
+            try { click = On && !Game.Paused && Input.GetMouseButtonDown(2); } catch (System.Exception) { }
+            if (click) _orbitOn = !_orbitOn;
+            if (!On) _orbitOn = false;
             Orbiting = false;
             if (On && !Game.Paused)
             {
-                bool held = false; float mx = 0f, my = 0f;
-                try { held = Input.GetMouseButton(2); mx = Input.GetAxis("Mouse X"); my = Input.GetAxis("Mouse Y"); } catch (System.Exception) { }
-                if (held)
+                float mx = 0f, my = 0f;
+                try { mx = Input.GetAxis("Mouse X"); my = Input.GetAxis("Mouse Y"); } catch (System.Exception) { }
+                if (_orbitOn)
                 {
                     Orbiting = true;
                     _orbitYaw += mx * Plugin.OrbitSpeed.Value;
@@ -97,7 +103,7 @@ namespace FemalePlayer
 
         public static void Off()
         {
-            On = false; Orbiting = false;
+            On = false; Orbiting = false; _orbitOn = false;
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();

@@ -506,11 +506,23 @@ namespace FemalePlayer
             float wF = 1f, wB = 0f, wL = 0f, wR = 0f;
             if (sum > 0.05f) { wF = Mathf.Max(0f, local.z) / sum; wB = Mathf.Max(0f, -local.z) / sum; wL = Mathf.Max(0f, -local.x) / sum; wR = Mathf.Max(0f, local.x) / sum; }
 
+            // WeaponAdjustment pose preview (Numpad 9/3): play that pose standing still so the grip can be tuned in it
+            int pv = GunPose.Preview;
+            bool pvFire = pv == GunPose.P_FIRE || pv == GunPose.P_CFIRE;
+            if (pv >= 0)
+            {
+                _crouch = pv == GunPose.P_CROUCH || pv == GunPose.P_CFIRE ? 1f : 0f;
+                bool moving = pv == GunPose.P_WALK || pv == GunPose.P_RUN;
+                m = moving ? 1f : 0f; wF = 1f; wB = wL = wR = 0f;
+                _runW = pv == GunPose.P_RUN ? 1f : 0f;
+                _speedSmooth = pv == GunPose.P_RUN ? Plugin.ClipRunSpeed.Value : moving ? Plugin.ClipWalkSpeed.Value : 0f;
+            }
+
             string weapon = Game.DrawnWeapon;
             var kind = Props.KindOf(weapon);
             bool rifleSet = _rifle != null && kind == Props.Kind.Rifle;
             _armW = Mathf.MoveTowards(_armW, rifleSet ? 1f : 0f, dt * 5f);
-            bool firing = !Game.Paused && Input.GetMouseButton(0) && rifleSet && _fire != null && Time.time >= _reloadUntil && Time.time >= _throwUntil;
+            bool firing = !Game.Paused && (pvFire || Input.GetMouseButton(0)) && rifleSet && _fire != null && Time.time >= _reloadUntil && Time.time >= _throwUntil;
             _fireW = Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
             if (_rifle != null)
             {
@@ -525,10 +537,11 @@ namespace FemalePlayer
 
             // upper body: fire / reload / melee / throw / aim
             bool live = !Game.Paused;
-            bool fire = live && Input.GetMouseButton(0);
+            bool fire = live && (pvFire || Input.GetMouseButton(0));
             bool click = live && Input.GetMouseButtonDown(0);
             bool reloadPressed = false;
             try { reloadPressed = live && Input.GetButtonDown("Reload"); } catch (Exception) { }
+            if (pv == GunPose.P_RELOAD && Time.time >= _reloadUntil) reloadPressed = true;   // preview: reload over and over
             if ((kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && reloadPressed)
             {
                 var rc = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
@@ -611,39 +624,77 @@ namespace FemalePlayer
         // every frame: the prop's grip in her right hand (raider pose, optionally turned toward the left hand) + the player's grip offset for
         // this weapon in the HAND's axes - so it stays glued to the hand in every animation. WeaponAdjustment edits that offset with the numpad
         // (moves/turns along her body axes, converted to the hand's axes).
+        // how much she is in each grip pose (GunPose.Poses): reload > fire (crouched or not) > crouch > idle / walk / run
+        private readonly float[] _poseW = new float[7];
+        private float _reloadW;
+        private void PoseWeights()
+        {
+            _reloadW = Mathf.MoveTowards(_reloadW, Time.time < _reloadUntil ? 1f : 0f, Time.deltaTime * 8f);
+            int pv = GunPose.Preview;
+            float R = _reloadW, F = _fireW, c = _crouch, mv = Mathf.Clamp01(_speedSmooth / 0.4f), run = _runW;
+            if (!_mixamo) { F = 0f; }
+            float rest = 1f - R, nf = rest * (1f - F);
+            _poseW[GunPose.P_RELOAD] = R;
+            _poseW[GunPose.P_CFIRE] = rest * F * c;
+            _poseW[GunPose.P_FIRE] = rest * F * (1f - c);
+            _poseW[GunPose.P_CROUCH] = nf * c;
+            float st = nf * (1f - c);
+            _poseW[GunPose.P_IDLE] = st * (1f - mv);
+            _poseW[GunPose.P_WALK] = st * mv * (1f - run);
+            _poseW[GunPose.P_RUN] = st * mv * run;
+            if (pv >= 0) { for (int i = 0; i < _poseW.Length; i++) _poseW[i] = i == pv ? 1f : 0f; }
+        }
+
+        private int DominantPose()
+        {
+            int pv = GunPose.Preview;
+            if (pv >= 0) return pv;
+            int best = 0;
+            for (int i = 1; i < _poseW.Length; i++) if (_poseW[i] > _poseW[best]) best = i;
+            return best;
+        }
+
+        // every frame: the prop's grip in her right hand (raider pose, AutoGrip) + the player's grip for the pose(s) she is in, in the HAND's axes -
+        // so it stays glued to the hand. WeaponAdjustment edits the grip of the current (or previewed) pose with the numpad.
         private void PoseProp(Props.Kind kind, Quaternion yaw)
         {
             if (_prop == null || _propHand == null) return;
             var t = _prop.transform;
             t.localPosition = _propPos; t.localRotation = _propRot;
             // auto grip: the first time she stands still with this rifle in the rifle idle, point it from her right hand at her left hand
-            // (= where the Mixamo rifle clips expect the gun) and keep that as a FIXED grip in the hand - so it is the same in every animation
+            // (= where the Mixamo rifle clips expect the gun) and keep that as a FIXED grip in the hand
             if (_mixamo && kind == Props.Kind.Rifle && !_gripDone && Plugin.AlignGun.Value && _speedSmooth < 0.1f && _crouch < 0.01f
-                && _armW > 0.99f && _fireW < 0.01f && Time.time > _reloadUntil && Time.time > _throwUntil && Time.time > _propSince + 0.5f)
+                && _armW > 0.99f && _fireW < 0.01f && Time.time > _reloadUntil && Time.time > _throwUntil && Time.time > _propSince + 0.5f && GunPose.Preview < 0)
             {
                 AlignProp();
                 _propPos = t.localPosition; _propRot = t.localRotation; _gripDone = true;
                 Plugin.Verbose("Third person: " + _propFor + " grip taken from the rifle idle pose");
             }
             Vector3 basePos = t.localPosition; Quaternion baseRot = t.localRotation;
-            var o = GunPose.For(_propFor) ?? new float[6];
-            t.localPosition = basePos + new Vector3(o[0], o[1], o[2]) * 0.01f;
-            t.localRotation = baseRot * Quaternion.Euler(o[3], o[4], o[5]);
+            PoseWeights();
+            Vector3 op; Quaternion orr;
+            GunPose.Blend(_propFor, _poseW, out op, out orr);
+            t.localPosition = basePos + op;
+            t.localRotation = baseRot * orr;
 
+            int pose = DominantPose();
             Vector3 move, rot;
-            if (GunPose.Keys(_propFor, out move, out rot)) Adjust(t, basePos, baseRot, yaw, move, rot);
+            if (GunPose.Keys(_propFor, pose, out move, out rot)) Adjust(t, basePos, baseRot, yaw, move, rot, pose);
 
-            // shooting: the fire clips raise the support (left) hand onto the gun at another angle than the idle grip - follow it with the barrel
-            if (_mixamo && kind == Props.Kind.Rifle && Plugin.AlignGun.Value && _fireW > 0.01f)
+            // shooting without a Fire grip of its own: the fire clips raise the left hand to another spot - follow it with the barrel
+            float follow = 0f;
+            if (!GunPose.HasPose(_propFor, GunPose.P_FIRE)) follow += _poseW[GunPose.P_FIRE];
+            if (!GunPose.HasPose(_propFor, GunPose.P_CFIRE)) follow += _poseW[GunPose.P_CFIRE];
+            if (_mixamo && kind == Props.Kind.Rifle && Plugin.AlignGun.Value && follow > 0.01f)
             {
                 Vector3 lp = t.localPosition; Quaternion lr = t.localRotation;
                 AlignProp();
-                t.localPosition = Vector3.Lerp(lp, t.localPosition, _fireW);
-                t.localRotation = Quaternion.Slerp(lr, t.localRotation, _fireW);
+                t.localPosition = Vector3.Lerp(lp, t.localPosition, follow);
+                t.localRotation = Quaternion.Slerp(lr, t.localRotation, follow);
             }
         }
 
-        private void Adjust(Transform t, Vector3 basePos, Quaternion baseRot, Quaternion yaw, Vector3 move, Vector3 rot)
+        private void Adjust(Transform t, Vector3 basePos, Quaternion baseRot, Quaternion yaw, Vector3 move, Vector3 rot, int pose)
         {
             float dt = Time.unscaledDeltaTime;
             Vector3 right = yaw * Vector3.right, fwd = yaw * Vector3.forward;
@@ -657,7 +708,7 @@ namespace FemalePlayer
             t.localPosition = lp; t.localRotation = lr;
             Vector3 dp = (lp - basePos) * 100f;
             Vector3 de = (Quaternion.Inverse(baseRot) * lr).eulerAngles;
-            GunPose.SetLive(_propFor, new[] { dp.x, dp.y, dp.z, Mathf.DeltaAngle(0f, de.x), Mathf.DeltaAngle(0f, de.y), Mathf.DeltaAngle(0f, de.z) });
+            GunPose.SetLive(_propFor, pose, new[] { dp.x, dp.y, dp.z, Mathf.DeltaAngle(0f, de.x), Mathf.DeltaAngle(0f, de.y), Mathf.DeltaAngle(0f, de.z) });
         }
 
         private void AlignProp()
