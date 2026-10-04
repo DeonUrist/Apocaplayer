@@ -703,6 +703,7 @@ namespace FemalePlayer
                 _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.3f);
             _jumpState = js;
             if (pv == GunPose.P_JUMP && Time.time > _actionUntil - 0.2f) StartAction(JumpClip(kind), Plugin.JumpClipStart.Value);   // selected: over and over
+            if (pv == GunPose.P_KICK && Time.time > _actionUntil - 0.2f) StartAction("Kick");
             UpdateAction(dt);
             Groups(kind, rifleSet ? _rifle : pistolSet ? _pistol : _unarmed, fireSet);
 
@@ -813,8 +814,10 @@ namespace FemalePlayer
             _poseW[GunPose.P_RELOAD] = R;
             // a jump (whole-body action layer) takes over as much as its layer weight
             float J = _actionClip != null && _actionClip.EndsWith("Jump") ? _actionW : 0f;
-            for (int i = 0; i < GunPose.P_JUMP; i++) _poseW[i] *= 1f - J;
+            float K = _actionClip == "Kick" ? _actionW : 0f;
+            for (int i = 0; i < GunPose.P_JUMP; i++) _poseW[i] *= 1f - J - K;
             _poseW[GunPose.P_JUMP] = J;
+            _poseW[GunPose.P_KICK] = K;
             int pv = GunPose.Preview;
             if (pv >= 0) for (int i = 0; i < _poseW.Length; i++) _poseW[i] = i == pv ? 1f : 0f;
         }
@@ -839,6 +842,7 @@ namespace FemalePlayer
             if (fireSet != null) for (int i = 0; i < N; i++) clip[GunPose.FIRE0 + i] = fireSet.P[i].GetAnimationClip();
             if (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) clip[GunPose.P_RELOAD] = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
             if (kind != Props.Kind.None) clip[GunPose.P_JUMP] = Anims.Get(JumpClip(kind));
+            if (kind != Props.Kind.None) clip[GunPose.P_KICK] = Anims.Get("Kick");
             var rep = new int[n];
             var names = new string[n];
             for (int i = 0; i < n; i++)

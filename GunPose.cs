@@ -21,14 +21,14 @@ namespace FemalePlayer
     internal static class GunPose
     {
         // 0..12: the locomotion clips (same order as Body's slots), 13..25: the same slots of the firing set, 26: reload, 27: jump
-        public const int SLOTS = 13, FIRE0 = 13, P_RELOAD = 26, P_JUMP = 27;
+        public const int SLOTS = 13, FIRE0 = 13, P_RELOAD = 26, P_JUMP = 27, P_KICK = 28;
         public static readonly string[] Poses =
         {
             "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "RunStrafeLeft", "RunStrafeRight",
             "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight",
             "Fire", "FireWalk", "FireWalkBack", "FireStrafeLeft", "FireStrafeRight", "FireRun", "FireRunStrafeLeft", "FireRunStrafeRight",
             "CrouchFire", "FireCrouchWalk", "FireCrouchWalkBack", "FireCrouchStrafeLeft", "FireCrouchStrafeRight",
-            "Reload", "Jump",
+            "Reload", "Jump", "Kick",
         };
         public static bool IsFire(int pose) { return pose >= FIRE0 && pose < P_RELOAD; }
         private static int PoseIndex(string name) { return Array.IndexOf(Poses, name); }
