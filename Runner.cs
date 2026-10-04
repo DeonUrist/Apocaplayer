@@ -79,7 +79,7 @@ namespace FemalePlayer
                     {
                         _body.LateCar(Game.Player.transform);
                         bool firstPerson = fpCam;
-                        _body.SetMesh(firstPerson, true);
+                        _body.SetMesh(firstPerson, true, Game.DrawnWeapon != "");
                         _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
                         ThirdPerson.CarShift = firstPerson && Plugin.BodyFirstPerson.Value && Plugin.CarCameraForward.Value != 0f;
                         mode = firstPerson ? "car, first person" : "car, third person";
@@ -98,6 +98,18 @@ namespace FemalePlayer
                 if (mode != _lastMode) { _lastMode = mode; Plugin.Verbose("View: " + mode); }
             }
             catch (Exception e) { Plugin.Log.LogError("LateUpdate: " + e); _nextBuild = Time.unscaledTime + 5f; }
+        }
+
+        private void Start() { StartCoroutine(EndOfFrameLoop()); }
+
+        private System.Collections.IEnumerator EndOfFrameLoop()
+        {
+            var eof = new WaitForEndOfFrame();
+            while (true)
+            {
+                yield return eof;
+                try { ThirdPerson.EndOfFrame(); } catch (Exception) { }
+            }
         }
 
         private void OnGUI() { try { GunPose.OnGUI(); } catch (Exception) { } }

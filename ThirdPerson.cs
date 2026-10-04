@@ -99,12 +99,26 @@ namespace FemalePlayer
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
         }
 
+        // after the frame is drawn: the camera's real view matrix back, so the game's MousePick / ScreenPointToRay (grab, use, enter the car,
+        // vehicle parts, save points) cast from the first-person eye as always - not from the third-person view 2.4 m behind her
+        public static void EndOfFrame()
+        {
+            if (_hooked && Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();
+        }
+
         private static void HideViewModel()
         {
             if (Time.unscaledTime < _nextScan || Game.PlayerCamera == null) return;
             _nextScan = Time.unscaledTime + 0.5f;
+            var hand = Game.PlayerCamera.Find("Hand");   // the item being carried stays visible
+            for (int i = _hidden.Count - 1; i >= 0; i--)
+            {
+                var h = _hidden[i];
+                if (h == null) { _hidden.RemoveAt(i); continue; }
+                if (!h.transform.IsChildOf(Game.PlayerCamera) || hand != null && h.transform.IsChildOf(hand)) { h.forceRenderingOff = false; _hidden.RemoveAt(i); }   // dropped / picked up
+            }
             foreach (var r in Game.PlayerCamera.GetComponentsInChildren<Renderer>(true))
-                if (r != null && !r.forceRenderingOff) { r.forceRenderingOff = true; _hidden.Add(r); }
+                if (r != null && !r.forceRenderingOff && (hand == null || !r.transform.IsChildOf(hand))) { r.forceRenderingOff = true; _hidden.Add(r); }
         }
 
         private static void ShowViewModel()

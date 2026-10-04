@@ -288,8 +288,6 @@ namespace FemalePlayer
             Vector3 feet = player.position - Vector3.up * (standH * 0.5f);
             Vector3 pos = feet;
             float camPitch = Mathf.DeltaAngle(0f, Game.PlayerCamera.eulerAngles.x);   // + = looking down
-            if (view == View.FirstPerson)   // further back the more you look down, so the view goes past her belly to her feet
-                pos -= yaw * Vector3.forward * (Plugin.BodyBack.Value + Plugin.BodyBackDown.Value * Mathf.Clamp01(camPitch / 70f));
             var rot = yaw;
             if (_prone > 0f)
             {
@@ -303,7 +301,7 @@ namespace FemalePlayer
             _anim.localPosition = Vector3.zero; _anim.localRotation = Quaternion.identity;
 
             if (view != _lastView) { _lastView = view; _snap = true; }
-            if (_mixamo) { LateMixamo(view, dt, yaw, camPitch); _snap = false; return; }
+            if (_mixamo) { LateMixamo(view, dt, yaw, camPitch); _snap = false; FitFirstPerson(view, yaw, camPitch); return; }
 
             // locomotion
             Vector3 v = Game.Velocity; v.y = 0f;
@@ -369,6 +367,19 @@ namespace FemalePlayer
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
             PoseProp(kind, yaw);
+            FitFirstPerson(view, yaw, camPitch);
+        }
+
+        // first person: after the pose is final, slide her (horizontally) so her head is right under the camera, a little behind it -
+        // looking down you see her whole body up to the collar, wherever the animation puts her head (crouch lean, walk bob)
+        private void FitFirstPerson(View view, Quaternion yaw, float camPitch)
+        {
+            if (view != View.FirstPerson || _prone > 0.01f || Game.PlayerCamera == null) return;
+            Transform head;
+            if (!Bones.TryGetValue("mixamorig:Head", out head)) return;
+            Vector3 want = Game.PlayerCamera.position - yaw * Vector3.forward * (Plugin.BodyBack.Value + Plugin.BodyBackDown.Value * Mathf.Clamp01(camPitch / 70f));
+            Vector3 d = want - head.position; d.y = 0f;
+            Root.transform.position += d;
         }
 
         // in a car: no Animator, the pose comes from the car's seated driver
@@ -380,9 +391,10 @@ namespace FemalePlayer
             CarSeat.Pose(Bones, _bindLocal);
         }
 
-        public void SetMesh(bool firstPerson, bool inCar)
+        // first person: no head; her own arms only in a car with nothing drawn (hands on the wheel) - with a gun the game draws its arms
+        public void SetMesh(bool firstPerson, bool inCar, bool gameArms = false)
         {
-            var want = !firstPerson ? Model.Full : inCar ? Model.NoHead : Model.NoArms;
+            var want = !firstPerson ? Model.Full : inCar && !gameArms ? Model.NoHead : Model.NoArms;
             if (_smr.sharedMesh != want) _smr.sharedMesh = want;
             var mode = firstPerson ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             if (_smr.shadowCastingMode != mode) _smr.shadowCastingMode = mode;

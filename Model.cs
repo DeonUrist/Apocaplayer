@@ -8,8 +8,8 @@ namespace FemalePlayer
     // Her body meshes (built once from the .glb against Flexa's 22-bone skeleton) and textures.
     //  Full    - everything (third person, the shadow)
     //  NoHead  - head and neck-up removed (first person in a car: the camera sits in her head)
-    //  NoArms  - first person on foot: only hips, belly and legs (head, neck, chest, shoulders and arms removed - the game draws its
-    //            own first-person arms, and the chest right under the camera blocked the view down)
+    //  NoArms  - first person (on foot, and in a car with a gun drawn): the whole body up to the collar - legs, hips, belly, chest,
+    //            shoulders; head, neck and arms removed (the game draws its own first-person arms)
     internal static class Model
     {
         public static Mesh Full, NoHead, NoArms;
@@ -17,11 +17,11 @@ namespace FemalePlayer
         private static bool _tried, _texTried, _armsTried;
 
         private static readonly HashSet<string> HeadBones = new HashSet<string> { "mixamorig:Head" };
+        private static readonly HashSet<string> HeadNeckBones = new HashSet<string> { "mixamorig:Head", "mixamorig:Neck" };
         private static readonly HashSet<string> ArmBones = new HashSet<string>
         {
             "mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftHand",
             "mixamorig:RightArm", "mixamorig:RightForeArm", "mixamorig:RightHand",
-            "mixamorig:LeftShoulder", "mixamorig:RightShoulder", "mixamorig:Neck", "mixamorig:Spine2",
         };
 
         public static bool Build(SkinnedMeshRenderer smr)
@@ -71,7 +71,7 @@ namespace FemalePlayer
 
             Full = Make("FemalePlayer", verts, nrms, uvs, bws, bp, model.Tris, model.HasNormals);
             NoHead = Make("FemalePlayer_nohead", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadBones, null), model.HasNormals);
-            NoArms = Make("FemalePlayer_noarms", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadBones, ArmBones), model.HasNormals);
+            NoArms = Make("FemalePlayer_noarms", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadNeckBones, ArmBones), model.HasNormals);
 
             // the skeleton of the file vs Flexa's (must be ~0: same armature)
             float worst = 0f; string worstName = "";
