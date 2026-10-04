@@ -33,6 +33,7 @@ public static class ApocaplayerAnimBuilder
         "CrouchPistolFire", "PistolCrouchFire", "PistolJump",
         "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
         "MeleeCombo", "Punch1", "Punch2", "Melee1", "Melee2", "ThrowRight",
+        "RifleFireRun", "RifleFireRunStrafeLeft", "RifleFireRunStrafeRight", "PistolFireRun", "PistolFireRunStrafeLeft", "PistolFireRunStrafeRight",
     };
 
     // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)

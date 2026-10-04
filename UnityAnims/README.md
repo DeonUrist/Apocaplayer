@@ -40,6 +40,7 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | PistolAim.fbx / PistolFire.fbx / PistolReload.fbx | pistol / revolver | "Pistol Idle", "Shooting", "Pistol Reload" |
 | Melee.fbx | a swing (knife, machete, wrench) | "Sword And Shield Slash", "Stabbing", "Punching" |
 | MeleeCombo.fbx | two blows in a row (melee weapon swings chained one after the other) | "Sword And Shield Attack" |
+| RifleFireRun.fbx (PistolFireRun.fbx) | running while shooting: the gun stays up (else the Run clip, gun lowered); also used for running sideways while shooting | "Rifle Run" with the rifle raised |
 | Punch1.fbx, Punch2.fbx (or Melee1/Melee2) | bare-hands punches, played by turns | "Punching", "Jab" |
 | Throw.fbx | grenade (left hand: packed mirrored as "Throw") and blast lance (right hand: packed unmirrored as "ThrowRight") | "Throw", "Throw Grenade" |
 
