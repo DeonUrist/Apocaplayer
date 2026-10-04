@@ -25,6 +25,7 @@ namespace FemalePlayer
         private AnimationLayerMixerPlayable _layers;
         private AnimationClipPlayable _upper;
         private string _upperClip = "";
+        private AnimationClip _fallback;
         private readonly Dictionary<string, AnimationClip> _clips = new Dictionary<string, AnimationClip>();
 
         private float _phase, _speedSmooth, _strafeSmooth, _crouch, _prone, _runW, _meleeUntil;
@@ -145,8 +146,11 @@ namespace FemalePlayer
             _loco = AnimationMixerPlayable.Create(_graph, 2);
             var idle = Clip(Plugin.IdleClip.Value);
             var run = Clip(Plugin.RunClip.Value);
-            var pIdle = idle != null ? AnimationClipPlayable.Create(_graph, idle) : AnimationClipPlayable.Create(_graph, null);
-            var pRun = run != null ? AnimationClipPlayable.Create(_graph, run) : AnimationClipPlayable.Create(_graph, null);
+            if (idle == null) idle = Clip("enemy_1_idle");
+            if (run == null) run = idle;
+            _fallback = idle;
+            var pIdle = AnimationClipPlayable.Create(_graph, idle);
+            var pRun = AnimationClipPlayable.Create(_graph, run);
             pIdle.SetApplyFootIK(false); pRun.SetApplyFootIK(false);
             _graph.Connect(pIdle, 0, _loco, 0);
             _graph.Connect(pRun, 0, _loco, 1);
@@ -155,7 +159,7 @@ namespace FemalePlayer
             _layers = AnimationLayerMixerPlayable.Create(_graph, 2);
             _graph.Connect(_loco, 0, _layers, 0);
             _layers.SetInputWeight(0, 1f);
-            _upper = AnimationClipPlayable.Create(_graph, null);
+            _upper = AnimationClipPlayable.Create(_graph, idle);
             _graph.Connect(_upper, 0, _layers, 1);
             _layers.SetInputWeight(1, 0f);
             var mask = new AvatarMask();
@@ -174,18 +178,19 @@ namespace FemalePlayer
 
         private void SetUpper(string clipName, float weight, float speed)
         {
+            if (string.IsNullOrEmpty(clipName)) { _layers.SetInputWeight(1, 0f); return; }   // keep the last clip connected, just off
             if (clipName != _upperClip)
             {
                 _upperClip = clipName;
                 _graph.Disconnect(_layers, 1);
                 if (_upper.IsValid()) _upper.Destroy();
-                var c = string.IsNullOrEmpty(clipName) ? null : Clip(clipName);
+                var c = Clip(clipName) ?? _fallback;
                 _upper = AnimationClipPlayable.Create(_graph, c);
                 _upper.SetApplyFootIK(false);
                 _graph.Connect(_upper, 0, _layers, 1);
                 _upper.SetTime(0);
             }
-            _layers.SetInputWeight(1, string.IsNullOrEmpty(clipName) ? 0f : weight);
+            _layers.SetInputWeight(1, weight);
             if (_upper.IsValid()) _upper.SetSpeed(speed);
         }
 
