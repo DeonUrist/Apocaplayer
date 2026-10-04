@@ -10,6 +10,7 @@ namespace FemalePlayer
     internal static class ThirdPerson
     {
         public static bool On;
+        public static bool CarShift;               // set by the Runner: first person in the car with her body shown -> view drawn a bit further forward
         public static bool Orbiting;               // middle mouse held: the mouse turns the camera around her, the game's mouse look is paused
         private static float _orbitYaw, _orbitPitch;
         private static bool _orbitOn;
@@ -57,16 +58,27 @@ namespace FemalePlayer
                 if (Mathf.Abs(_orbitYaw) < 0.05f) _orbitYaw = 0f;
             }
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
-            if (On && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
+            bool want = On || CarShift;
+            if (want && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
             if (On) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
-            if (!On && Game.Cam != null && _hooked) { Game.Cam.ResetWorldToCameraMatrix(); Camera.onPreCull -= PreCull; _hooked = false; }
+            if (!want && _hooked) { if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix(); Camera.onPreCull -= PreCull; _hooked = false; }
         }
 
         private static void PreCull(Camera cam)
         {
-            if (!On || cam == null || cam != Game.Cam) return;
+            if (cam == null || cam != Game.Cam) return;
             var t = cam.transform;
+            if (!On)
+            {
+                if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); return; }
+                // driving, first person: the eye a few cm forward along her (the seat's) facing, so her own head/chest don't fill the view
+                Vector3 f = Game.Player.transform.forward; f.y = 0f;
+                if (f.sqrMagnitude < 1e-4f) f = t.forward;
+                Vector3 p = t.position + f.normalized * Plugin.CarCameraForward.Value;
+                cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(p, t.rotation, Vector3.one).inverse;
+                return;
+            }
             // orbit: the view direction turned about her by the middle-mouse offsets (yaw about up, pitch clamped)
             var e = t.rotation.eulerAngles;
             float pitch = Mathf.Clamp(Mathf.DeltaAngle(0f, e.x) + _orbitPitch, -80f, 85f);
@@ -103,7 +115,7 @@ namespace FemalePlayer
 
         public static void Off()
         {
-            On = false; Orbiting = false; _orbitOn = false;
+            On = false; Orbiting = false; _orbitOn = false; CarShift = false;
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();

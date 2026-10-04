@@ -63,6 +63,7 @@ namespace FemalePlayer
 
                 bool inCar = Game.InCar;
                 bool fpCam = Game.FirstPersonCameraOn;
+                ThirdPerson.CarShift = false;
                 string mode;
                 if (inCar)
                 {
@@ -80,6 +81,7 @@ namespace FemalePlayer
                         bool firstPerson = fpCam;
                         _body.SetMesh(firstPerson, true);
                         _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
+                        ThirdPerson.CarShift = firstPerson && Plugin.BodyFirstPerson.Value && Plugin.CarCameraForward.Value != 0f;
                         mode = firstPerson ? "car, first person" : "car, third person";
                     }
                 }

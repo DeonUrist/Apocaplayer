@@ -17,7 +17,7 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.5.0";
+        public const string VERSION = "0.5.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -28,6 +28,7 @@ namespace FemalePlayer
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
+        internal static ConfigEntry<float> CarCameraForward;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -50,6 +51,7 @@ namespace FemalePlayer
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
             AlignGun = Config.Bind("Weapon grip", "AutoGrip", true, "Third person with the Mixamo clips: when she first stands still holding a rifle, the rifle is pointed from her right hand to her left hand (where the rifle clips expect it) and that grip is then kept fixed in her hand for every animation; while shooting it follows her left hand. The per-weapon lines below fine-tune it.");
             WeaponAdjust = Config.Bind("Weapon grip", "WeaponAdjustment", false, "On: in third person set the weapon's grip for the animation she is in (each clip on its own: Idle, Walk, WalkBack, StrafeLeft, StrafeRight, Run..., CrouchIdle, CrouchStrafeLeft..., Fire, FireWalk..., Reload) with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it (8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll); Numpad 9/3 previews the animations one by one standing still; Numpad - clears the animation's grip; Numpad / copies the shown grip and Numpad * pastes it into the current animation. Saved in config/FemalePlayer/weapon-grips.cfg.");
+            CarCameraForward = Config.Bind("Camera", "CarCameraForward", 0.12f, new ConfigDescription("Driving in first person with her body shown: the view is drawn this far (m) in front of the game's eye so her head and chest don't block it (only the picture moves; 0 = off).", new AcceptableValueRange<float>(0f, 0.4f)));
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines (what was found, which clips/props are used).");
