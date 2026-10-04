@@ -2,27 +2,24 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using BepInEx;
 using BepInEx.Configuration;
 using UnityEngine;
 
 namespace FemalePlayer
 {
-    // How each weapon sits in her RIGHT HAND, in the hand's own axes: "x, y, z (cm), rotX, rotY, rotZ (degrees)" on top of the raider's grip.
-    // - [Weapon grip] <weapon> (main config, Apocasetter): the base grip, used by every animation that has no grip of its own.
-    // - config/FemalePlayer/weapon-grips.cfg, [<weapon>] <Animation>: a grip for one animation clip (Idle, Walk, StrafeLeft, StrafeRight,
-    //   CrouchStrafeLeft, FireWalk, ... Reload - see Poses). One entry per clip, so the mirrored right-side clips (StrafeRight is the
-    //   mirror of StrafeLeft) and every crouch / fire variant get their own grip. In play the grips of the clips she is in are blended
-    //   by the clips' own blend weights.
-    // WeaponAdjustment edits them with the numpad (see Keys); Numpad 9/3 previews an animation so it can be tuned standing still.
+    // Where each weapon sits in her RIGHT HAND, per animation clip: ABSOLUTE local position (cm) and rotation (degrees, Euler x, y, z) of the
+    // weapon model under the hand bone. Nothing in the game changes these: no AutoGrip, no base line, no follow-the-left-hand - only the numpad
+    // (WeaponAdjustment) edits them.
+    //   lookup per (weapon, animation): config/FemalePlayer/weapon-poses.txt  >  BuiltinPoses (hard-coded in the mod)  >  the weapon's Idle
+    //   entry  >  the raider's grip.
+    // Every save also writes config/FemalePlayer/BuiltinPoses.generated.cs = the complete table as C#: copy it over BuiltinPoses.cs in the repo
+    // to hard-code the poses.
+    // Grips from 0.5.x / 0.6.x (offsets on top of the raider grip + AutoGrip, weapon-grips.cfg + the [Weapon grip] lines) are converted once per
+    // weapon into absolute poses (Body.PoseProp -> ConvertLegacy), then never read again for that weapon.
     internal static class GunPose
     {
-        public static readonly string[] Weapons =
-        {
-            "akm_trash", "akms", "akm_drum", "m16a1", "redmark_m11", "redmark_m11_scoped", "borz_smg", "22_pipe_smg",
-            "slamfire_shotgun", "rochester_m24", "rochester_m24_chopped", "slamberg_500", "slamberg_500_chopped", "crossbow",
-            "22_pipe_pistol", "22_pipe_revolver", "folk_17", "shiv", "old_knife", "machete", "pipe_wrench",
-        };
         // 0..12: the locomotion clips (same order as Body's slots), 13..25: the same slots of the firing set, 26: reload
         public const int SLOTS = 13, FIRE0 = 13, P_RELOAD = 26;
         public static readonly string[] Poses =
@@ -34,102 +31,198 @@ namespace FemalePlayer
             "Reload",
         };
         public static bool IsFire(int pose) { return pose >= FIRE0 && pose < P_RELOAD; }
+        private static int PoseIndex(string name) { return Array.IndexOf(Poses, name); }
 
-        private static readonly Dictionary<string, ConfigEntry<string>> _cfg = new Dictionary<string, ConfigEntry<string>>();
-        private static readonly Dictionary<string, ConfigEntry<string>> _pose = new Dictionary<string, ConfigEntry<string>>();   // key weapon|pose
-        private static readonly Dictionary<string, KeyValuePair<string, float[]>> _parsed = new Dictionary<string, KeyValuePair<string, float[]>>();
-        private static ConfigFile _grips;
+        private static string _dir, _file, _export;
+        private static readonly Dictionary<string, float[]> _user = new Dictionary<string, float[]>();      // "weapon|Anim" -> x,y,z,rx,ry,rz
+        private static readonly Dictionary<string, float[]> _builtin = new Dictionary<string, float[]>();
+        // legacy (0.5/0.6): offsets per weapon|Anim and the per-weapon base line
+        private static readonly Dictionary<string, float[]> _legacy = new Dictionary<string, float[]>();
+        private static readonly Dictionary<string, float[]> _legacyBase = new Dictionary<string, float[]>();
 
         public static void Bind(ConfigFile config)
         {
-            foreach (var w in Weapons)
-                _cfg[w] = config.Bind("Weapon grip", w, "0, 0, 0, 0, 0, 0",
-                    "Third person: " + w + " in her right hand, relative to the hand, for every animation that has no grip of its own: x, y, z in cm, then rotation x, y, z in degrees. Per-animation grips (Idle, Walk, StrafeLeft, StrafeRight, CrouchIdle, CrouchStrafeLeft, Fire, FireWalk, ... Reload) are set with WeaponAdjustment and kept in config/FemalePlayer/weapon-grips.cfg.");
-            _grips = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "FemalePlayer"), "weapon-grips.cfg"), true);
-            foreach (var w in Weapons)
-                foreach (var p in Poses)
-                    _pose[w + "|" + p] = _grips.Bind(w, p, "", "Grip of " + w + " in the " + p + " animation (empty = the base grip from the main config).");
-            Migrate();
+            _dir = Path.Combine(Paths.ConfigPath, "FemalePlayer");
+            Directory.CreateDirectory(_dir);
+            _file = Path.Combine(_dir, "weapon-poses.txt");
+            _export = Path.Combine(_dir, "BuiltinPoses.generated.cs");
+            foreach (var line in BuiltinPoses.Data)
+            {
+                var p = line.Split('|');
+                float[] v;
+                if (p.Length == 3 && (v = Parse(p[2])) != null) _builtin[p[0] + "|" + p[1]] = v;
+            }
+            LoadUser();
+            LoadLegacy(config.ConfigFilePath);
+            Plugin.Log.LogInfo("Weapon poses: " + _user.Count + " in weapon-poses.txt, " + _builtin.Count + " built in"
+                + (_legacy.Count + _legacyBase.Count > 0 ? "; old grips waiting for conversion: " + string.Join(", ", LegacyWeapons().ToArray()) : ""));
         }
 
-        // 0.4.x had one "Crouch" grip for every crouched clip: it becomes the CrouchIdle grip (Idle/Walk/Run/Fire/CrouchFire/Reload keep their names)
-        private static void Migrate()
+        private static float[] Parse(string s)
         {
-            try
-            {
-                var prop = typeof(ConfigFile).GetProperty("OrphanedEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-                var dict = prop != null ? prop.GetValue(_grips, null) as Dictionary<ConfigDefinition, string> : null;
-                if (dict == null || dict.Count == 0) return;
-                int moved = 0;
-                foreach (var kv in dict)
-                {
-                    ConfigEntry<string> e;
-                    if (kv.Key.Key == "Crouch" && !string.IsNullOrEmpty(kv.Value) && _pose.TryGetValue(kv.Key.Section + "|CrouchIdle", out e) && string.IsNullOrEmpty(e.Value))
-                    { e.Value = kv.Value; moved++; }
-                }
-                dict.Clear();
-                _grips.Save();
-                if (moved > 0) Plugin.Log.LogInfo("Weapon grips: " + moved + " old Crouch grip(s) now used for CrouchIdle only (set CrouchWalk / CrouchStrafeLeft / ... on their own)");
-            }
-            catch (Exception e) { Plugin.Warn("Weapon grips migration: " + e.Message); }
-        }
-
-        private static float[] Parse(string key, string s)
-        {
-            s = s ?? "";
-            KeyValuePair<string, float[]> p;
-            if (_parsed.TryGetValue(key, out p) && p.Key == s) return p.Value;
-            float[] v = null;
-            var parts = s.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length > 0)
-            {
-                v = new float[6];
-                for (int i = 0; i < 6 && i < parts.Length; i++)
-                {
-                    float f;
-                    if (float.TryParse(parts[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out f)) v[i] = f;
-                }
-            }
-            _parsed[key] = new KeyValuePair<string, float[]>(s, v);
+            var parts = (s ?? "").Split(new[] { ',', ';', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 6) return null;
+            var v = new float[6];
+            for (int i = 0; i < 6; i++)
+                if (!float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out v[i])) return null;
             return v;
         }
 
-        // ---------------- values
-        private static string _liveKey;    // weapon|pose being edited
-        private static float[] _live;
+        private static string Fmt(float[] v) { return string.Join(", ", Array.ConvertAll(v, x => x.ToString("0.###", CultureInfo.InvariantCulture))); }
 
-        public static bool Known(string weapon) { return weapon != null && _cfg.ContainsKey(weapon); }
-
-        public static float[] Base(string weapon)
+        private static void LoadUser()
         {
-            ConfigEntry<string> e;
-            if (!Known(weapon) || !_cfg.TryGetValue(weapon, out e)) return new float[6];
-            return Parse(weapon, e.Value) ?? new float[6];
+            _user.Clear();
+            if (!File.Exists(_file)) return;
+            foreach (var raw in File.ReadAllLines(_file))
+            {
+                string line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith("#")) continue;
+                int eq = line.IndexOf('=');
+                if (eq <= 0) continue;
+                string key = line.Substring(0, eq).Trim();
+                var v = Parse(line.Substring(eq + 1));
+                if (v != null && key.IndexOf('|') > 0) _user[key] = v;
+            }
         }
 
-        // the pose's own grip, null when it has none
-        public static float[] PoseGrip(string weapon, int pose)
+        // weapon-grips.cfg ([weapon] Anim = offsets) and the main config's [Weapon grip] <weapon> = offsets lines, read as text (never written)
+        private static void LoadLegacy(string mainConfig)
+        {
+            try
+            {
+                string old = Path.Combine(_dir, "weapon-grips.cfg");
+                if (File.Exists(old))
+                {
+                    string section = null;
+                    foreach (var raw in File.ReadAllLines(old))
+                    {
+                        string line = raw.Trim();
+                        if (line.StartsWith("[") && line.EndsWith("]")) { section = line.Substring(1, line.Length - 2); continue; }
+                        if (section == null || line.StartsWith("#")) continue;
+                        int eq = line.IndexOf('=');
+                        if (eq <= 0) continue;
+                        string anim = line.Substring(0, eq).Trim();
+                        var v = Parse(line.Substring(eq + 1));
+                        if (v != null && PoseIndex(anim) >= 0 && !HasAny(section)) _legacy[section + "|" + anim] = v;
+                    }
+                }
+                // the main config's [Weapon grip] lines are removed from it on this start (old settings) - keep them in legacy-base-lines.txt
+                string kept = Path.Combine(_dir, "legacy-base-lines.txt");
+                if (File.Exists(mainConfig) && !File.Exists(kept))
+                {
+                    var lines = new List<string> { "[Weapon grip]" };
+                    bool inG = false;
+                    foreach (var raw in File.ReadAllLines(mainConfig))
+                    {
+                        string line = raw.Trim();
+                        if (line.StartsWith("[")) { inG = line == "[Weapon grip]"; continue; }
+                        if (inG && !line.StartsWith("#") && line.IndexOf('=') > 0) lines.Add(line);
+                    }
+                    File.WriteAllLines(kept, lines.ToArray());
+                }
+                if (File.Exists(kept))
+                {
+                    bool inGrip = false;
+                    foreach (var raw in File.ReadAllLines(kept))
+                    {
+                        string line = raw.Trim();
+                        if (line.StartsWith("[")) { inGrip = line == "[Weapon grip]"; continue; }
+                        if (!inGrip || line.StartsWith("#")) continue;
+                        int eq = line.IndexOf('=');
+                        if (eq <= 0) continue;
+                        string w = line.Substring(0, eq).Trim();
+                        var v = Parse(line.Substring(eq + 1));
+                        if (v != null && !HasAny(w) && Array.Exists(v, x => x != 0f)) _legacyBase[w] = v;
+                    }
+                }
+            }
+            catch (Exception e) { Plugin.Warn("Weapon poses: reading the old grips failed: " + e.Message); }
+        }
+
+        private static List<string> LegacyWeapons()
+        {
+            var s = new SortedDictionary<string, bool>();
+            foreach (var k in _legacy.Keys) s[k.Substring(0, k.IndexOf('|'))] = true;
+            foreach (var k in _legacyBase.Keys) s[k] = true;
+            return new List<string>(s.Keys);
+        }
+
+        // ---------------- values
+        public static bool HasAny(string weapon)
+        {
+            string pre = weapon + "|";
+            foreach (var k in _user.Keys) if (k.StartsWith(pre, StringComparison.Ordinal)) return true;
+            foreach (var k in _builtin.Keys) if (k.StartsWith(pre, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        public static bool HasLegacy(string weapon)
+        {
+            if (string.IsNullOrEmpty(weapon) || HasAny(weapon)) return false;
+            if (_legacyBase.ContainsKey(weapon)) return true;
+            string pre = weapon + "|";
+            foreach (var k in _legacy.Keys) if (k.StartsWith(pre, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        // the converted poses: base (the grip the old offsets were tuned on, hand-local) ∘ each animation's offset (or the base line)
+        public static void ConvertLegacy(string weapon, Vector3 basePos, Quaternion baseRot)
+        {
+            float[] line;
+            _legacyBase.TryGetValue(weapon, out line);
+            int n = 0;
+            for (int i = 0; i < Poses.Length; i++)
+            {
+                float[] off;
+                bool own = _legacy.TryGetValue(weapon + "|" + Poses[i], out off);
+                if (!own) off = line ?? new float[6];
+                Vector3 p = basePos + new Vector3(off[0], off[1], off[2]) * 0.01f;
+                Quaternion r = baseRot * Quaternion.Euler(off[3], off[4], off[5]);
+                _user[weapon + "|" + Poses[i]] = Abs(p, r);
+                if (own) n++;
+            }
+            Save();
+            Plugin.Log.LogInfo("Weapon poses: " + weapon + " converted from the old grips (" + n + " tuned animation(s), all " + Poses.Length + " written)");
+        }
+
+        public static float[] Abs(Vector3 p, Quaternion r)
+        {
+            var e = r.eulerAngles;
+            return new[] { p.x * 100f, p.y * 100f, p.z * 100f, Mathf.DeltaAngle(0f, e.x), Mathf.DeltaAngle(0f, e.y), Mathf.DeltaAngle(0f, e.z) };
+        }
+
+        private static string _liveKey;
+        private static float[] _live;
+
+        // the animation's own entry (live edit > file > built in), null when it has none
+        public static float[] Own(string weapon, int pose)
         {
             string k = weapon + "|" + Poses[pose];
             if (_live != null && _liveKey == k) return _live;
-            ConfigEntry<string> e;
-            return _pose.TryGetValue(k, out e) ? Parse(k, e.Value) : null;
+            float[] v;
+            if (_user.TryGetValue(k, out v)) return v;
+            if (_builtin.TryGetValue(k, out v)) return v;
+            return null;
         }
 
-        public static bool HasPose(string weapon, int pose) { return Known(weapon) && PoseGrip(weapon, pose) != null; }
+        public static bool HasPose(string weapon, int pose) { return !string.IsNullOrEmpty(weapon) && Own(weapon, pose) != null; }
 
-        public static float[] Effective(string weapon, int pose) { return PoseGrip(weapon, pose) ?? Base(weapon); }
-
-        // blend of the poses' grips by weight -> local offset position (m) and rotation
-        public static void Blend(string weapon, float[] w, out Vector3 pos, out Quaternion rot)
+        // what the animation shows: its own entry, else the weapon's Idle entry, else the raider grip (def)
+        public static float[] Effective(string weapon, int pose, float[] def)
         {
-            pos = Vector3.zero; rot = Quaternion.identity;
-            if (!Known(weapon)) return;
-            float sum = 0f; var q = new Vector4(0, 0, 0, 0); Quaternion first = Quaternion.identity; bool any = false;
+            return Own(weapon, pose) ?? Own(weapon, 0) ?? def;
+        }
+
+        // blend of the animations' poses by weight -> hand-local position (m) and rotation
+        public static void Blend(string weapon, float[] w, Vector3 defPos, Quaternion defRot, out Vector3 pos, out Quaternion rot)
+        {
+            var def = Abs(defPos, defRot);
+            pos = Vector3.zero; float sum = 0f; var q = Vector4.zero; Quaternion first = Quaternion.identity; bool any = false;
             for (int i = 0; i < Poses.Length; i++)
             {
                 if (w[i] <= 0.0001f) continue;
-                var v = Effective(weapon, i);
+                var v = Effective(weapon, i, def);
                 pos += new Vector3(v[0], v[1], v[2]) * (0.01f * w[i]);
                 var r = Quaternion.Euler(v[3], v[4], v[5]);
                 if (!any) { first = r; any = true; }
@@ -137,7 +230,7 @@ namespace FemalePlayer
                 q += new Vector4(r.x, r.y, r.z, r.w) * w[i];
                 sum += w[i];
             }
-            if (sum <= 0f) { var v = Base(weapon); pos = new Vector3(v[0], v[1], v[2]) * 0.01f; rot = Quaternion.Euler(v[3], v[4], v[5]); return; }
+            if (sum <= 0f) { var v = Effective(weapon, 0, def); pos = new Vector3(v[0], v[1], v[2]) * 0.01f; rot = Quaternion.Euler(v[3], v[4], v[5]); return; }
             pos /= sum;
             q.Normalize();
             rot = new Quaternion(q.x, q.y, q.z, q.w);
@@ -150,29 +243,67 @@ namespace FemalePlayer
             _liveKey = k; _live = v;
         }
 
-        // writes the edited values into the pose's line (once, when the keys are let go / the weapon or pose changes)
+        // writes the edited pose (once, when the keys are let go / the weapon or animation changes)
         public static void Flush()
         {
-            if (_live != null && _liveKey != null)
-            {
-                ConfigEntry<string> e;
-                if (_pose.TryGetValue(_liveKey, out e))
-                    e.Value = string.Join(", ", Array.ConvertAll(_live, x => x.ToString("0.##", CultureInfo.InvariantCulture)));
-            }
+            if (_live != null && _liveKey != null) { _user[_liveKey] = _live; _live = null; _liveKey = null; Save(); }
             _live = null; _liveKey = null;
+        }
+
+        private static void Save()
+        {
+            try
+            {
+                var keys = new List<string>(_user.Keys); keys.Sort(Compare);
+                var sb = new StringBuilder();
+                sb.AppendLine("# FemalePlayer weapon poses: weapon|Animation = x, y, z (cm), rotation x, y, z (degrees) of the weapon model in her right hand.");
+                sb.AppendLine("# Absolute values, edited in game with WeaponAdjustment (numpad). Missing animation = the weapon's Idle, else the raider's grip.");
+                foreach (var k in keys) sb.Append(k).Append(" = ").AppendLine(Fmt(_user[k]));
+                File.WriteAllText(_file, sb.ToString());
+                // the complete table (built in + yours) as C#, ready to replace BuiltinPoses.cs
+                var all = new Dictionary<string, float[]>(_builtin);
+                foreach (var kv in _user) all[kv.Key] = kv.Value;
+                var ak = new List<string>(all.Keys); ak.Sort(Compare);
+                var cs = new StringBuilder();
+                cs.AppendLine("namespace FemalePlayer");
+                cs.AppendLine("{");
+                cs.AppendLine("    // Weapon poses hard-coded in the mod (generated by FemalePlayer from config/FemalePlayer/weapon-poses.txt on " + DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + ").");
+                cs.AppendLine("    // \"weapon|Animation|x, y, z (cm), rotation x, y, z (degrees)\" of the weapon model in her right hand. weapon-poses.txt overrides these.");
+                cs.AppendLine("    internal static class BuiltinPoses");
+                cs.AppendLine("    {");
+                cs.AppendLine("        public static readonly string[] Data =");
+                cs.AppendLine("        {");
+                foreach (var k in ak) cs.Append("            \"").Append(k).Append('|').Append(Fmt(all[k])).AppendLine("\",");
+                cs.AppendLine("        };");
+                cs.AppendLine("    }");
+                cs.AppendLine("}");
+                File.WriteAllText(_export, cs.ToString());
+            }
+            catch (Exception e) { Plugin.Warn("Weapon poses: saving failed: " + e.Message); }
+        }
+
+        // weapon, then animation in clip order
+        private static int Compare(string a, string b)
+        {
+            int ia = a.IndexOf('|'), ib = b.IndexOf('|');
+            int c = string.CompareOrdinal(a.Substring(0, ia), b.Substring(0, ib));
+            if (c != 0) return c;
+            return PoseIndex(a.Substring(ia + 1)).CompareTo(PoseIndex(b.Substring(ib + 1)));
         }
 
         // ---------------- keys (WeaponAdjustment)
         // Numpad 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 (or 0 . Enter) switches MOVING <-> ROTATING (8/2 muzzle up/down,
-        // 6/4 muzzle right/left, 7/1 roll). Numpad 9 / 3 = preview the next / previous pose (Idle .. Reload, then live), Numpad - = clear the
-        // grip of the animation being edited (back to the base grip), Numpad / = copy the shown grip, Numpad * = paste it here. Shift/Ctrl can't be used: with NumLock on, Shift+Numpad 8 arrives as the Up arrow.
+        // 6/4 muzzle right/left, 7/1 roll). Numpad 9 / 3 = preview the next / previous animation (then live), Numpad - = delete the animation's own
+        // pose (it shows the weapon's Idle pose again), Numpad / = copy the shown pose, Numpad * = paste it into the current animation.
+        // Shift/Ctrl can't be used: with NumLock on, Shift+Numpad 8 arrives as the Up arrow.
         private static bool _rotateMode;
         private static readonly Dictionary<KeyCode, bool> _held = new Dictionary<KeyCode, bool>();
         private static int _preview = -1;     // -1 = live
-        private static float[] _clip;         // Numpad / copies the shown grip, Numpad * pastes it into the current animation
-        private static string _hint = "";
+        private static float[] _clip;
+        private static string _hint = "", _note = "";
 
         public static int Preview { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value && ThirdPerson.On ? _preview : -1; } }
+        public static bool Editing { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value; } }
 
         private static bool Pressed(params KeyCode[] keys)
         {
@@ -187,37 +318,29 @@ namespace FemalePlayer
             return down;
         }
 
-        public static bool Keys(string weapon, int pose, out Vector3 move, out Vector3 rot)
+        public static void Note(string s) { _note = s ?? ""; }
+
+        public static bool Keys(string weapon, int pose, float[] shown, out Vector3 move, out Vector3 rot)
         {
             move = rot = Vector3.zero;
             _hint = "";
-            if (Plugin.WeaponAdjust == null || !Plugin.WeaponAdjust.Value || !Known(weapon) || Time.timeScale < 0.01f) { Flush(); return false; }
+            if (!Editing || string.IsNullOrEmpty(weapon) || Time.timeScale < 0.01f) { Flush(); return false; }
             if (Pressed(KeyCode.Keypad5, KeyCode.Keypad0, KeyCode.KeypadPeriod, KeyCode.KeypadEnter, KeyCode.Clear)) _rotateMode = !_rotateMode;
             if (Pressed(KeyCode.Keypad9)) { Flush(); _preview = _preview + 1 >= Poses.Length ? -1 : _preview + 1; }
             if (Pressed(KeyCode.Keypad3)) { Flush(); _preview = _preview - 1 < -1 ? Poses.Length - 1 : _preview - 1; }
-            if (Pressed(KeyCode.KeypadMinus))
-            {
-                Flush();
-                ConfigEntry<string> e;
-                if (_pose.TryGetValue(weapon + "|" + Poses[pose], out e)) e.Value = "";
-            }
-            if (Pressed(KeyCode.KeypadDivide)) _clip = (float[])Effective(weapon, pose).Clone();
-            if (Pressed(KeyCode.KeypadMultiply) && _clip != null)
-            {
-                Flush();
-                ConfigEntry<string> e;
-                if (_pose.TryGetValue(weapon + "|" + Poses[pose], out e))
-                    e.Value = string.Join(", ", Array.ConvertAll(_clip, x => x.ToString("0.##", CultureInfo.InvariantCulture)));
-            }
+            if (Pressed(KeyCode.KeypadMinus)) { Flush(); if (_user.Remove(weapon + "|" + Poses[pose])) Save(); }
+            if (Pressed(KeyCode.KeypadDivide)) _clip = (float[])shown.Clone();
+            if (Pressed(KeyCode.KeypadMultiply) && _clip != null) { Flush(); _user[weapon + "|" + Poses[pose]] = (float[])_clip.Clone(); Save(); }
             float a = Axis(KeyCode.Keypad7, KeyCode.Keypad1), b = Axis(KeyCode.Keypad8, KeyCode.Keypad2), c = Axis(KeyCode.Keypad6, KeyCode.Keypad4);
             if (_rotateMode) rot = new Vector3(b, c, a) * 45f;   // pitch (muzzle up), yaw (muzzle right), roll - degrees per second
             else move = new Vector3(c, b, a) * 3f;               // right, up, forward - cm per second
             bool anyKey = a != 0f || b != 0f || c != 0f;
             if (!anyKey) Flush();
-            var v = Effective(weapon, pose);
+            bool own = HasPose(weapon, pose);
             _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   animation: " + Poses[pose] + (_preview >= 0 ? " (PREVIEW)" : "")
-                  + (HasPose(weapon, pose) ? "" : " - uses the base grip") + "   grip " + string.Join(", ", Array.ConvertAll(v, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
-                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = preview next/previous animation.  - = clear.  / = copy grip, * = paste" + (_clip != null ? " (copied)" : "") + ".  Turn WeaponAdjustment off when done.";
+                  + (own ? "" : pose != 0 && HasPose(weapon, 0) ? " - shows the Idle pose" : " - shows the raider grip") + "   pose " + string.Join(", ", Array.ConvertAll(shown, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
+                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = preview next/previous animation.  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/FemalePlayer/weapon-poses.txt"
+                  + (string.IsNullOrEmpty(_note) ? "" : "\n" + _note);
             return anyKey;
         }
 
@@ -228,7 +351,7 @@ namespace FemalePlayer
         public static void OnGUI()
         {
             if (string.IsNullOrEmpty(_hint)) return;
-            var r = new Rect(20, Screen.height - 90, Screen.width - 40, 60);
+            var r = new Rect(20, Screen.height - 110, Screen.width - 40, 80);
             var st = new GUIStyle(GUI.skin.label) { fontSize = 16 };
             st.normal.textColor = Color.black; GUI.Label(new Rect(r.x + 1, r.y + 1, r.width, r.height), _hint, st);
             st.normal.textColor = Color.yellow; GUI.Label(r, _hint, st);

@@ -79,7 +79,7 @@ namespace FemalePlayer
         private float _legThigh, _legShin;
         private bool _inCar, _snap;
         private View _lastView = View.FirstPerson;
-        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand; private bool _gripDone; private float _propSince;
+        private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand; private float _propSince;
 
         public enum View { FirstPerson, ThirdPerson }
 
@@ -816,47 +816,40 @@ namespace FemalePlayer
             return best;
         }
 
-        // every frame: the prop's grip in her right hand (raider pose, AutoGrip) + the player's grip for the pose(s) she is in, in the HAND's axes -
-        // so it stays glued to the hand. WeaponAdjustment edits the grip of the current (or previewed) pose with the numpad.
+        // every frame: the weapon model's pose in her right hand = the absolute poses of the animations she is in (GunPose, weapon-poses.txt),
+        // blended by the animations' weights. Nothing changes them but the numpad (WeaponAdjustment). Grips from 0.5/0.6 (offsets on the raider
+        // grip, for rifles on the AutoGrip one) are converted once per weapon.
         private void PoseProp(Props.Kind kind, Quaternion yaw)
         {
             if (_prop == null || _propHand == null) return;
             var t = _prop.transform;
-            t.localPosition = _propPos; t.localRotation = _propRot;
-            // auto grip: the first time she stands still with this rifle in the rifle idle, point it from her right hand at her left hand
-            // (= where the Mixamo rifle clips expect the gun) and keep that as a FIXED grip in the hand
-            if (_mixamo && kind == Props.Kind.Rifle && !_gripDone && Plugin.AlignGun.Value && _speedSmooth < 0.1f && _crouch < 0.01f
-                && _armW > 0.99f && _fireW < 0.01f && !_reloading && Time.time > _throwUntil && Time.time > _propSince + 0.5f && GunPose.Preview < 0)
+            if (GunPose.HasLegacy(_propFor))
             {
-                AlignProp();
-                _propPos = t.localPosition; _propRot = t.localRotation; _gripDone = true;
-                _gripCache[_propFor] = new KeyValuePair<Vector3, Quaternion>(_propPos, _propRot);
-                Plugin.Verbose("Third person: " + _propFor + " grip taken from the rifle idle pose");
+                // rifles were tuned on top of AutoGrip (the barrel pointed from the right hand to the left hand in the rifle idle): measure it
+                // once more, the same way and in the same pose, then convert; everything else was tuned on the raider grip
+                if (!(_mixamo && kind == Props.Kind.Rifle)) GunPose.ConvertLegacy(_propFor, _propPos, _propRot);
+                else if (_speedSmooth < 0.1f && _crouch < 0.01f && _armW > 0.99f && _fireW < 0.01f && !_reloading && Time.time > _throwUntil
+                         && Time.time > _propSince + 0.5f && GunPose.Preview < 0)
+                {
+                    t.localPosition = _propPos; t.localRotation = _propRot;
+                    AlignProp();
+                    GunPose.ConvertLegacy(_propFor, t.localPosition, t.localRotation);
+                    GunPose.Note("");
+                }
+                else GunPose.Note("Converting your old " + _propFor + " grips: stand still (not crouched, not shooting) for a moment.");
             }
-            Vector3 basePos = t.localPosition; Quaternion baseRot = t.localRotation;
             PoseWeights();
-            Vector3 op; Quaternion orr;
-            GunPose.Blend(_propFor, _poseW, out op, out orr);
-            t.localPosition = basePos + op;
-            t.localRotation = baseRot * orr;
+            Vector3 p; Quaternion r;
+            GunPose.Blend(_propFor, _poseW, _propPos, _propRot, out p, out r);
+            t.localPosition = p; t.localRotation = r;
 
             int pose = DominantPose();
+            var shown = GunPose.Effective(_propFor, pose, GunPose.Abs(_propPos, _propRot));
             Vector3 move, rot;
-            if (_propShown && GunPose.Keys(_propFor, pose, out move, out rot)) Adjust(t, basePos, baseRot, yaw, move, rot, pose);
-
-            // shooting without a Fire grip of its own: the fire clips raise the left hand to another spot - follow it with the barrel
-            float follow = 0f;
-            for (int i = GunPose.FIRE0; i < GunPose.P_RELOAD; i++) if (_poseW[i] > 0f && !GunPose.HasPose(_propFor, i)) follow += _poseW[i];
-            if (_mixamo && kind == Props.Kind.Rifle && Plugin.AlignGun.Value && follow > 0.01f)
-            {
-                Vector3 lp = t.localPosition; Quaternion lr = t.localRotation;
-                AlignProp();
-                t.localPosition = Vector3.Lerp(lp, t.localPosition, follow);
-                t.localRotation = Quaternion.Slerp(lr, t.localRotation, follow);
-            }
+            if (_propShown && GunPose.Keys(_propFor, pose, shown, out move, out rot)) Adjust(t, yaw, move, rot, pose);
         }
 
-        private void Adjust(Transform t, Vector3 basePos, Quaternion baseRot, Quaternion yaw, Vector3 move, Vector3 rot, int pose)
+        private void Adjust(Transform t, Quaternion yaw, Vector3 move, Vector3 rot, int pose)
         {
             float dt = Time.unscaledDeltaTime;
             Vector3 right = yaw * Vector3.right, fwd = yaw * Vector3.forward;
@@ -864,18 +857,16 @@ namespace FemalePlayer
             var q = Quaternion.AngleAxis(rot.z * dt, barrel) * Quaternion.AngleAxis(rot.y * dt, Vector3.up) * Quaternion.AngleAxis(-rot.x * dt, right);
             Vector3 wp = t.position + (right * move.x + Vector3.up * move.y + fwd * move.z) * (0.01f * dt);
             Quaternion wr = q * t.rotation;
-            // back into the hand's axes
+            // back into the hand's axes: that IS the pose saved for this animation
             Vector3 lp = _propHand.InverseTransformPoint(wp);
             Quaternion lr = Quaternion.Inverse(_propHand.rotation) * wr;
             t.localPosition = lp; t.localRotation = lr;
-            Vector3 dp = (lp - basePos) * 100f;
-            Vector3 de = (Quaternion.Inverse(baseRot) * lr).eulerAngles;
-            GunPose.SetLive(_propFor, pose, new[] { dp.x, dp.y, dp.z, Mathf.DeltaAngle(0f, de.x), Mathf.DeltaAngle(0f, de.y), Mathf.DeltaAngle(0f, de.z) });
+            GunPose.SetLive(_propFor, pose, GunPose.Abs(lp, lr));
         }
 
         private void AlignProp()
         {
-            if (_prop == null || !Plugin.AlignGun.Value || _propBarrel == Vector3.zero) return;
+            if (_prop == null || _propBarrel == Vector3.zero) return;
             Transform rh, lh;
             if (!Bones.TryGetValue("mixamorig:RightHand", out rh) || !Bones.TryGetValue("mixamorig:LeftHand", out lh)) return;
             Vector3 want = lh.position - rh.position;
@@ -946,7 +937,6 @@ namespace FemalePlayer
         }
 
         // ---------------------------------------------------------------- weapon in hand (third person)
-        private readonly Dictionary<string, KeyValuePair<Vector3, Quaternion>> _gripCache = new Dictionary<string, KeyValuePair<Vector3, Quaternion>>();
         private bool _propShown;
         private void ShowProp(bool on)
         {
@@ -971,9 +961,7 @@ namespace FemalePlayer
             _prop = Props.Instantiate(p, hand, otherHand);
             _propBarrel = Props.Barrel(_prop);
             _propPos = _prop.transform.localPosition; _propRot = _prop.transform.localRotation; _propHand = hand;
-            _gripDone = false; _propSince = Time.time;
-            KeyValuePair<Vector3, Quaternion> g;
-            if (_gripCache.TryGetValue(weapon, out g)) { _propPos = g.Key; _propRot = g.Value; _gripDone = true; }   // AutoGrip done before for this weapon
+            _propSince = Time.time; GunPose.Note("");
             _propShown = true; ShowProp(false);
             Plugin.Verbose("Third person: barrel axis of " + p.Key + " = " + _propBarrel);
             Plugin.Verbose("Third person: " + weapon + " -> " + p.Owner + "'s " + p.Source.name + " on " + p.Hand);

@@ -17,13 +17,13 @@ namespace FemalePlayer
     {
         public const string GUID = "com.denis.apocalypter.femaleplayer";
         public const string NAME = "FemalePlayer";
-        public const string VERSION = "0.6.3";
+        public const string VERSION = "0.7.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
 
         // player-facing
-        internal static ConfigEntry<bool> WeaponAdjust, AlignGun, Enabled, BodyFirstPerson, FemaleArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
+        internal static ConfigEntry<bool> WeaponAdjust, Enabled, BodyFirstPerson, FemaleArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
         // hidden (fixed values, never written to the file; change H( to Config.Bind( to expose one)
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
@@ -53,8 +53,7 @@ namespace FemalePlayer
             ReplaceDriver = Config.Bind("General", "ReplaceDriver", true, "She sits in the driver's seat instead of the game's driver model (seen from the car's third-person camera, and her arms on the wheel in first person).");
             ThirdPersonOnFoot = Config.Bind("General", "ThirdPersonOnFoot", true, "The game's Change Camera key switches to a camera behind her - on foot and in cars (it replaces the game's own car view, in which nothing in the car could be used). The mouse wheel zooms in / out (saved separately on foot and in cars). Shots and picks still go where the crosshair is; everything you can use in first person works.");
             MirrorBody = Config.Bind("General", "RightHanded", true, "The game's raider animations hold guns in the left hand. On = her body is mirrored so she holds the gun in her right hand.");
-            AlignGun = Config.Bind("Weapon grip", "AutoGrip", true, "Third person with the Mixamo clips: when she first stands still holding a rifle, the rifle is pointed from her right hand to her left hand (where the rifle clips expect it) and that grip is then kept fixed in her hand for every animation; while shooting it follows her left hand. The per-weapon lines below fine-tune it.");
-            WeaponAdjust = Config.Bind("Weapon grip", "WeaponAdjustment", false, "On: in third person set the weapon's grip for the animation she is in (each clip on its own: Idle, Walk, WalkBack, StrafeLeft, StrafeRight, Run..., CrouchIdle, CrouchStrafeLeft..., Fire, FireWalk..., Reload) with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it (8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll); Numpad 9/3 previews the animations one by one standing still; Numpad - clears the animation's grip; Numpad / copies the shown grip and Numpad * pastes it into the current animation. Saved in config/FemalePlayer/weapon-grips.cfg.");
+            WeaponAdjust = Config.Bind("Weapon grip", "WeaponAdjustment", false, "On: in third person set where the weapon sits in her hand for the animation she is in (every clip on its own: Idle, Walk, WalkBack, StrafeLeft, StrafeRight, Run..., CrouchIdle, CrouchStrafeLeft..., Fire, FireWalk..., Reload) with the numpad - 8/2 up/down, 6/4 right/left, 7/1 forward/back; Numpad 5 switches between moving and turning it (8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll); Numpad 9/3 previews the animations one by one standing still; Numpad - deletes the animation's pose (it shows the weapon's Idle pose); Numpad / copies the shown pose and Numpad * pastes it. Poses are exact positions saved in config/FemalePlayer/weapon-poses.txt (and as C# in BuiltinPoses.generated.cs) - nothing else changes them.");
             CarCameraForward = Config.Bind("Camera", "CarCameraForward", 0.12f, new ConfigDescription("Driving in first person with her body shown: the view is drawn this far (m) in front of the game's eye so her head and chest don't block it (only the picture moves; 0 = off).", new AcceptableValueRange<float>(0f, 0.4f)));
             GunPose.Bind(Config);
             OrbitSpeed = H("Camera", "OrbitSpeed", 3f, "Third person: degrees per mouse step while the middle mouse button orbits the camera around her.");
