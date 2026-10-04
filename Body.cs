@@ -638,13 +638,60 @@ namespace FemalePlayer
         }
         private float _fpWeaponW;
 
-        // in a car: no Animator, the pose comes from the car's seated driver
-        public void LateCar(Transform player)
+        // in a car: the pose comes from the car's seated driver. With a gun drawn (bundle clips) her arms come from the gun clips instead -
+        // RifleIdle / PistolIdle held, RifleFire / PistolFire while shooting, the Reload clips while reloading - played on the upper-body layer
+        // of her graph; after the Animator wrote them, their local rotations (shoulders, arms, forearms, hands) are kept over the seat pose,
+        // so hips, legs and spine stay seated. The gun model sits in her right hand at the weapon's Idle / Fire / Reload pose; shown in third person.
+        private static readonly string[] CarArmBones = { "mixamorig:LeftShoulder", "mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftHand",
+                                                         "mixamorig:RightShoulder", "mixamorig:RightArm", "mixamorig:RightForeArm", "mixamorig:RightHand" };
+        private readonly Quaternion[] _carArms = new Quaternion[8];
+        private bool _carArmsReady;
+        private string _carWeapon = "";
+        public void LateCar(Transform player, bool firstPerson)
         {
-            if (!_inCar) { _inCar = true; _animator.enabled = false; _crouch = _prone = 0f; UpdateProp(""); }
+            if (!_inCar) { _inCar = true; _animator.enabled = false; _crouch = _prone = 0f; UpdateProp(""); _carArmsReady = false; _carWeapon = ""; }
             Root.transform.localScale = Vector3.one;
             Root.transform.SetPositionAndRotation(player.position, player.rotation);
+            string weapon = Game.DrawnWeapon;
+            var kind = Props.KindOf(weapon);
+            bool gun = _mixamo && _layers.IsValid() && (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol);
+            if (weapon != _carWeapon) { _carWeapon = weapon; _carArmsReady = false; _weaponSince = Time.time; _upperClip = ""; }
+            // the arms the Animator evaluated this frame (from the clip set last frame)
+            bool arms = gun && _carArmsReady && _animator.enabled;
+            if (arms)
+                for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) _carArms[i] = b.localRotation; }
             CarSeat.Pose(Bones, _bindLocal);
+            if (arms)
+                for (int i = 0; i < CarArmBones.Length; i++) { Transform b; if (Bones.TryGetValue(CarArmBones[i], out b)) b.localRotation = _carArms[i]; }
+            if (!gun)
+            {
+                if (_animator.enabled) _animator.enabled = false;
+                _carArmsReady = false;
+                UpdateProp("");
+                return;
+            }
+            // next frame's arms
+            bool reload = ReloadNow(weapon);
+            bool fire = !reload && !Game.Paused && Input.GetMouseButton(0);
+            string pre = kind == Props.Kind.Pistol ? "Pistol" : "Rifle";
+            string clip = reload ? pre + "Reload" : fire && Anims.Get(pre + "Fire") != null ? pre + "Fire" : pre + "Idle";
+            if (reload && !_reloading) _upperClip = "";   // a reload starts from its beginning
+            _reloading = reload;
+            if (!_animator.enabled) _animator.enabled = true;
+            if (_action.IsValid()) { _actionW = 0f; _layers.SetInputWeight(2, 0f); }
+            SetUpper(clip, 1f, 1f);
+            _carArmsReady = true;
+            // the gun in her right hand
+            UpdateProp(weapon);
+            if (_prop != null)
+            {
+                var w = new float[GunPose.Poses.Length];
+                w[reload ? GunPose.P_RELOAD : fire ? GunPose.FIRE0 : 0] = 1f;
+                Vector3 p; Quaternion r;
+                GunPose.Blend(_propFor, w, _propPos, _propRot, out p, out r);
+                _prop.transform.localPosition = p; _prop.transform.localRotation = r;
+            }
+            ShowProp(!firstPerson);
         }
 
         // first person: no head; her own arms only in a car with nothing drawn (hands on the wheel) - with a gun the game draws its arms
