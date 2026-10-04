@@ -71,7 +71,7 @@ namespace FemalePlayer
         // Numpad 7/1 forward/back, 8/2 up/down, 6/4 right/left. Numpad 5 switches move <-> rotate (Ctrl/Shift are game keys):
         // 8/2 muzzle up/down, 6/4 muzzle right/left, 7/1 roll. (Shift can't be used: with NumLock on, Windows turns Shift+Numpad 8 into the
         // Up arrow key - the game walks and the numpad key never arrives.)
-        private static bool _rotateMode;
+        private static bool _rotateMode, _toggleHeld;
         private static string _hint = "";
 
         public static bool Keys(string weapon, out Vector3 move, out Vector3 rot)
@@ -79,16 +79,19 @@ namespace FemalePlayer
             move = rot = Vector3.zero;
             _hint = "";
             if (Plugin.WeaponAdjust == null || !Plugin.WeaponAdjust.Value || !Known(weapon) || Time.timeScale < 0.01f) { Flush(); return false; }
-            if (Input.GetKeyDown(KeyCode.Keypad5)) _rotateMode = !_rotateMode;
+            // Numpad 5 (also 0, ".", Enter, or 5 with NumLock off = Clear): edge-detected by hand so it works from LateUpdate whatever reads it first
+            bool toggle = Input.GetKey(KeyCode.Keypad5) || Input.GetKey(KeyCode.Keypad0) || Input.GetKey(KeyCode.KeypadPeriod) || Input.GetKey(KeyCode.KeypadEnter) || Input.GetKey(KeyCode.Clear);
+            if (toggle && !_toggleHeld) _rotateMode = !_rotateMode;
+            _toggleHeld = toggle;
             bool rotate = _rotateMode;
             float a = Axis(KeyCode.Keypad7, KeyCode.Keypad1), b = Axis(KeyCode.Keypad8, KeyCode.Keypad2), c = Axis(KeyCode.Keypad6, KeyCode.Keypad4);
-            if (rotate) rot = new Vector3(b, c, a) * 30f;   // pitch (muzzle up), yaw (muzzle right), roll - degrees per second
+            if (rotate) rot = new Vector3(b, c, a) * 45f;   // pitch (muzzle up), yaw (muzzle right), roll - degrees per second
             else move = new Vector3(c, b, a) * 3f;          // right, up, forward - cm per second
             bool any = a != 0f || b != 0f || c != 0f;
             if (!any) Flush();
             var v = For(weapon);
-            _hint = "Adjusting " + weapon + (rotate ? "  [ROTATE]" : "  [MOVE]") + "   grip " + string.Join(", ", Array.ConvertAll(v, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
-                  + "Numpad 8/2 up-down (rotate: muzzle up-down), 6/4 right-left (rotate: muzzle right-left), 7/1 forward-back (rotate: roll).  Numpad 5 = switch move / rotate.  Turn WeaponAdjustment off when done.";
+            _hint = (rotate ? "ROTATING " : "MOVING ") + weapon + "   grip " + string.Join(", ", Array.ConvertAll(v, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
+                  + "Numpad 8/2 up-down (rotate: muzzle up-down), 6/4 right-left (rotate: muzzle right-left), 7/1 forward-back (rotate: roll).  Numpad 5 = switch MOVING / ROTATING.  Turn WeaponAdjustment off when done.";
             return any;
         }
 

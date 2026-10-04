@@ -631,7 +631,20 @@ namespace FemalePlayer
             t.localRotation = baseRot * Quaternion.Euler(o[3], o[4], o[5]);
 
             Vector3 move, rot;
-            if (!GunPose.Keys(_propFor, out move, out rot)) return;
+            if (GunPose.Keys(_propFor, out move, out rot)) Adjust(t, basePos, baseRot, yaw, move, rot);
+
+            // shooting: the fire clips raise the support (left) hand onto the gun at another angle than the idle grip - follow it with the barrel
+            if (_mixamo && kind == Props.Kind.Rifle && Plugin.AlignGun.Value && _fireW > 0.01f)
+            {
+                Vector3 lp = t.localPosition; Quaternion lr = t.localRotation;
+                AlignProp();
+                t.localPosition = Vector3.Lerp(lp, t.localPosition, _fireW);
+                t.localRotation = Quaternion.Slerp(lr, t.localRotation, _fireW);
+            }
+        }
+
+        private void Adjust(Transform t, Vector3 basePos, Quaternion baseRot, Quaternion yaw, Vector3 move, Vector3 rot)
+        {
             float dt = Time.unscaledDeltaTime;
             Vector3 right = yaw * Vector3.right, fwd = yaw * Vector3.forward;
             Vector3 barrel = _propBarrel != Vector3.zero ? t.TransformDirection(_propBarrel) : fwd;
