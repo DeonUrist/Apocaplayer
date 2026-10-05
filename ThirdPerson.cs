@@ -85,7 +85,12 @@ namespace Apocaplayer
         {
             bool allowed = Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && Game.Ready && Game.FirstPersonCameraOn;
             bool pressed = false;
-            try { pressed = allowed && !Game.Paused && Input.GetButtonDown("Change Camera"); } catch (System.Exception) { }
+            if (allowed && !Game.Paused)
+            {
+                // the game's Change Camera action (InsaneSystems InputManager: follows a rebind in the Controls screen); legacy axis only if unavailable
+                try { pressed = InsaneSystems.InputManager.InputController.GetKeyActionIsDown("Change Camera"); }
+                catch (System.Exception) { try { pressed = Input.GetButtonDown("Change Camera"); } catch (System.Exception) { } }
+            }
             if (pressed)
             {
                 On = !On;
