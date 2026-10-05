@@ -40,6 +40,7 @@ BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mod
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
 | General | IgnitionKey | E | In the driver's seat: one press turns the key and starts the engine, another stops it (the game's own stop and its sounds); "E - Start / Ignition" shows on the left, in the game's hint font, while the engine is off |
+| General | BodyFirstPerson | false | First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat); off = only the first-person arms |
 | General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around her (off by default: the game rotates a held item with it) |
 | General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around her, back behind her on release; None = no key |
 | Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
@@ -61,6 +62,9 @@ body over 0.2 s (the gun is in her hand at its correct grip from the first frame
 0.3 s and turning off the seat in a car over 0.25 s. Nothing is delayed or made longer.
 Aiming down sights in first person (right mouse button) moves the gun from the hip to the sights and back over 0.2 s
 (easing out) instead of jumping there; hidden setting `[Camera] AimDownSightsTime`, 0 = the game's instant move.
+In the driver's seat she sits 5 cm lower than the game's man (hands at the steering wheel). First person in a car with her body shown
+(`BodyFirstPerson`), clicks on the ignition, lights and switches are cast from the eye the picture is drawn from, so the cassette player
+no longer gets in the way.
 Binoculars raised in third person show the game's own binocular view (full zoom, from her eyes, her body not in the way);
 the camera goes back behind her when they are lowered.
 

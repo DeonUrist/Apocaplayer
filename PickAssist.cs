@@ -33,6 +33,17 @@ namespace Apocaplayer
         {
             try
             {
+                if (Plugin.Enabled.Value && ThirdPerson.CarShift && !ThirdPerson.On && Game.Cam != null && Camera.main == Game.Cam && !Game.Paused)
+                {   // first person in the car with her body: the picture is drawn from a bit in front of the eye, so the game's eye ray (from
+                    // behind that) ends on what is in front - the cassette player instead of the ignition / light switches under the cursor.
+                    // The pick is cast again from the drawn eye, through the same cursor direction.
+                    var ray = Game.Cam.ScreenPointToRay(Input.mousePosition);
+                    RaycastHit h;
+                    Vector3 eye = ThirdPerson.CarShiftEye(Game.Cam.transform);
+                    float d = Mathf.Max(0.01f, distance - Vector3.Dot(eye - ray.origin, ray.direction));   // the same reach from the real eye
+                    _info.SetValue(null, Physics.Raycast(eye, ray.direction, out h, d, layerMask) ? h : default(RaycastHit));
+                    return;
+                }
                 if (!Plugin.Enabled.Value || !ThirdPerson.On || !ThirdPerson.HasView || Game.Cam == null || Camera.main != Game.Cam || Game.Paused) return;
                 var cur = (RaycastHit)_info.GetValue(null);
                 if (cur.collider != null && Usable(cur.collider)) return;   // the game's own ray already has something

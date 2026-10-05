@@ -185,9 +185,7 @@ namespace Apocaplayer
             {
                 if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); return; }
                 // driving, first person: the eye a few cm forward along her (the seat's) facing, so her own head/chest don't fill the view
-                Vector3 f = Game.Player.transform.forward; f.y = 0f;
-                if (f.sqrMagnitude < 1e-4f) f = t.forward;
-                Vector3 p = t.position + f.normalized * Plugin.CarCameraForward.Value;
+                Vector3 p = CarShiftEye(t);
                 cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(p, t.rotation, Vector3.one).inverse;
                 return;
             }
@@ -233,6 +231,15 @@ namespace Apocaplayer
             ViewPos = pos; ViewRot = viewRot; HasView = true;
             var view = Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
+        }
+
+        // driving in first person with her body shown: the picture is drawn from a few cm in front of the game's eye (along the seat's facing)
+        public static Vector3 CarShiftEye(Transform cam)
+        {
+            Vector3 f = Game.Player != null ? Game.Player.transform.forward : cam.forward; f.y = 0f;
+            if (f.sqrMagnitude < 1e-4f) { f = cam.forward; f.y = 0f; }
+            if (f.sqrMagnitude < 1e-4f) return cam.position;
+            return cam.position + f.normalized * Plugin.CarCameraForward.Value;
         }
 
         // after the frame is drawn: the camera's real view matrix back, so the game's MousePick / ScreenPointToRay (grab, use, enter the car,

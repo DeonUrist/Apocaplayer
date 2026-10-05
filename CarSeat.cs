@@ -81,6 +81,9 @@ namespace Apocaplayer
         {
             if (_seat == null) return;
             PoseFrom(_src, bones, bindLocal);
+            // a little lower than the game's man: his seat pose put her a bit high for the steering wheel
+            Transform hips;
+            if (Plugin.SeatDrop.Value != 0f && bones.TryGetValue("mixamorig:Hips", out hips)) hips.position -= _seat.root.up * Plugin.SeatDrop.Value;
         }
 
         // the bones of a Player2 man (car seat, TAB-screen model) -> her skeleton
