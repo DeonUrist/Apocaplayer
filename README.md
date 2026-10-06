@@ -19,7 +19,7 @@ and a choice of **Female** (her own model), **Male** (the game's own player man)
 
 First person with nothing in hand, the game draws no arms; her own arms are shown instead (hidden `General / EmptyHandArms`, default on), moving with the body's normal idle/walk/run animation and on the wheel in a car.
 
-The Max model (`Models/Player_max.glb`) is `Assets/Models/madmax` with its skin weights rebuilt by `tools/reweight.py` (weights transferred from Player_male onto the same skeleton; the original had no weights on Spine2/Neck, the head owned the collar and some right-leg vertices followed the left leg).
+The Max model (`Models/Player_max.glb`, 1775 triangles) is the game man's mesh reshaped for Max, with a fresh non-overlapping UV unwrap; `Models/Player_max.png` is baked onto it from the high-poly madmax model (`tools/max_bake/`: body by surface projection, face by a landmark-aligned projection at 4x texel density).
 
 The female model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
