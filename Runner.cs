@@ -40,7 +40,8 @@ namespace Apocaplayer
             {
                 DestroyBody();
                 Model.Reset();
-                if (!Plugin.Female) { Arms.Restore(); InventoryModel.Off(); } else InventoryModel.Reset();
+                if (!Plugin.Female) Arms.Restore();
+                InventoryModel.CharacterChanged();
                 Plugin.Log.LogInfo("Character: " + Plugin.Character.Value);
             }
             catch (Exception e) { Plugin.Log.LogError("Character switch: " + e); }

@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.5.0";
+        public const string VERSION = "1.5.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -42,7 +42,7 @@ namespace Apocaplayer
         public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
         // the body: hers (Player_female, made from Flexa) or the game's own man (Player2 + hair, beard, bags, re-rigged onto Flexa's skeleton by
         // tools/bake_male.py) - same skeleton, so every animation, weapon pose and feature is the same
-        // Max: Assets/Models/madmax re-weighted by tools/reweight.py (weights transferred from Player_male onto the same 22-bone skeleton)
+        // Max: Denis's low-poly Max (the game man's mesh reshaped, his own UVs on Player_max.png), same 22-bone skeleton
         public static bool IsMax { get { return Character != null && Character.Value == Gender.Max; } }
         public static string BodyModelFile { get { return Female ? ModelFile.Value : IsMax ? "Models/Player_max.glb" : "Models/Player_male.glb"; } }
         public static string BodyTextureFile { get { return Female ? TextureFile.Value : IsMax ? "Models/Player_max.png" : "Models/Player_male.png"; } }
@@ -62,7 +62,7 @@ namespace Apocaplayer
             // the config file: General (Enabled, Character, IgnitionKey, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
-            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (body like Male, the game's arms and TAB picture). Everything else is the same.");
+            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (body like Male, the game's arms; his own TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             // Preserve a previously rebound ignition key when moving it into VEHICLE.
             var oldIgnition = Config.Bind("General", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");

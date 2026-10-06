@@ -18,6 +18,8 @@ namespace Apocaplayer
     internal static class InventoryModel
     {
         private const string GameTexture = "player_character_2_UI";
+        // her picture, or Max's; the game man (Male) keeps the game's own
+        private static string PictureFile { get { return Plugin.IsMax ? "Models/player_character_2_UI_max.png" : "Models/player_character_2_UI.png"; } }
         private static Texture2D _game, _backup, _mine;
         private static bool _applied, _loadFailed, _hooked;
         private static float _nextTry;
@@ -27,7 +29,7 @@ namespace Apocaplayer
         public static void LateTick()
         {
             if (!_hooked) { _hooked = true; Plugin.Enabled.SettingChanged += (s, e) => { if (Plugin.Enabled.Value) { _applied = false; _tries = 0; } else Off(); }; }
-            if (_applied || !Plugin.Enabled.Value || !Plugin.ReplaceDriver.Value || !Plugin.Female || _loadFailed) return;
+            if (_applied || !Plugin.Enabled.Value || !Plugin.ReplaceDriver.Value || (!Plugin.Female && !Plugin.IsMax) || _loadFailed) return;
             if (Time.unscaledTime < _nextTry || _tries >= 15) return;   // the texture may load a moment after the scene: retry for ~30 s
             _nextTry = Time.unscaledTime + 2f; _tries++;
             Apply();
@@ -44,8 +46,8 @@ namespace Apocaplayer
             try
             {
                 if (_backup == null) _backup = Copy(_game);   // the man, for Off()
-                if (CopyInto(mine, _game)) { _applied = true; Plugin.Log.LogInfo("TAB screen picture: the game's " + GameTexture + " (" + _game.width + "x" + _game.height + " " + _game.format + ", " + _game.mipmapCount + " mips) now shows her"); return; }
-                if (_game.isReadable && ImageConversion.LoadImage(_game, File.ReadAllBytes(Plugin.ModPath("Models/player_character_2_UI.png")), false))
+                if (CopyInto(mine, _game)) { _applied = true; Plugin.Log.LogInfo("TAB screen picture: the game's " + GameTexture + " (" + _game.width + "x" + _game.height + " " + _game.format + ", " + _game.mipmapCount + " mips) now shows " + Plugin.Character.Value); return; }
+                if (_game.isReadable && ImageConversion.LoadImage(_game, File.ReadAllBytes(Plugin.ModPath(PictureFile)), false))
                 { _applied = true; Plugin.Log.LogInfo("TAB screen picture: her pixels loaded into the game's " + GameTexture); return; }
             }
             catch (Exception e) { Plugin.Warn("TAB screen picture: overwriting the texture failed (" + e.Message + "), switching the UI elements instead"); }
@@ -61,7 +63,7 @@ namespace Apocaplayer
         private static Texture2D Mine(Texture2D game)
         {
             if (_mine != null || _loadFailed) return _mine;
-            string path = Plugin.ModPath("Models/player_character_2_UI.png");
+            string path = Plugin.ModPath(PictureFile);
             if (!File.Exists(path)) { _loadFailed = true; Plugin.Log.LogInfo("TAB screen: no " + path + " - the game's picture stays"); return null; }
             try
             {
@@ -114,6 +116,14 @@ namespace Apocaplayer
         {
             if (_applied && _game != null && _backup != null) { CopyInto(_backup, _game); Plugin.Verbose("TAB screen picture: the game's picture back"); }
             _applied = false; _tries = 0;
+        }
+
+        // Character switched: the game's picture back, the next character's picture loaded fresh (Female and Max have their own)
+        public static void CharacterChanged()
+        {
+            Off();
+            if (_mine != null) UnityEngine.Object.Destroy(_mine);
+            _mine = null; _loadFailed = false; _nextTry = 0f;
         }
 
         // new scene: the texture may be a new instance - find it again and overwrite it once more
