@@ -8,7 +8,9 @@ and a choice of **Female** (her own model) or **Male** (the game's own player ma
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
   a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); holding Left Alt (`RebindObserving`) orbits the camera around her (the middle mouse button too with `EnableMMB` - off by default, the game rotates held items with it). Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
-  It works in cars too (instead of the game's own car view, where nothing in the car can be used): ignition, cassette player and Exit (F) at the door work as in first person, and you stay in third person when you get out.
+  It works in cars too: dashboard clicks are blocked in third person so switches do not capture shooting or camera zoom.
+  Use the vehicle hotkeys below; Exit (F) at the door still works, and you stay in third person when you get out.
+  On death, animation stops and a jointed physics ragdoll falls from the current pose; the third-person camera follows the body.
   Her body is animated with the game's own humanoid raider clips (idle, run, rifle/pistol aim, melee swing) plus a
   procedural walk, strafe, crouch, prone and aim-pitch; the gun in her hand is the NPC model of the weapon you hold
   (Flexa's AKM, Sprokka's pipe pistol, Lugnut's shotgun …) at the spot the raiders hold it.
@@ -39,7 +41,13 @@ BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mod
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
-| General | IgnitionKey | E | In the driver's seat: one press turns the key and starts the engine, another stops it (the game's own stop and its sounds); "E - Start / Ignition" shows on the left, in the game's hint font, while the engine is off |
+| VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |
+| VEHICLE | VehicleStatusHint | true | Top-right icons: key when ignition is off, (P) while handbrake is engaged, cassette with 0.0–1.0 volume while music is playing (including muted playback) |
+| VEHICLE | IgnitionKey | E | Start / stop engine with the game's sounds; hint changes from "Ignition" to "Ignition Stop". Previously rebound General/IgnitionKey is migrated |
+| VEHICLE | HeadlightsKey | X | Toggle headlights using the game's switch; replaces the vanilla headlight binding while driving |
+| VEHICLE | CassetteKey | Z | Start / stop cassette. Starting at zero sets volume to 0.5; a nonzero volume is preserved |
+| VEHICLE | VolumeDownKey | Minus | Reduce cassette volume by 0.1, clamped at 0; also accepts numpad minus |
+| VEHICLE | VolumeUpKey | Equals | Increase cassette volume by 0.1, clamped at 1; + on the main keyboard (= physical key) or numpad plus |
 | General | BodyFirstPerson | false | First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat); off = only the first-person arms |
 | General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around her (off by default: the game rotates a held item with it) |
 | General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around her, back behind her on release; None = no key |
@@ -68,7 +76,7 @@ no longer gets in the way.
 Binoculars raised in third person show the game's own binocular view (full zoom, from her eyes, her body not in the way);
 the camera goes back behind her when they are lowered.
 
-Third person, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
+Third person on foot, picking: when the game's eye ray misses (common behind the shoulder with small items), the item, part or switch nearest
 the cursor ON SCREEN is picked - within 6 % of the screen height, visible from the camera, within the game's own reach from her eye
 (`PickAssist.cs`, a Harmony postfix on PlayMaker's `ActionHelpers.DoMousePick`). Screen-space, so it works the same at every zoom.
 
@@ -140,6 +148,10 @@ play `MeleeCombo`'s two blows by turns. Bare hands: `Punch1` / `Punch2` (or `Mel
 cycle (0.35 s hands, 0.4 s machete). The blow times are read off the clips (`Body.cs`, `Punches` / `Combo`).
 
 ## Build
+
+Vehicle HUD assets live in `Models/Hud/`; `design/vehicle-hud.png` is the icon mockup and `tools/build_hud_icons.py` rebuilds the assets.
+`Ragdoll.cs` uses eleven jointed physics proxies in world space so both character models and mirrored fallback animations can fall naturally.
+`VehicleHud.cs` draws the optional status icons; `Car.cs` drives the game's switch FSMs and synchronizes hotkey volume with the dashboard knob.
 
 `./build.sh` (mcs, against the game's own DLLs; `MANAGED=… BEPCORE=…` to override the paths) or `dotnet build`
 with `Apocaplayer.csproj` (deploys DLL + Models to the game). `tools/` holds the Python scripts used to read the game

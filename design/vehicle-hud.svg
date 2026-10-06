@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+<rect width="1200" height="680" fill="#151a1b"/>
+<path d="M0 350L230 230 430 320 630 195 930 300 1200 210V680H0Z" fill="#262d2b"/>
+<path d="M515 680L570 345H630L810 680" fill="#343a34"/>
+<text x="36" y="48" fill="#d4d8cb" font-family="Arial" font-size="21">APOCAPLAYER · VEHICLE HUD MOCKUP</text>
+<text x="36" y="78" fill="#929d90" font-family="Arial" font-size="14">Small outline icons with dark backing · only active conditions appear · volume 0.0–1.0</text>
+<g stroke="#f0cd82" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<rect x="936" y="28" width="62" height="48" rx="6" fill="#101415" stroke="none"/>
+<circle cx="953" cy="46" r="7"/><path d="M959 51L979 65M969 58L974 52M977 64L982 58"/>
+</g>
+<g stroke="#ed9581" fill="none" stroke-width="3" stroke-linecap="round">
+<rect x="1004" y="28" width="62" height="48" rx="6" fill="#101415" stroke="none"/>
+<circle cx="1035" cy="52" r="15"/><path d="M1015 39Q1004 52 1015 65M1055 39Q1066 52 1055 65M1030 62V42H1038Q1046 42 1046 49Q1046 54 1038 54H1030"/>
+</g>
+<g stroke="#d9e6cf" fill="none" stroke-width="2.5" stroke-linejoin="round">
+<rect x="1072" y="28" width="104" height="48" rx="6" fill="#101415" stroke="none"/>
+<rect x="1082" y="40" width="43" height="26" rx="3"/><circle cx="1093" cy="50" r="4"/><circle cx="1114" cy="50" r="4"/><path d="M1097 50H1110M1089 65L1093 59H1114L1118 65"/>
+</g>
+<text x="1134" y="59" fill="#d9e6cf" font-family="Arial" font-size="19">0.5</text>
+<g font-family="Arial" font-size="19" fill="#eee9dc">
+<text x="32" y="423">E – Ignition</text><text x="32" y="455">X – Headlights On</text><text x="32" y="487">Z – Cassette Stop</text><text x="32" y="519">− / + – Volume 0.5</text>
+</g>
+<path d="M590 340H610M600 330V350" stroke="#dadbcf" stroke-width="2"/>
+<rect x="36" y="574" width="1128" height="80" rx="6" fill="#101415"/>
+<g fill="#b6beb1" font-family="Arial" font-size="15">
+<text x="56" y="602">KEY · Ignition off</text><text x="324" y="602">(P) · Handbrake engaged</text><text x="648" y="602">CASSETTE + 0.5 · Music playing</text>
+<text x="56" y="634">Running engine: “E – Ignition Stop” · Each hint follows its assigned key · Both hint groups can be hidden in VEHICLE settings</text>
+</g>
+</svg>

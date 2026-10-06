@@ -9,6 +9,10 @@ namespace Apocaplayer
         private static float _nextBuild;
         private static bool _wasEnabled;
         private static string _lastMode = "";
+        private static Vector3 _lastVelocity;
+        private static Transform _lastCar;
+        internal static bool RagdollVisible { get { return _body != null && _body.IsRagdoll; } }
+        internal static Vector3 DeathFocus { get { return _body.DeathFocus; } }
 
         public static void OnSceneLoaded()
         {
@@ -39,6 +43,8 @@ namespace Apocaplayer
         {
             if (_body != null) _body.Destroy();
             _body = null;
+            _lastVelocity = Vector3.zero;
+            _lastCar = null;
         }
 
         private void Update()
@@ -54,6 +60,7 @@ namespace Apocaplayer
                 }
                 _wasEnabled = true;
                 if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
+                if (!Game.Dead) { _lastVelocity = Game.Velocity; _lastCar = Game.InCar ? Game.CarRoot : null; }
                 if (Plugin.FemaleArms.Value && Plugin.Female) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
                 Car.Tick();
@@ -68,6 +75,7 @@ namespace Apocaplayer
             try
             {
                 if (!Plugin.Enabled.Value || !Game.Ready) return;
+                if (!Game.Dead && _body != null && _body.IsRagdoll) DestroyBody();
                 if (_body == null || !_body.Alive)
                 {
                     _body = null;
@@ -77,6 +85,12 @@ namespace Apocaplayer
                     if (_body == null) return;
                 }
 
+                if (Game.Dead)
+                {
+                    _body.LateDead(_lastVelocity, _lastCar);
+                    ThirdPerson.CarShift = false;
+                    return;
+                }
                 bool inCar = Game.InCar;
                 bool fpCam = Game.FirstPersonCameraOn;
                 ThirdPerson.CarShift = false;

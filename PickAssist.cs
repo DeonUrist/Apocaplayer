@@ -33,6 +33,15 @@ namespace Apocaplayer
         {
             try
             {
+                if (Plugin.Enabled.Value && ThirdPerson.On && Game.InCar && Game.CarRoot != null)
+                {
+                    // Dashboard/parts must never capture fire or wheel input in third person.
+                    // Keep the DriveTrigger pick for the game's F-to-exit action.
+                    var picked = (RaycastHit)_info.GetValue(null);
+                    if (picked.collider != null && BlockedVehiclePart(picked.collider.transform))
+                        _info.SetValue(null, default(RaycastHit));
+                    return; // no screen-space assist inside a vehicle
+                }
                 if (Plugin.Enabled.Value && ThirdPerson.CarShift && !ThirdPerson.On && Game.Cam != null && Camera.main == Game.Cam && !Game.Paused)
                 {   // first person in the car with her body: the picture is drawn from a bit in front of the eye, so the game's eye ray (from
                     // behind that) ends on what is in front - the cassette player instead of the ignition / light switches under the cursor.
@@ -54,6 +63,14 @@ namespace Apocaplayer
         }
 
         // things a pick is for: items and parts (a Rigidbody) or anything with its own FSM (switches, doors, ignition, cassette ...)
+        private static bool BlockedVehiclePart(Transform target)
+        {
+            var car = Game.CarRoot;
+            if (car == null || !target.IsChildOf(car)) return false;
+            var drive = car.Find("DriveTrigger");
+            return drive == null || !target.IsChildOf(drive);
+        }
+
         private static bool Usable(Collider c)
         {
             return c.attachedRigidbody != null || c.GetComponent<PlayMakerFSM>() != null;

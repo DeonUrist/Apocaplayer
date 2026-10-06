@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.0.9";
+        public const string VERSION = "1.1.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -32,7 +32,8 @@ namespace Apocaplayer
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
         internal static ConfigEntry<bool> ToggleMiddleMouse, EnableMMB;
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime, SeatDrop;
-        internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey;
+        internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey, HeadlightsKey, CassetteKey, VolumeDownKey, VolumeUpKey;
+        internal static ConfigEntry<bool> VehicleHotkeyHint, VehicleStatusHint;
         internal enum Gender { Female, Male }
         internal static ConfigEntry<Gender> Character;
         public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
@@ -58,7 +59,19 @@ namespace Apocaplayer
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
             Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
-            IgnitionKey = Config.Bind("General", "IgnitionKey", KeyCode.E, "In the driver's seat: one press turns the key and starts the engine, another stops it. None = off.");
+            // Preserve a previously rebound ignition key when moving it into VEHICLE.
+            var oldIgnition = Config.Bind("General", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");
+            var previousIgnitionKey = oldIgnition.Value;
+            Config.Remove(oldIgnition.Definition);
+            VehicleHotkeyHint = Config.Bind("VEHICLE", "VehicleHotkeyHint", true, "Show vehicle hotkeys on the left while driving. Hiding hints keeps the keys working.");
+            VehicleStatusHint = Config.Bind("VEHICLE", "VehicleStatusHint", true, "Show ignition off, handbrake engaged and playing cassette with volume in the top right while driving.");
+            bool ignitionAlreadyMigrated = Config.ContainsKey(new ConfigDefinition("VEHICLE", "IgnitionKey"));
+            IgnitionKey = Config.Bind("VEHICLE", "IgnitionKey", KeyCode.E, "Start / stop ignition in the driver's seat. None = no hotkey.");
+            if (!ignitionAlreadyMigrated) IgnitionKey.Value = previousIgnitionKey;
+            HeadlightsKey = Config.Bind("VEHICLE", "HeadlightsKey", KeyCode.X, "Switch headlights on / off in the driver's seat. None = no hotkey.");
+            CassetteKey = Config.Bind("VEHICLE", "CassetteKey", KeyCode.Z, "Start / stop the cassette player. Starting at zero volume sets 0.5; a nonzero volume is kept. None = no hotkey.");
+            VolumeDownKey = Config.Bind("VEHICLE", "VolumeDownKey", KeyCode.Minus, "Reduce cassette volume by 0.1. None = no hotkey.");
+            VolumeUpKey = Config.Bind("VEHICLE", "VolumeUpKey", KeyCode.Equals, "Increase cassette volume by 0.1 (+ on the main keyboard). None = no hotkey.");
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat). Off = only the first-person arms.");
             EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
             ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");

@@ -24,6 +24,8 @@ namespace Apocaplayer
         // no camera behind her, her body drawn as in first person, the first-person renderers (binocular effect) not hidden
         public static bool Peek;
         private static float _zoomK, _fovBase;
+        private static bool _deathView;
+        private static Quaternion _deathRotation;
         private static bool _fovSet;
         private static GameObject _crosshair;
         public const float ZoomFov = 0.55f, ZoomDistance = 0.7f;
@@ -48,7 +50,7 @@ namespace Apocaplayer
             string w = Game.DrawnWeapon;
             var k = Props.KindOf(w);
             bool gun = k == Props.Kind.Rifle || k == Props.Kind.Pistol;
-            AimZoom = On && !Peek && !Game.Paused && gun && w.IndexOf("scoped", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
+            AimZoom = On && !Peek && !Game.Paused && !Game.Dead && gun && w.IndexOf("scoped", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
             _zoomK = Mathf.MoveTowards(_zoomK, AimZoom ? 1f : 0f, Time.unscaledDeltaTime * 6f);
             if (!On) _zoomK = 0f;
             if (AimZoom && _crosshair != null && !_crosshair.activeSelf) _crosshair.SetActive(true);
@@ -73,6 +75,9 @@ namespace Apocaplayer
         {
             try
             {
+                // VEHICLE owns the headlight binding; avoid toggling twice with the vanilla key.
+                if (Plugin.Enabled.Value && Game.InCar && __instance.Fsm != null && __instance.Fsm.Name == "INPUT_Headlight")
+                    return false;
                 if (Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && __instance.Fsm != null && __instance.Fsm.Name == "Camera"
                     && __instance.buttonName != null && __instance.buttonName.Value == "Change Camera" && __instance.Fsm.GameObjectName == "DriveTrigger")
                     return false;   // the car's DriveTrigger [Camera] toggle: our Tick handles Change Camera in the car too
@@ -85,7 +90,7 @@ namespace Apocaplayer
         {
             bool allowed = Plugin.Enabled.Value && Plugin.ThirdPersonOnFoot.Value && Game.Ready && Game.FirstPersonCameraOn;
             bool pressed = false;
-            if (allowed && !Game.Paused)
+            if (allowed && !Game.Paused && !Game.Dead)
             {
                 // the game's Change Camera action (InsaneSystems InputManager: follows a rebind in the Controls screen); legacy axis only if unavailable
                 try { pressed = InsaneSystems.InputManager.InputController.GetKeyActionIsDown("Change Camera"); }
@@ -98,13 +103,13 @@ namespace Apocaplayer
                 Plugin.Verbose("Third person: " + (On ? "on" : "off"));
             }
             if (!allowed && On) On = false;
-            bool peek = On && Game.Binoculars;
+            bool peek = On && !Game.Dead && Game.Binoculars;
             if (Peek && !peek) { _dist = 0.3f; _nextScan = 0f; }   // binoculars down: the camera comes back out from behind her head, first-person renderers hidden again at once
             Peek = peek;
             // the observing key (RebindObserving, LeftAlt) - and the middle mouse button only with EnableMMB, the game rotates held items with it -
             // orbits the camera around her: held (back behind her on release), or with ToggleMiddleMouse a press turns it on / off
             bool click = false, held = false;
-            if (On && !Game.Paused)
+            if (On && !Game.Paused && !Game.Dead)
                 try
                 {
                     var key = Plugin.ObserveKey.Value;
@@ -194,14 +199,18 @@ namespace Apocaplayer
                 cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(p, t.rotation, Vector3.one).inverse;
                 return;
             }
+            bool dead = Game.Dead;
+            if (dead && !_deathView) _deathRotation = HasView ? ViewRot : Quaternion.Euler(10f, t.eulerAngles.y, 0f);
+            _deathView = dead;
             // orbit: the view direction turned about her by the middle-mouse offsets (yaw about up, pitch clamped)
-            var e = t.rotation.eulerAngles;
+            var e = (dead ? _deathRotation : t.rotation).eulerAngles;
             float pitch = Mathf.Clamp(Mathf.DeltaAngle(0f, e.x) + _orbitPitch, -80f, 85f);
-            var viewRot = Quaternion.Euler(pitch, e.y + _orbitYaw, 0f);
+            var viewRot = dead ? _deathRotation : Quaternion.Euler(pitch, e.y + _orbitYaw, 0f);
             Vector3 fwd = viewRot * Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
             Transform car = Game.InCar ? Game.CarRoot : null;
             Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
+            if (dead && Runner.RagdollVisible) pivot = Runner.DeathFocus + Vector3.up * 0.35f;
             float zk = ZoomEase;
             if (zk > 0.001f) { _fovBase = cam.fieldOfView; cam.fieldOfView = _fovBase * Mathf.Lerp(1f, ZoomFov, zk); _fovSet = true; }
             ViewFov = cam.fieldOfView;
@@ -222,7 +231,7 @@ namespace Apocaplayer
             // ThirdShoulder metres beside where shots / picks really go. Find what the eye ray hits (the game casts from the eye) and turn the
             // view so the screen centre looks exactly at it; she stays where she is on screen. Not while orbiting (that view isn't for aiming).
             float conv = 1f - Mathf.Clamp01((Mathf.Abs(_orbitYaw) + Mathf.Abs(_orbitPitch)) / 10f);
-            if (conv > 0.001f)
+            if (conv > 0.001f && !dead)
             {
                 RaycastHit ah;
                 float want2 = Physics.Raycast(t.position, t.forward, out ah, 100f, Mask, QueryTriggerInteraction.Ignore) ? Mathf.Max(ah.distance, 0.8f) : 100f;
@@ -279,6 +288,7 @@ namespace Apocaplayer
         public static void Off()
         {
             On = false; Peek = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
+            _deathView = false;
             if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }

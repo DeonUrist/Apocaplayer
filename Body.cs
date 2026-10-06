@@ -14,6 +14,24 @@ namespace Apocaplayer
     {
         public GameObject Root;          // mirror lives here (scale x -1)
         private Transform _anim;         // clone of Flexa/Anim
+        private Ragdoll _ragdoll;
+        public bool IsRagdoll { get { return _ragdoll != null; } }
+        public Vector3 DeathFocus { get { return _ragdoll != null ? _ragdoll.Focus : Root.transform.position; } }
+
+        public void LateDead(Vector3 velocity, Transform vehicle)
+        {
+            if (_ragdoll == null)
+            {
+                if (_graph.IsValid()) _graph.Stop();
+                _animator.enabled = false;
+                ShowProp(false);
+                SetMesh(false, false);
+                SetVisible(true, false);
+                _ragdoll = new Ragdoll(Bones, velocity, vehicle);
+                Plugin.Verbose("Death: animation stopped, jointed ragdoll activated");
+            }
+            _ragdoll.Apply();
+        }
         private RootMotionTap _rootMotion;
         private Vector3 _sway;           // standing still in third person: the clips' own sideways/forward root motion (Idle sways 16 cm), Anim-parent space
 
@@ -539,6 +557,7 @@ namespace Apocaplayer
 
         public void Destroy()
         {
+            if (_ragdoll != null) { _ragdoll.Destroy(); _ragdoll = null; }
             try { if (_graph.IsValid()) _graph.Destroy(); } catch (Exception) { }
             if (Root != null) UnityEngine.Object.Destroy(Root);
             Root = null;

@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Text;
 using HutongGames.PlayMaker;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,6 +24,10 @@ namespace Apocaplayer
         private static Font _font;
         private static object _engine;
         private static PropertyInfo _isRunning;
+        private static PlayMakerFSM _lightOn, _lightOff, _handbrake, _radioOnOff, _play, _stop, _volume;
+        private static AudioSource _radioAudio;
+        private static float _nextControls;
+        private static bool _running, _lightsOn, _brakeOn, _musicPlaying;
 
         private static readonly string[] RunningStates = { "Start", "wait", "off3", "over3" };
         private static readonly string[] Stopping = { "Stop", "wait2" };
@@ -30,27 +35,56 @@ namespace Apocaplayer
         public static void Tick()
         {
             _hint = "";
-            if (!Plugin.Enabled.Value || !Game.Ready || !Game.InCar || Plugin.IgnitionKey.Value == KeyCode.None) { _phase = 0; return; }
+            if (!Plugin.Enabled.Value || !Game.Ready || !Game.InCar || Game.Dead) { _phase = 0; return; }
             var car = Game.CarRoot;
             if (car == null) return;
             if (_startCar != car || _start == null)
             {
                 _startCar = car; _start = null; _engine = null; _isRunning = null;
+                _phase = 0; _nextControls = 0f;
+                _lightOn = _lightOff = _handbrake = _radioOnOff = _play = _stop = _volume = null;
+                _radioAudio = null;
                 foreach (var f in car.GetComponentsInChildren<PlayMakerFSM>(true))
                     if (f.FsmName == "Start" && f.name == "START" && HasState(f, "Ignition")) { _start = f; break; }
-                if (_start == null) return;
                 FindEngine(car);
-                FindGameText();
-                Plugin.Verbose("Ignition: " + Game.PathOf(_start.transform) + (_engine != null ? ", engine state from " + _engine.GetType().Name : ", engine state from the FSM only"));
+                if (_start != null) FindGameText();
+                if (_start != null) Plugin.Verbose("Ignition: " + Game.PathOf(_start.transform) + (_engine != null ? ", engine state from " + _engine.GetType().Name : ", engine state from the FSM only"));
             }
+            if (Time.unscaledTime >= _nextControls)
+            {
+                _nextControls = Time.unscaledTime + 0.5f;
+                FindControls(car);
+            }
+            if (Game.Paused) return;
+            if (Pressed(Plugin.HeadlightsKey.Value))
+                SendUse(Active(_lightOn) ? _lightOn : _lightOff);
+            if (Pressed(Plugin.CassetteKey.Value) && _radioAudio != null && _radioAudio.clip != null)
+            {
+                bool playing = _radioOnOff != null && _radioOnOff.ActiveStateName == "on";
+                var control = playing ? _stop : _play;
+                if (control != null && control.gameObject.activeInHierarchy && control.Fsm.Initialized)
+                {
+                    if (!playing && _radioAudio.volume == 0f) SetVolume(0.5f);
+                    // The game's Play/Stop FSMs disable one another. Re-enter the action
+                    // explicitly so repeated hotkey presses also work with a dormant FSM.
+                    control.enabled = true;
+                    control.Fsm.SetState(playing ? "stop" : "play");
+                }
+            }
+            if (Pressed(Plugin.VolumeDownKey.Value)) SetVolume(RadioVolume - 0.1f);
+            if (Pressed(Plugin.VolumeUpKey.Value)) SetVolume(RadioVolume + 0.1f);
+            UpdateHints();
+            TickIgnition(car);
+        }
+
+        private static void TickIgnition(Transform car)
+        {
+            if (_start == null) return;
             if (!_start.enabled || _start.Fsm == null || !_start.Fsm.Initialized) return;
             string s = _start.ActiveStateName ?? "";
             bool running = EngineRunning(s);
             bool stopping = Array.IndexOf(Stopping, s) >= 0;
-            if (!running && !stopping && !Game.Paused && _phase == 0) _hint = KeyName(Plugin.IgnitionKey.Value) + " - Start / Ignition";
-            if (Game.Paused) return;
-
-            if (_phase == 0 && Input.GetKeyDown(Plugin.IgnitionKey.Value))
+            if (_phase == 0 && Pressed(Plugin.IgnitionKey.Value))
             {
                 if (running)
                 {
@@ -74,6 +108,83 @@ namespace Apocaplayer
                 else if (_phase == 2 && s != "Ignition") _phase = 0;
             }
             catch (Exception e) { Plugin.Warn("Ignition: " + e.Message); _phase = 0; }
+        }
+
+        private static bool Active(PlayMakerFSM f) { return f != null && f.isActiveAndEnabled && f.Fsm != null && f.Fsm.Initialized; }
+        private static bool Pressed(KeyCode key)
+        {
+            if (key == KeyCode.None) return false;
+            if (Input.GetKeyDown(key)) return true;
+            // Unity reports the physical = key for + on the main keyboard.
+            if (key == KeyCode.Equals || key == KeyCode.Plus) return Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus) || Input.GetKeyDown(KeyCode.KeypadPlus);
+            if (key == KeyCode.Minus) return Input.GetKeyDown(KeyCode.KeypadMinus);
+            return false;
+        }
+        private static void SendUse(PlayMakerFSM f) { if (Active(f)) f.SendEvent("useDoor"); }
+
+        private static void FindControls(Transform car)
+        {
+            _lightOn = _lightOff = _handbrake = _radioOnOff = _play = _stop = _volume = null;
+            _radioAudio = null;
+            var lights = Game.FindDeep(car, "switch_lights");
+            if (lights != null) foreach (var f in lights.GetComponents<PlayMakerFSM>())
+            {
+                if (f.FsmName == "LightOn") _lightOn = f;
+                if (f.FsmName == "LightOff") _lightOff = f;
+            }
+            var brake = Game.FindDeep(car, "handbrake");
+            if (brake != null) foreach (var f in brake.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Handbrake") _handbrake = f;
+            var radio = Game.FindDeep(car, "hinge_radio");
+            if (radio == null) return;
+            foreach (var f in radio.GetComponentsInChildren<PlayMakerFSM>(true))
+                if (f.FsmName == "OnOff" && f.gameObject.activeInHierarchy && f.GetComponent<AudioSource>() != null)
+                { _radioOnOff = f; _radioAudio = f.GetComponent<AudioSource>(); break; }
+            if (_radioOnOff == null) return;
+            foreach (var f in _radioOnOff.GetComponentsInChildren<PlayMakerFSM>(true))
+            {
+                if (f.name == "PlayStop" && f.FsmName == "Play") _play = f;
+                if (f.name == "PlayStop" && f.FsmName == "Stop") _stop = f;
+                if (f.name == "Volume" && f.FsmName == "Volume") _volume = f;
+            }
+        }
+
+        private static float RadioVolume { get { return _radioAudio != null ? _radioAudio.volume : 0f; } }
+        private static void SetVolume(float value)
+        {
+            if (_radioAudio == null) return;
+            float v = Mathf.Clamp01(Mathf.Round(value * 10f) / 10f);
+            _radioAudio.volume = v;
+            var variable = _volume != null ? _volume.FsmVariables.FindFsmFloat("audioVolume") : null;
+            if (variable != null) variable.Value = v;
+        }
+
+        private static string VolumeText { get { return RadioVolume.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture); } }
+        private static void AddHint(StringBuilder hints, KeyCode key, string text)
+        {
+            if (key == KeyCode.None) return;
+            if (hints.Length > 0) hints.Append('\n');
+            hints.Append(KeyName(key)).Append(" - ").Append(text);
+        }
+        private static void UpdateHints()
+        {
+            _running = _start != null && EngineRunning(_start.ActiveStateName ?? "");
+            // LightOn is the action enabled when lights are ON (its useDoor switches them off).
+            _lightsOn = Active(_lightOn);
+            string brake = _handbrake != null ? _handbrake.ActiveStateName : "";
+            _brakeOn = brake == "HandbrakeOn" || brake == "over" || brake == "Sound 2";
+            _musicPlaying = _radioAudio != null && _radioAudio.isPlaying && _radioAudio.pitch > 0f;
+            if (!Plugin.VehicleHotkeyHint.Value) { _hint = ""; return; }
+            var hints = new StringBuilder();
+            if (_start != null) AddHint(hints, Plugin.IgnitionKey.Value, _running ? "Ignition Stop" : "Ignition");
+            if (_lightOn != null || _lightOff != null) AddHint(hints, Plugin.HeadlightsKey.Value, _lightsOn ? "Headlights Off" : "Headlights On");
+            if (_radioAudio != null)
+            {
+                bool playing = _radioOnOff != null && _radioOnOff.ActiveStateName == "on";
+                AddHint(hints, Plugin.CassetteKey.Value, playing ? "Cassette Stop" : "Cassette Start");
+                AddHint(hints, Plugin.VolumeDownKey.Value, "Volume Down");
+                AddHint(hints, Plugin.VolumeUpKey.Value, "Volume Up");
+            }
+            _hint = hints.ToString();
         }
 
         private static bool HasState(PlayMakerFSM f, string name)
@@ -143,6 +254,8 @@ namespace Apocaplayer
 
         private static string KeyName(KeyCode k)
         {
+            if (k == KeyCode.Equals || k == KeyCode.Plus) return "+";
+            if (k == KeyCode.Minus) return "-";
             string n = k.ToString();
             return n.StartsWith("Alpha") ? n.Substring(5) : n;
         }
@@ -155,18 +268,26 @@ namespace Apocaplayer
 
         public static void OnGUI()
         {
-            if (string.IsNullOrEmpty(_hint)) return;
+            if (!Plugin.Enabled.Value || !Game.Ready || !Game.InCar || Game.Dead || Game.Paused) return;
+            if (Plugin.VehicleStatusHint.Value) VehicleHud.Draw(_start != null && !_running, _brakeOn, _musicPlaying, VolumeText);
+            if (!Plugin.VehicleHotkeyHint.Value || string.IsNullOrEmpty(_hint)) return;
             int size = Mathf.RoundToInt(Screen.height / 42f);
             if (_gameText != null && _gameText.canvas != null)
                 size = Mathf.Max(10, Mathf.RoundToInt(_gameText.fontSize * _gameText.canvas.scaleFactor));
-            var st = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+            var st = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.UpperLeft, wordWrap = false };
             if (_font != null) { st.font = _font; if (_gameText != null) st.fontStyle = _gameText.fontStyle; }
-            var r = new Rect(Screen.width * 0.025f, Screen.height * 0.62f, Screen.width * 0.5f, size * 1.6f);
+            var r = new Rect(Screen.width * 0.025f, Screen.height * 0.62f, Screen.width * 0.5f, size * 8f);
             st.normal.textColor = new Color(0f, 0f, 0f, 0.8f); GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), _hint, st);
             st.normal.textColor = _gameText != null ? new Color(_gameText.color.r, _gameText.color.g, _gameText.color.b, 1f) : Color.white;
             GUI.Label(r, _hint, st);
         }
 
-        public static void Reset() { _start = null; _startCar = null; _phase = 0; _hint = ""; _gameText = null; _font = null; _engine = null; _isRunning = null; }
+        public static void Reset()
+        {
+            _start = null; _startCar = null; _phase = 0; _hint = ""; _gameText = null; _font = null; _engine = null; _isRunning = null;
+            _lightOn = _lightOff = _handbrake = _radioOnOff = _play = _stop = _volume = null;
+            _radioAudio = null; _nextControls = 0f;
+            _running = _lightsOn = _brakeOn = _musicPlaying = false;
+        }
     }
 }

@@ -10,6 +10,7 @@ namespace Apocaplayer
     {
         public static GameObject Player;            // root "Player" (capsule, Movement/InCar FSMs); parented under the car's sitPos while driving
         public static PlayMakerFSM InCarFsm, MovementFsm;
+        private static PlayMakerFSM _healthFsm;
         public static Transform CameraHolder, PlayerCamera;
         public static Camera Cam;
         public static Transform WeaponsParent;
@@ -61,6 +62,25 @@ namespace Apocaplayer
                         Plugin.Verbose("Found the PlayerCamera" + (GrenadeFsm != null ? " (+ grenade)" : "") + (WeaponsParent != null ? " and WeaponsArm/Parent" : " (no WeaponsArm/Parent!)"));
                     }
                 }
+            }
+        }
+
+        // The game dies below 0.4 health, then spends five seconds in playerDeath.
+        public static bool Dead
+        {
+            get
+            {
+                if (Player == null) return false;
+                if (_healthFsm == null || _healthFsm.gameObject != Player)
+                {
+                    _healthFsm = null;
+                    foreach (var f in Player.GetComponents<PlayMakerFSM>())
+                        if (f.FsmName == "Health") { _healthFsm = f; break; }
+                }
+                if (_healthFsm == null || !_healthFsm.Fsm.Initialized) return false;
+                var health = _healthFsm.FsmVariables.FindFsmFloat("Health");
+                return _healthFsm.ActiveStateName == "playerDeath" || _healthFsm.ActiveStateName == "backToMenu"
+                    || health != null && health.Value < 0.4f;
             }
         }
 
