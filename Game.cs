@@ -201,6 +201,37 @@ namespace Apocaplayer
         // the drawn weapon's first-person arms play their reload: Animator (WeaponsArm/Parent/<weapon>/...) in a state named "reload" (the
         // ReloadAnimation FSM's AnimatorPlay) or playing a clip whose name contains "reload". known = there is an active Animator to ask.
         private static readonly Dictionary<string, Animator> _arms = new Dictionary<string, Animator>();
+
+        // any of the game's first-person arms (material Player2*, under the camera holder; not the kick leg) is drawn this frame.
+        // The renderer list is refreshed every second (weapons/items create theirs when first drawn).
+        private static readonly List<Renderer> _fpArmRenderers = new List<Renderer>();
+        private static float _fpArmsScan;
+        private static Transform _fpArmsHolder;
+        public static bool GameArmsShown
+        {
+            get
+            {
+                if (CameraHolder == null) return false;
+                if (Time.unscaledTime >= _fpArmsScan || _fpArmsHolder != CameraHolder)
+                {
+                    _fpArmsScan = Time.unscaledTime + 1f;
+                    _fpArmsHolder = CameraHolder;
+                    _fpArmRenderers.Clear();
+                    foreach (var r in CameraHolder.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                    {
+                        if (r == null || r.sharedMaterial == null || !r.sharedMaterial.name.StartsWith("Player2")) continue;
+                        if (r.name.IndexOf("leg", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                        _fpArmRenderers.Add(r);
+                    }
+                }
+                for (int i = 0; i < _fpArmRenderers.Count; i++)
+                {
+                    var r = _fpArmRenderers[i];
+                    if (r != null && r.enabled && r.gameObject.activeInHierarchy) return true;
+                }
+                return false;
+            }
+        }
         public static bool ArmsReloading(string weapon, out bool known)
         {
             known = false;

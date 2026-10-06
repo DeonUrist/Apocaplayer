@@ -12,7 +12,7 @@ namespace Apocaplayer
     //            shoulders; head, neck and arms removed (the game draws its own first-person arms)
     internal static class Model
     {
-        public static Mesh Full, NoHead, NoArms;
+        public static Mesh Full, NoHead, NoArms, ArmsOnly;
         public static Texture2D BodyTex, ArmsTex;
         private static bool _tried, _texTried, _armsTried;
 
@@ -72,6 +72,8 @@ namespace Apocaplayer
             Full = Make("Apocaplayer", verts, nrms, uvs, bws, bp, model.Tris, model.HasNormals);
             NoHead = Make("Apocaplayer_nohead", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadBones, null), model.HasNormals);
             NoArms = Make("Apocaplayer_noarms", verts, nrms, uvs, bws, bp, Filter(model.Tris, dom, HeadNeckBones, ArmBones), model.HasNormals);
+            // first person, nothing in hand: exactly the arm triangles NoArms leaves out (no gap at the shoulder), without head/neck
+            ArmsOnly = Make("Apocaplayer_armsonly", verts, nrms, uvs, bws, bp, Only(model.Tris, dom, ArmBones, HeadNeckBones), model.HasNormals);
 
             // the skeleton of the file vs Flexa's (must be ~0: same armature)
             float worst = 0f; string worstName = "";
@@ -111,6 +113,25 @@ namespace Apocaplayer
             return keep.ToArray();
         }
 
+        // keeps the triangles with a vertex bound mainly to one of the wanted bones and none to an excluded one
+        private static int[] Only(int[] tris, string[] dom, HashSet<string> want, HashSet<string> not)
+        {
+            var keep = new List<int>();
+            for (int t = 0; t + 2 < tris.Length; t += 3)
+            {
+                bool any = false, bad = false;
+                for (int k = 0; k < 3; k++)
+                {
+                    string d = dom[tris[t + k]];
+                    if (d == null) continue;
+                    if (want.Contains(d)) any = true;
+                    if (not.Contains(d)) bad = true;
+                }
+                if (any && !bad) { keep.Add(tris[t]); keep.Add(tris[t + 1]); keep.Add(tris[t + 2]); }
+            }
+            return keep.ToArray();
+        }
+
         private static Mesh Make(string name, Vector3[] v, Vector3[] n, Vector2[] uv, BoneWeight[] bw, Matrix4x4[] bp, int[] tris, bool hasN)
         {
             var mesh = new Mesh { name = name };
@@ -128,11 +149,11 @@ namespace Apocaplayer
         }
 
         // Character switched: the next body is built from the other model
-        public static void Reset() { Full = NoHead = NoArms = null; BodyTex = null; _tried = _texTried = false; }
+        public static void Reset() { Full = NoHead = NoArms = ArmsOnly = null; BodyTex = null; _tried = _texTried = false; }
 
         public static Texture2D Body()
         {
-            if (!_texTried) { _texTried = true; BodyTex = Load(Plugin.BodyTextureFile, Plugin.Female ? "Apocaplayer" : "Apocaplayer_male"); }
+            if (!_texTried) { _texTried = true; BodyTex = Load(Plugin.BodyTextureFile, Plugin.Female ? "Apocaplayer" : Plugin.IsMax ? "Apocaplayer_max" : "Apocaplayer_male"); }
             return BodyTex;
         }
 

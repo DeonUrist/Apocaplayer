@@ -17,13 +17,13 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.4.0";
+        public const string VERSION = "1.5.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
 
         // player-facing
-        internal static ConfigEntry<bool> WeaponAdjust, Enabled, BodyFirstPerson, FemaleArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
+        internal static ConfigEntry<bool> WeaponAdjust, Enabled, BodyFirstPerson, FemaleArms, EmptyHandArms, ReplaceDriver, ThirdPersonOnFoot, MirrorBody, VerboseLog;
         // hidden (fixed values, never written to the file; change H( to Config.Bind( to expose one)
         internal static ConfigEntry<string> ModelFile, TextureFile, ArmsTextureFile, AnimBundleFile;
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
@@ -37,13 +37,15 @@ namespace Apocaplayer
         internal static ConfigEntry<bool> OcclusionPrototype;
         internal static ConfigEntry<bool> AutomaticStepUp;
         internal static ConfigEntry<float> OcclusionOpacity, OcclusionRadius;
-        internal enum Gender { Female, Male }
+        internal enum Gender { Female, Male, Max }
         internal static ConfigEntry<Gender> Character;
         public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
         // the body: hers (Player_female, made from Flexa) or the game's own man (Player2 + hair, beard, bags, re-rigged onto Flexa's skeleton by
         // tools/bake_male.py) - same skeleton, so every animation, weapon pose and feature is the same
-        public static string BodyModelFile { get { return Female ? ModelFile.Value : "Models/Player_male.glb"; } }
-        public static string BodyTextureFile { get { return Female ? TextureFile.Value : "Models/Player_male.png"; } }
+        // Max: Assets/Models/madmax re-weighted by tools/reweight.py (weights transferred from Player_male onto the same 22-bone skeleton)
+        public static bool IsMax { get { return Character != null && Character.Value == Gender.Max; } }
+        public static string BodyModelFile { get { return Female ? ModelFile.Value : IsMax ? "Models/Player_max.glb" : "Models/Player_male.glb"; } }
+        public static string BodyTextureFile { get { return Female ? TextureFile.Value : IsMax ? "Models/Player_max.png" : "Models/Player_male.png"; } }
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -60,7 +62,7 @@ namespace Apocaplayer
             // the config file: General (Enabled, Character, IgnitionKey, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
-            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Everything else is the same.");
+            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (body like Male, the game's arms and TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             // Preserve a previously rebound ignition key when moving it into VEHICLE.
             var oldIgnition = Config.Bind("General", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");
@@ -85,6 +87,7 @@ namespace Apocaplayer
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
+            EmptyHandArms = H("General", "EmptyHandArms", true, "First person with nothing in hand (no first-person arms from the game): show the body's own arms with its normal animation (idle, walk/run swing; on the wheel in a car).");
             FemaleArms = H("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person animations (and the kick leg).");
             ReplaceDriver = H("General", "ReplaceDriver", true, "She replaces the game's man in the driver's seat and on the TAB screen.");
             ThirdPersonOnFoot = H("General", "ThirdPersonOnFoot", true, "The Change Camera key switches to a camera behind her, on foot and in cars.");

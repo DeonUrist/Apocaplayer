@@ -105,6 +105,7 @@ namespace Apocaplayer
                 bool fpCam = Game.FirstPersonCameraOn;
                 ThirdPerson.CarShift = false;
                 string mode;
+                bool fpArms = false;
                 if (inCar)
                 {
                     bool seated = CarSeat.Attach(Game.Player.transform);
@@ -122,6 +123,8 @@ namespace Apocaplayer
                         _body.SetMesh(firstPerson, true, Game.DrawnWeapon != "");
                         _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
                         ThirdPerson.CarShift = firstPerson && Plugin.BodyFirstPerson.Value && Plugin.CarCameraForward.Value != 0f;
+                        // no body in first person: still her arms on the wheel while nothing is drawn (the body mesh has them when it is shown)
+                        fpArms = firstPerson && fpCam && !Plugin.BodyFirstPerson.Value && Plugin.EmptyHandArms.Value && Game.DrawnWeapon == "" && !Game.Binoculars && !Game.GameArmsShown;
                         mode = firstPerson ? "car, first person" : "car, third person";
                     }
                 }
@@ -133,8 +136,11 @@ namespace Apocaplayer
                     _body.SetMesh(!third, false);
                     bool show = third || Plugin.BodyFirstPerson.Value;
                     _body.SetVisible(show && fpCam, !third && show && fpCam);
+                    // first person, nothing in hand: the game draws no arms - show the body's own, animated like the rest of her
+                    fpArms = !third && fpCam && Plugin.EmptyHandArms.Value && !Game.Binoculars && !Game.GameArmsShown;
                     mode = third ? "on foot, third person" : "on foot, first person";
                 }
+                _body.SetFirstPersonArms(fpArms);
                 _body.LateEquipment();
                 if (mode != _lastMode) { _lastMode = mode; Plugin.Verbose("View: " + mode); }
                 InventoryModel.LateTick();

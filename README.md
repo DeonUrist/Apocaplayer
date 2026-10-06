@@ -1,7 +1,7 @@
 # Apocaplayer
 
 BepInEx 5 mod for **Apocalypter**: see your character - a full body in first person, a third-person camera on foot and in cars,
-and a choice of **Female** (her own model) or **Male** (the game's own player man), with the same animations and features for both.
+and a choice of **Female** (her own model), **Male** (the game's own player man) or **Max** (a road warrior in a leather jacket), with the same animations and features for both.
 
 - **First person** – her body under the camera: legs, hips and torso when you look down, her shadow on the ground.
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
@@ -16,6 +16,10 @@ and a choice of **Female** (her own model) or **Male** (the game's own player ma
   (Flexa's AKM, Sprokka's pipe pistol, Lugnut's shotgun …) at the spot the raiders hold it.
 - **Cars** – she sits in the driver's seat instead of the game's seated man (car third-person camera), and in first
   person you see her legs and arms on the wheel.
+
+First person with nothing in hand, the game draws no arms; her own arms are shown instead (hidden `General / EmptyHandArms`, default on), moving with the body's normal idle/walk/run animation and on the wheel in a car.
+
+The Max model (`Models/Player_max.glb`) is `Assets/Models/madmax` with its skin weights rebuilt by `tools/reweight.py` (weights transferred from Player_male onto the same skeleton; the original had no weights on Spine2/Neck, the head owned the collar and some right-leg vertices followed the left leg).
 
 The female model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
@@ -54,6 +58,8 @@ BepInEx\plugins\Apocaplayer\Models\Player_female.png
 BepInEx\plugins\Apocaplayer\Models\Player2_female_arms.png
 BepInEx\plugins\Apocaplayer\Models\Player_male.glb
 BepInEx\plugins\Apocaplayer\Models\Player_male.png
+BepInEx\plugins\Apocaplayer\Models\Player_max.glb
+BepInEx\plugins\Apocaplayer\Models\Player_max.png
 BepInEx\plugins\Apocaplayer\Models\player_character_2_UI.png
 BepInEx\plugins\Apocaplayer\Models\apocaplayer_anims.bundle   (optional: the Mixamo animations, built with UnityAnims/)
 BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mods menu)
@@ -73,7 +79,7 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | Section | Key | Default | |
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
-| General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
+| General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Max: the road warrior (body like Male; the game's arms and TAB picture). Animations, weapon poses and everything else are the same |
 | General | 3rd person camera culling | true | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius. Off restores camera collision movement |
 | CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
 | CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |

@@ -42,6 +42,7 @@ namespace Apocaplayer
                 ShowProp(false);
                 SetMesh(false, false);
                 SetVisible(true, false);
+                SetFirstPersonArms(false);
                 _ragdoll = new Ragdoll(Bones, velocity, vehicle);
                 Plugin.Verbose("Death: animation stopped, jointed ragdoll activated");
             }
@@ -63,7 +64,7 @@ namespace Apocaplayer
             public Vector3 Take() { var d = Delta; Delta = Vector3.zero; return d; }
         }
         private Animator _animator;
-        private SkinnedMeshRenderer _smr, _shadow;
+        private SkinnedMeshRenderer _smr, _shadow, _fpArms;
         private Material _mat;
         public readonly Dictionary<string, Transform> Bones = new Dictionary<string, Transform>();
         private readonly Dictionary<string, Quaternion> _bindLocal = new Dictionary<string, Quaternion>();
@@ -253,6 +254,19 @@ namespace Apocaplayer
             b._shadow.sharedMaterial = b._mat;
             b._shadow.updateWhenOffscreen = true;
             b._shadow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+
+            // first person with nothing in hand: her own arms (same bones, same animation), no shadow (the shadow body has them)
+            var fa = new GameObject("ApocaplayerFirstPersonArms");
+            fa.transform.SetParent(b._smr.transform.parent, false);
+            b._fpArms = fa.AddComponent<SkinnedMeshRenderer>();
+            b._fpArms.bones = b._smr.bones;
+            b._fpArms.rootBone = b._smr.rootBone;
+            b._fpArms.sharedMesh = Model.ArmsOnly;
+            b._fpArms.sharedMaterial = b._mat;
+            b._fpArms.updateWhenOffscreen = true;
+            b._fpArms.localBounds = new Bounds(Vector3.zero, Vector3.one * 2.5f);
+            b._fpArms.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            b._fpArms.enabled = false;
 
             // bind-pose local rotations (for the car pose's unmapped bones)
             var bindWorld = new Dictionary<string, Matrix4x4>();
@@ -586,6 +600,12 @@ namespace Apocaplayer
             if (_equipment != null) _equipment.SetVisible(body, shadow);
             if (_smr.enabled != body) _smr.enabled = body;
             if (_shadow.enabled != shadow) _shadow.enabled = shadow;
+        }
+
+        // the body's own arms in first person (nothing in hand) - drawn on top of whatever mesh the body has (NoArms / hidden)
+        public void SetFirstPersonArms(bool on)
+        {
+            if (_fpArms != null && _fpArms.enabled != on) _fpArms.enabled = on;
         }
 
         // on foot: place, animate (graph is already evaluated by the Animator this frame), then the procedural layers
