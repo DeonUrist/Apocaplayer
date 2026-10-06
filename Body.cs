@@ -15,6 +15,13 @@ namespace Apocaplayer
         public GameObject Root;          // mirror lives here (scale x -1)
         private Transform _anim;         // clone of Flexa/Anim
         private Ragdoll _ragdoll;
+        private Equipment _equipment;
+        public void LateEquipment()
+        {
+            if (_equipment == null) _equipment = new Equipment(this);
+            _equipment.Tick();
+            _equipment.SetVisible(_smr.enabled, _shadow.enabled);
+        }
         public bool IsRagdoll { get { return _ragdoll != null; } }
         public Vector3 DeathFocus { get { return _ragdoll != null ? _ragdoll.Focus : Root.transform.position; } }
 
@@ -568,6 +575,7 @@ namespace Apocaplayer
         // ---------------------------------------------------------------- per frame
         public void SetVisible(bool body, bool shadow)
         {
+            if (_equipment != null) _equipment.SetVisible(body, shadow);
             if (_smr.enabled != body) _smr.enabled = body;
             if (_shadow.enabled != shadow) _shadow.enabled = shadow;
         }

@@ -30,7 +30,7 @@ namespace Apocaplayer
             return Kind.Rifle;
         }
 
-        private static string Norm(string n)
+        internal static string Norm(string n)
         {
             n = n.ToLowerInvariant();
             int p = n.IndexOf(" (", StringComparison.Ordinal); if (p > 0) n = n.Substring(0, p);
@@ -186,8 +186,23 @@ namespace Apocaplayer
             return go;
         }
 
-        // the barrel direction in the prop's own space: toward the muzzle flash light ("fire_effect" / "muzzle*") when the raider model has one,
-        // else along the longest side of its meshes, toward the end farther from the grip (the prop's origin sits in the hand)
+        // Inventory renderers are hidden by the game; the stripped visual copy is visible.
+        public static GameObject CopyForMount(GameObject item, Transform parent)
+        {
+            var copy = Instantiate(new Prop { Source = item, Key = Norm(item.name) }, parent, false);
+            copy.transform.localPosition = Vector3.zero;
+            copy.transform.localRotation = Quaternion.identity;
+            var scale = item.transform.lossyScale;
+            copy.transform.localScale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            foreach (var r in copy.GetComponentsInChildren<Renderer>(true))
+            {
+                r.enabled = true; r.forceRenderingOff = false;
+                for (var t = r.transform; t != null && t != copy.transform; t = t.parent) t.gameObject.SetActive(true);
+            }
+            return copy;
+        }
+
+        // The muzzle direction, or the longest mesh axis toward the end farther from the grip.
         public static Vector3 Barrel(GameObject prop)
         {
             if (prop == null) return Vector3.zero;

@@ -125,6 +125,7 @@ namespace Apocaplayer
                     _body.SetVisible(show && fpCam, !third && show && fpCam);
                     mode = third ? "on foot, third person" : "on foot, first person";
                 }
+                _body.LateEquipment();
                 if (mode != _lastMode) { _lastMode = mode; Plugin.Verbose("View: " + mode); }
                 InventoryModel.LateTick();
             }

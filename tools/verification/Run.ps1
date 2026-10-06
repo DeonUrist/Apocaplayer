@@ -1,8 +1,10 @@
+param([switch]$Equipment)
 $ErrorActionPreference = 'Stop'
 $taskGame = 'E:\SteamLibrary\steamapps\common\Apocalypter'
 $taskRepo = (Resolve-Path "$PSScriptRoot\..\..").Path
-$taskRuntime = 'V:\Repos\Apocalypter\_staging\apocaplayer-1.1.0-native\runtime'
-$taskOutput = 'V:\Repos\Apocalypter\_staging\apocaplayer-1.1.0-native\results'
+$taskVersion = if ($Equipment) { '1.2.0' } else { '1.1.0' }
+$taskRuntime = "V:\Repos\Apocalypter\_staging\apocaplayer-$taskVersion-native\runtime"
+$taskOutput = "V:\Repos\Apocalypter\_staging\apocaplayer-$taskVersion-native\results"
 New-Item -ItemType Directory -Path "$taskRuntime\BepInEx\plugins\Apocaplayer", "$taskRuntime\BepInEx\config", $taskOutput -Force | Out-Null
 foreach ($file in @('Apocalypter.exe','UnityPlayer.dll','winhttp.dll','doorstop_config.ini','.doorstop_version')) { Copy-Item -LiteralPath "$taskGame\$file" -Destination $taskRuntime -Force }
 Copy-Item -LiteralPath "$taskGame\BepInEx\core" -Destination "$taskRuntime\BepInEx" -Recurse -Force
@@ -24,6 +26,7 @@ LogLevels = All
 '@ | Set-Content -LiteralPath "$taskRuntime\BepInEx\config\BepInEx.cfg"
 Copy-Item -LiteralPath "$PSScriptRoot\bin\Release\ApocaplayerNativeVerifier.dll" -Destination "$taskRuntime\BepInEx\plugins" -Force
 $taskArgs = @('-screen-width','1200','-screen-height','680','-screen-fullscreen','0','-logFile',('"'+$taskRuntime+'\unity.log"'),('-apocaplayer-report="'+$taskOutput+'"'))
+if ($Equipment) { $taskArgs += '-equipment-only' }
 $taskProcess = Start-Process -FilePath "$taskRuntime\Apocalypter.exe" -WorkingDirectory $taskRuntime -WindowStyle Hidden -ArgumentList $taskArgs -PassThru
 try {
     if (!$taskProcess.WaitForExit(60000)) { throw 'Native verification exceeded 60 seconds' }

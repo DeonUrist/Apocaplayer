@@ -247,6 +247,15 @@ namespace Apocaplayer
         // binoculars raised: PlayerCamera/ItemAnim/Binocular Anim [Animation] off -(Activate)-> animOn (raise, 0.4 s) -> on (arms off,
         // BinocularUI + Binocular_Effect on, SetCameraFOV 20 every frame) -(Deactivate)-> animOff -> off
         private static PlayMakerFSM _binoFsm;
+        public static bool BinocularInUse
+        {
+            get
+            {
+                bool raised = Binoculars; // also resolves the animation FSM
+                string state = _binoFsm != null && _binoFsm.enabled ? _binoFsm.ActiveStateName : "";
+                return raised || state == "animOn" || state == "animOff";
+            }
+        }
         public static bool Binoculars
         {
             get

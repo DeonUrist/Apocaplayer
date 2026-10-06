@@ -19,6 +19,16 @@ and a choice of **Female** (her own model) or **Male** (the game's own player ma
 
 The female model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
+Equipped gear appears on both character models: the worn backpack on the back at 0.8 scale, rotated 90 degrees clockwise around
+the vertical axis and fitted close to the body; the first two shotguns/rifles/automatic rifles crossed close against the bare back,
+or vertical beside an equipped backpack with muzzles down and magazines facing backward;
+the first two pistols/SMGs at the right and left thighs; the first two machetes/knives/shivs at opposite belt sides;
+and equipped binoculars behind the belt. Items are chosen in slot order, including slots 4–6 supplied by the optional inventory mod.
+Drawing an item hides only its own mount and reserves that place until it is sheathed; a third item is never promoted to fill it.
+Models are visual copies of the actual inventory items. Equipping, removing, and replacing gear updates them automatically.
+`EquipmentInventory.cs` reads Apocapocket's logical inventory (also accepts the Apocainventory namespace with the same contract),
+so drawing an extra-slot weapon into a temporary vanilla slot does not change the mounts. No inventory mod is required for slots 1–3.
+
 ## Install
 
 Copy the `Apocaplayer` folder into `BepInEx\plugins\`:

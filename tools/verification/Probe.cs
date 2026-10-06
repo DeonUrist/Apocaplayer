@@ -45,7 +45,7 @@ public class Probe : BaseUnityPlugin
     }
 }
 
-public class ProbeRunner : MonoBehaviour
+public partial class ProbeRunner : MonoBehaviour
 {
     public string Output;
     static Assembly Mod = typeof(Apocaplayer.Plugin).Assembly;
@@ -85,7 +85,7 @@ public class ProbeRunner : MonoBehaviour
         File.AppendAllText(Path.Combine(Output, "progress.txt"), "Game scene loaded\n");
         DisableRunner();
         yield return new WaitForSecondsRealtime(1f);
-        var exercise = Exercise();
+        var exercise = Environment.GetCommandLineArgs().Contains("-equipment-only") ? EquipmentExercise() : Exercise();
         while (true)
         {
             bool more;
