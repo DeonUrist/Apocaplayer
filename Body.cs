@@ -23,6 +23,14 @@ namespace Apocaplayer
             _equipment.SetVisible(_smr.enabled, _shadow.enabled);
         }
         public bool IsRagdoll { get { return _ragdoll != null; } }
+        internal bool TryOcclusionPoints(out Vector3 head, out Vector3 feet)
+        {
+            Transform h, left, right;
+            if (!Bones.TryGetValue("mixamorig:Head", out h) || !Bones.TryGetValue("mixamorig:LeftFoot", out left) || !Bones.TryGetValue("mixamorig:RightFoot", out right))
+            { head = feet = Vector3.zero; return false; }
+            head = h.position + Vector3.up * .15f; feet = (left.position + right.position) * .5f;
+            return true;
+        }
         public Vector3 DeathFocus { get { return _ragdoll != null ? _ragdoll.Focus : Root.transform.position; } }
 
         public void LateDead(Vector3 velocity, Transform vehicle)

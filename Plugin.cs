@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.2.1";
+        public const string VERSION = "1.4.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -34,6 +34,9 @@ namespace Apocaplayer
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime, SeatDrop;
         internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey, HeadlightsKey, CassetteKey, VolumeDownKey, VolumeUpKey;
         internal static ConfigEntry<bool> VehicleHotkeyHint, VehicleStatusHint;
+        internal static ConfigEntry<bool> OcclusionPrototype;
+        internal static ConfigEntry<bool> AutomaticStepUp;
+        internal static ConfigEntry<float> OcclusionOpacity, OcclusionRadius;
         internal enum Gender { Female, Male }
         internal static ConfigEntry<Gender> Character;
         public static bool Female { get { return Character == null || Character.Value == Gender.Female; } }
@@ -73,8 +76,12 @@ namespace Apocaplayer
             VolumeDownKey = Config.Bind("VEHICLE", "VolumeDownKey", KeyCode.Minus, "Reduce cassette volume by 0.1. None = no hotkey.");
             VolumeUpKey = Config.Bind("VEHICLE", "VolumeUpKey", KeyCode.Equals, "Increase cassette volume by 0.1 (+ on the main keyboard). None = no hotkey.");
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat). Off = only the first-person arms.");
+            AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
+            OcclusionPrototype = BindCameraCulling(Config);
             EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
             ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");
+            OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
+            OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
@@ -165,6 +172,8 @@ namespace Apocaplayer
             catch (Exception e) { Log.LogError("Harmony patch failed, no third-person pick assist: " + e.Message); }
             try { AimTransition.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Harmony patch failed, aiming down sights stays instant: " + e.Message); }
+            try { FemalePain.Patch(new HarmonyLib.Harmony(GUID)); }
+            catch (Exception e) { Log.LogError("Female pain sounds: " + e.Message); }
 
             SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); };
             EnsureRunner();
@@ -183,6 +192,19 @@ namespace Apocaplayer
         {
             rel = (rel ?? "").Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
             return Path.IsPathRooted(rel) ? rel : Path.Combine(Dir, rel);
+        }
+
+        internal static ConfigEntry<bool> BindCameraCulling(ConfigFile config)
+        {
+            var definition = new ConfigDefinition("General", "3rd person camera culling");
+            var property = typeof(ConfigFile).GetProperty("OrphanedEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            var orphans = property != null ? property.GetValue(config, null) as System.Collections.IDictionary : null;
+            bool alreadySaved = config.ContainsKey(definition) || orphans != null && orphans.Contains(definition);
+            var legacy = config.Bind("CAMERA", "OcclusionPrototype", true, "Legacy camera culling toggle.");
+            bool oldValue = legacy.Value; config.Remove(legacy.Definition);
+            var entry = config.Bind("General", "3rd person camera culling", true, "On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window. Off: restore collision-based camera movement.");
+            if (!alreadySaved) entry.Value = oldValue;
+            return entry;
         }
 
         internal static void Verbose(string s) { if (VerboseLog != null && VerboseLog.Value && Log != null) Log.LogInfo(s); }

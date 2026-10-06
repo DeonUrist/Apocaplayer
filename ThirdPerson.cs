@@ -142,10 +142,11 @@ namespace Apocaplayer
             }
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
             bool want = On || CarShift;
+            if (!On || Peek || !Plugin.OcclusionPrototype.Value) OcclusionCutaway.Stop();
             if (want && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
             if (On && !Peek) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
-            if (!want && _hooked) { if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix(); Camera.onPreCull -= PreCull; _hooked = false; }
+            if (!want && _hooked) { if (Game.Cam != null) { Game.Cam.ResetWorldToCameraMatrix(); Game.Cam.ResetCullingMatrix(); } Camera.onPreCull -= PreCull; _hooked = false; }
         }
 
         // mouse wheel: closer / further, one distance on foot and one in cars, both kept in the config. Not while she carries an item
@@ -190,10 +191,10 @@ namespace Apocaplayer
         {
             if (cam == null || cam != Game.Cam) return;
             var t = cam.transform;
-            if (Peek) { HasView = false; cam.ResetWorldToCameraMatrix(); return; }   // binoculars: the game's own view
+            if (Peek) { HasView = false; cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }   // binoculars: the game's own view
             if (!On)
             {
-                if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); return; }
+                if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }
                 // driving, first person: the eye a few cm forward along her (the seat's) facing, so her own head/chest don't fill the view
                 Vector3 p = CarShiftEye(t);
                 cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(p, t.rotation, Vector3.one).inverse;
@@ -218,14 +219,15 @@ namespace Apocaplayer
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;
-            // walls pull the camera in; in a car its own body doesn't (the camera starts inside it)
-            foreach (var h in Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore))
-            {
-                if (car != null && h.collider != null && h.collider.transform.IsChildOf(car)) continue;
-                if (h.distance > 0f && h.distance < dist) dist = Mathf.Max(0.2f, h.distance);
-            }
+            bool cutaway = Plugin.OcclusionPrototype.Value && OcclusionCutaway.Available;
+            if (!cutaway)
+                foreach (var h in Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore))
+                {
+                    if (car != null && h.collider != null && h.collider.transform.IsChildOf(car)) continue;
+                    if (h.distance > 0f && h.distance < dist) dist = Mathf.Max(0.2f, h.distance);
+                }
             // come out smoothly, snap in when something is in the way
-            _dist = dist < _dist ? dist : Mathf.MoveTowards(_dist, dist, Time.unscaledDeltaTime * 4f);
+            _dist = cutaway ? max : dist < _dist ? dist : Mathf.MoveTowards(_dist, dist, Time.unscaledDeltaTime * 4f);
             Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * _dist;
             // converge on the aim point: the camera sits over her shoulder, so looking parallel to her eye line would put the crosshair
             // ThirdShoulder metres beside where shots / picks really go. Find what the eye ray hits (the game casts from the eye) and turn the
@@ -245,6 +247,8 @@ namespace Apocaplayer
             ViewPos = pos; ViewRot = viewRot; HasView = true;
             var view = Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
+            cam.cullingMatrix = cam.projectionMatrix * cam.worldToCameraMatrix;
+            if (cutaway) OcclusionCutaway.Prepare(cam, pos, viewRot, car);
         }
 
         // driving in first person with her body shown: the picture is drawn from a few cm in front of the game's eye (along the seat's facing)
@@ -260,7 +264,7 @@ namespace Apocaplayer
         // vehicle parts, save points) cast from the first-person eye as always - not from the third-person view 2.4 m behind her
         public static void EndOfFrame()
         {
-            if (_hooked && Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();
+            if (_hooked && Game.Cam != null) { Game.Cam.ResetWorldToCameraMatrix(); Game.Cam.ResetCullingMatrix(); }
             if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }   // the game's own FOV back for the next frame
         }
 
@@ -287,11 +291,12 @@ namespace Apocaplayer
 
         public static void Off()
         {
+            OcclusionCutaway.Stop();
             On = false; Peek = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
             _deathView = false;
             if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }
             ShowViewModel();
-            if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; }
+            if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; if (Game.Cam != null) Game.Cam.ResetCullingMatrix(); }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();
         }
     }

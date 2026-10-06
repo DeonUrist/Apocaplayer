@@ -13,9 +13,16 @@ namespace Apocaplayer
         private static Transform _lastCar;
         internal static bool RagdollVisible { get { return _body != null && _body.IsRagdoll; } }
         internal static Vector3 DeathFocus { get { return _body.DeathFocus; } }
+        internal static bool TryOcclusionPoints(out Vector3 head, out Vector3 feet)
+        {
+            if (_body != null && _body.Alive) return _body.TryOcclusionPoints(out head, out feet);
+            head = feet = Vector3.zero; return false;
+        }
 
         public static void OnSceneLoaded()
         {
+            AutoStepUp.Reset();
+            RustlinerDoors.Reset();
             DestroyBody();
             CarSeat.Detach();
             ThirdPerson.Off();
@@ -54,12 +61,15 @@ namespace Apocaplayer
                 bool on = Plugin.Enabled.Value;
                 if (!on)
                 {
+                    RustlinerDoors.Restore();
+                    AutoStepUp.Reset();
                     if (_wasEnabled) { DestroyBody(); CarSeat.Detach(); ThirdPerson.Off(); Arms.Restore(); InventoryModel.Off(); Plugin.Log.LogInfo("Disabled: the game's own player is back"); }
                     _wasEnabled = false;
                     return;
                 }
                 _wasEnabled = true;
-                if (!Game.Ready) { if (_body != null) DestroyBody(); return; }
+                if (!Game.Ready) { RustlinerDoors.Restore(); if (_body != null) DestroyBody(); return; }
+                RustlinerDoors.Tick();
                 if (!Game.Dead) { _lastVelocity = Game.Velocity; _lastCar = Game.InCar ? Game.CarRoot : null; }
                 if (Plugin.FemaleArms.Value && Plugin.Female) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
@@ -146,6 +156,7 @@ namespace Apocaplayer
 
         private void OnGUI() { try { GunPose.OnGUI(); Car.OnGUI(); } catch (Exception) { } }
 
-        private void OnDestroy() { ThirdPerson.Off(); }
+        private void FixedUpdate() { try { AutoStepUp.Tick(); } catch (Exception e) { Plugin.Warn("Step up: " + e.Message); } }
+        private void OnDestroy() { AutoStepUp.Reset(); RustlinerDoors.Reset(); ThirdPerson.Off(); }
     }
 }

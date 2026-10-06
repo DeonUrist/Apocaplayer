@@ -11,6 +11,14 @@ UnityAnims/Logs/
 UnityAnims/UserSettings/
 UnityAnims/Build/
 UnityAnims/obj/
+CameraShaders/Library/
+CameraShaders/Temp/
+CameraShaders/Logs/
+CameraShaders/UserSettings/
+CameraShaders/Build/
+CameraShaders/ProjectSettings/*.asset
+Models/*.manifest
+Models/Models
 UnityAnims/Assets/Clips/
 UnityAnims/Assets/Mixamo/*.fbx
 UnityAnims/Assets/Mixamo/*.fbx.meta

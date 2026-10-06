@@ -21,6 +21,7 @@
     <Reference Include="UnityEngine"><HintPath>$(ManagedDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.PhysicsModule"><HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TerrainModule"><HintPath>$(ManagedDir)\UnityEngine.TerrainModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(ManagedDir)\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AnimationModule"><HintPath>$(ManagedDir)\UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
@@ -38,13 +39,16 @@
   <ItemGroup>
     <Compile Remove="tools\**" />
     <Compile Remove="UnityAnims\**" />
-    <ModelFiles Include="Models\**\*" />
+    <Compile Remove="CameraShaders\**" />
+    <ModelFiles Include="Models\**\*" Exclude="Models\*.manifest;Models\Models" />
+    <SoundFiles Include="Sounds\**\*.wav" />
   </ItemGroup>
 
   <Target Name="DeployToGame" AfterTargets="Build">
     <Copy SourceFiles="$(OutDir)$(AssemblyName).dll" DestinationFolder="$(PluginDir)" />
     <Copy SourceFiles="icon.png" DestinationFolder="$(PluginDir)" />
     <Copy SourceFiles="@(ModelFiles)" DestinationFolder="$(PluginDir)\Models\%(RecursiveDir)" />
+    <Copy SourceFiles="@(SoundFiles)" DestinationFolder="$(PluginDir)\Sounds\%(RecursiveDir)" />
     <Message Importance="high" Text="Deployed $(AssemblyName).dll + Models to $(PluginDir)" />
   </Target>
 

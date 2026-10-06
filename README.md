@@ -19,6 +19,20 @@ and a choice of **Female** (her own model) or **Male** (the game's own player ma
 
 The female model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
+`AutomaticStepUp` (General, default On) helps the grounded player walk onto low solid steps and obstacles up to 35 cm,
+including vehicle entrance steps. It uses existing foot collision contacts, then checks the landing surface and clearance
+for both body capsules before lifting the Rigidbody. Tall obstacles, low ceilings, jumping, prone movement and driving are excluded.
+Player collider dimensions and horizontal movement remain the game's own.
+
+When `Character = Female`, pain events use `Sounds/Female/human_hurt.wav` and `Sounds/Female/human_hurt_2.wav`.
+This covers on-foot, in-car and head-hit pain in either camera view. The game keeps its normal timing, volume and random selection;
+male characters and NPCs keep their original sounds. The supplied files are loaded once as 16-bit PCM WAVs.
+
+Rustliner side and rear doorways have a local standing-clearance fix. While the player crosses an entrance, the vanilla body
+capsules temporarily ignore only the identified upper-frame boxes; leaving the doorway restores those collision pairs.
+Closed door panels, floor and other body collision remain active. Player hitboxes and bus collider dimensions are unchanged;
+the frame still collides with other objects and projectiles. The fix works in first and third person and restores its changes when the mod is disabled.
+
 Equipped gear appears on both character models: the worn backpack on the back at 0.8 scale, rotated 90 degrees clockwise around
 the vertical axis and fitted close to the body; the first two shotguns/rifles/automatic rifles crossed close against the bare back,
 or vertical beside an equipped backpack with muzzles down and magazines facing backward;
@@ -47,10 +61,22 @@ BepInEx\plugins\Apocaplayer\icon.png                          (Apocasetter's Mod
 
 ## Settings (`BepInEx\config\com.denis.apocalypter.apocaplayer.cfg`, also in the Apocasetter Mods menu)
 
+Version 1.4.0 includes a camera cutaway **prototype**. Third-person distance stays fixed through blocking walls, vehicles and terrain.
+A soft window around the character blends a clear view with the obstruction at 20% opacity; the rest of a large object keeps its normal appearance.
+The window ends strictly before the character: front walls remain opaque when the player presses against them, even if the same building mesh also forms a rear obstruction.
+This also covers the occupied vehicle and cameras inside a collider. The game's eye transform, physics and materials are preserved.
+The prototype uses two extra scene passes while obstructed (clear view and protected forward geometry), so performance and interaction with other post-processing effects need in-game evaluation.
+Roof/ceiling and vehicle obstructions expand the transparent window radius to three times its normal size, with a smooth transition.
+The body configuration has `General / 3rd person camera culling` (On/Off, default On). Off restores the previous collision camera;
+the former `CAMERA / OcclusionPrototype` preference migrates automatically. Binoculars and first person use the normal game view.
+
 | Section | Key | Default | |
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Animations, weapon poses and everything else are the same |
+| General | 3rd person camera culling | true | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius. Off restores camera collision movement |
+| CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
+| CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |
 | VEHICLE | VehicleStatusHint | true | Top-right icons: key when ignition is off, (P) while handbrake is engaged, cassette with 0.0–1.0 volume while music is playing (including muted playback) |
 | VEHICLE | IgnitionKey | E | Start / stop engine with the game's sounds; hint changes from "Ignition" to "Ignition Stop". Previously rebound General/IgnitionKey is migrated |
@@ -129,8 +155,8 @@ hidden `Model`/`Texture` entries at it. The arms texture is a separate atlas (se
   frame: `her.rotation = its.rotation * Δ`, hips at `itsSpine1 * offset`. Δ comes from the two bind poses (both T-poses;
   Player2 mesh space → Flexa mesh space is `(x, y, z) → (x, z, -y)`) with a swing so every bone points along its partner
   (`tools/retarget.py` verifies it by skinning her into the seat offline).
-- **Third person** (`ThirdPerson.cs`): `Camera.onPreCull` overrides the PlayerCamera's `worldToCameraMatrix` (sphere-cast
-  against walls); the transform is never moved, so every game raycast is unchanged. First-person renderers under the
+- **Third person** (`ThirdPerson.cs`): `Camera.onPreCull` overrides the PlayerCamera's `worldToCameraMatrix` and matching culling matrix;
+  the transform is never moved, so every game raycast is unchanged. First-person renderers under the
   PlayerCamera get `forceRenderingOff` while the view is behind her.
 - **Weapon in hand** (`Props.cs`): NPC weapon props are found on the prefabs' `mixamorig:LeftHand` (guns) /
   `RightHand` (blades) and copied (render-only) onto her hand at the same local pose.
@@ -158,6 +184,11 @@ play `MeleeCombo`'s two blows by turns. Bare hands: `Punch1` / `Punch2` (or `Mel
 cycle (0.35 s hands, 0.4 s machete). The blow times are read off the clips (`Body.cs`, `Punches` / `Combo`).
 
 ## Build
+
+The camera prototype also needs `Models/apocaplayer_camera.bundle` (included). Rebuild it with Unity 2020.3.49f1:
+open the small `CameraShaders` project, or run its editor in batch mode with `-executeMethod BuildCameraShaders.Build`.
+`OcclusionCutaway.cs` renders the clear pass, restores all renderer/terrain flags immediately, then depth-tests the localized blend.
+`tools/verification/Run.ps1 -Camera` exercises the prototype in an isolated native runtime and exports screenshots.
 
 Vehicle HUD assets live in `Models/Hud/`; `design/vehicle-hud.png` is the icon mockup and `tools/build_hud_icons.py` rebuilds the assets.
 `Ragdoll.cs` uses eleven jointed physics proxies in world space so both character models and mirrored fallback animations can fall naturally.

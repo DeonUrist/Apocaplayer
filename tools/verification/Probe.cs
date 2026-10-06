@@ -85,7 +85,7 @@ public partial class ProbeRunner : MonoBehaviour
         File.AppendAllText(Path.Combine(Output, "progress.txt"), "Game scene loaded\n");
         DisableRunner();
         yield return new WaitForSecondsRealtime(1f);
-        var exercise = Environment.GetCommandLineArgs().Contains("-equipment-only") ? EquipmentExercise() : Exercise();
+        var exercise = Environment.GetCommandLineArgs().Contains("-step-pain") ? StepPainExercise() : Environment.GetCommandLineArgs().Contains("-bus-probe") ? BusExercise() : Environment.GetCommandLineArgs().Contains("-camera-only") ? CameraExercise() : Environment.GetCommandLineArgs().Contains("-equipment-only") ? EquipmentExercise() : Exercise();
         while (true)
         {
             bool more;
