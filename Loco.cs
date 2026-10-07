@@ -508,6 +508,16 @@ namespace Apocaplayer
                 if (xz.x != hp.x || xz.y != hp.z) hips.localPosition = new Vector3(xz.x, hp.y, xz.y);
             }
             if (_noCrouchClips && _crouch > 0.001f) Crouch(_crouch);
+            // running: the pack's run / sprint cycles splay the thighs, and on her narrower hips that is a bow-legged, wide-footed stance -
+            // each thigh is turned a little toward the middle about the hip (the Anim object's forward axis), the foot turned back so the sole stays flat
+            float legsIn = Plugin.RunLegsIn.Value * m * _runW * (1f - crouch) * (1f - _actionW);
+            if (Mathf.Abs(legsIn) > 0.05f)
+            {
+                Turn("mixamorig:LeftUpLeg", Vector3.forward, legsIn);     // +deg about forward swings a hanging leg toward +x (her right) = inward for the left leg
+                Turn("mixamorig:LeftFoot", Vector3.forward, -legsIn);
+                Turn("mixamorig:RightUpLeg", Vector3.forward, -legsIn);
+                Turn("mixamorig:RightFoot", Vector3.forward, legsIn);
+            }
             float pitch = view == View.FirstPerson ? 0f : camPitch * Plugin.AimPitchShare.Value * (1f - _prone);
             if (Mathf.Abs(pitch) > 0.5f)
             {
