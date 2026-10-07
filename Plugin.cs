@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.5.3";
+        public const string VERSION = "1.5.4";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -30,6 +30,8 @@ namespace Apocaplayer
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
         internal static ConfigEntry<float> FpCamX, FpCamY, FpCamZ, FpCarCamX, FpCarCamY, FpCarCamZ;
+        // the driver's-seat view offset Denis set in game (1.5.3: X -0.03, Y 0.02, Z 0.02) is the built-in base; the [Debug] values add to it
+        internal static readonly Vector3 CarViewBase = new Vector3(-0.03f, 0.02f, 0.02f);
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
         internal static ConfigEntry<bool> ToggleMiddleMouse, EnableMMB;
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime, SeatDrop;
@@ -94,7 +96,7 @@ namespace Apocaplayer
             FpCamX = Config.Bind("Debug", "FirstPersonCameraX", 0f, "On foot, first person, with BodyFirstPerson: view to the right (+) / left (-)" + fpd);
             FpCamY = Config.Bind("Debug", "FirstPersonCameraY", 0f, "On foot, first person, with BodyFirstPerson: view up (+) / down (-)" + fpd);
             FpCamZ = Config.Bind("Debug", "FirstPersonCameraZ", 0f, "On foot, first person, with BodyFirstPerson: view forward (+) / back (-)" + fpd);
-            FpCarCamX = Config.Bind("Debug", "FirstPersonDrivingCameraX", 0f, "Driving, first person, with BodyFirstPerson: view to the right (+) / left (-) of the seat" + fpd);
+            FpCarCamX = Config.Bind("Debug", "FirstPersonDrivingCameraX", 0f, "Driving, first person, with BodyFirstPerson: view to the right (+) / left (-) of the seat, on top of the built-in seat offset (0 = default)" + fpd);
             FpCarCamY = Config.Bind("Debug", "FirstPersonDrivingCameraY", 0f, "Driving, first person, with BodyFirstPerson: view up (+) / down (-)" + fpd);
             FpCarCamZ = Config.Bind("Debug", "FirstPersonDrivingCameraZ", 0f, "Driving, first person, with BodyFirstPerson: view forward (+) / back (-)" + fpd);
             FemaleArms = H("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person animations (and the kick leg).");

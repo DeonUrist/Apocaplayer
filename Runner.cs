@@ -121,7 +121,7 @@ namespace Apocaplayer
                     {
                         bool firstPerson = fpCam && (!ThirdPerson.On || ThirdPerson.Peek);   // binoculars: first person
                         _body.LateCar(Game.Player.transform, firstPerson);
-                        if (firstPerson) _body.ShiftFirstPerson(Game.Player.transform.rotation, new Vector3(Plugin.FpCarCamX.Value, Plugin.FpCarCamY.Value, Plugin.FpCarCamZ.Value));
+                        if (firstPerson) _body.ShiftFirstPerson(Game.Player.transform.rotation, Plugin.CarViewBase + new Vector3(Plugin.FpCarCamX.Value, Plugin.FpCarCamY.Value, Plugin.FpCarCamZ.Value));
                         _body.SetMesh(firstPerson, true, Game.DrawnWeapon != "");
                         _body.SetVisible(!firstPerson || Plugin.BodyFirstPerson.Value, firstPerson && Plugin.BodyFirstPerson.Value);
                         ThirdPerson.CarShift = firstPerson && Plugin.BodyFirstPerson.Value && Plugin.CarCameraForward.Value != 0f;

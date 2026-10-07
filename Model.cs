@@ -155,23 +155,145 @@ namespace Apocaplayer
             if (m == null) return null;
             Mesh r;
             if (_inside.TryGetValue(m, out r) && r != null) return r;
-            r = new Mesh { name = m.name + "_inside" };
-            if (m.vertexCount > 65535) r.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            r.vertices = m.vertices;
-            r.uv = m.uv;
-            var n = m.normals;
-            for (int i = 0; i < n.Length; i++) n[i] = -n[i];
+            var verts = new List<Vector3>(m.vertices);
+            var uvs = new List<Vector2>(m.uv);
+            var nrms = new List<Vector3>(m.normals);
+            for (int i = 0; i < nrms.Count; i++) nrms[i] = -nrms[i];
+            var bws = new List<BoneWeight>(m.boneWeights);
             var t = m.triangles;
             for (int i = 0; i + 2 < t.Length; i += 3) { int a = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = a; }
-            r.triangles = t;
-            r.normals = n;
-            r.boneWeights = m.boneWeights;
+            var tris = new List<int>(t);
+            int caps = 0;
+            if (Full != null && m != Full) caps = Caps(m, Full, verts, uvs, nrms, bws, tris);
+            r = new Mesh { name = m.name + "_inside" };
+            if (verts.Count > 65535) r.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            r.SetVertices(verts);
+            r.SetUVs(0, uvs);
+            r.SetNormals(nrms);
+            r.SetTriangles(tris, 0);
+            r.boneWeights = bws.ToArray();
             r.bindposes = m.bindposes;
             r.RecalculateBounds();
             r.hideFlags = HideFlags.DontUnloadUnusedAsset;
             _inside[m] = r;
+            if (caps > 0) Plugin.Verbose("First person: " + caps + " cut opening(s) closed in " + m.name);
             return r;
         }
+
+        // the openings the first-person mesh has and the full body doesn't (neck where the head was cut off, shoulders without arms):
+        // each boundary loop is closed with a fan around its centre, both sides, skinned like the loop. The full body's own open edges
+        // (sleeves, hems, separate pieces) are left alone. Vertices at UV seams are welded by position to find the loops.
+        private static int Caps(Mesh cut, Mesh full, List<Vector3> verts, List<Vector2> uvs, List<Vector3> nrms, List<BoneWeight> bws, List<int> tris)
+        {
+            var pos = cut.vertices;
+            var uv = cut.uv;
+            var bw = cut.boneWeights;
+            var weldOf = new Dictionary<string, int>();
+            var weld = new int[pos.Length];
+            for (int i = 0; i < pos.Length; i++)
+            {
+                var p = pos[i];
+                string k = Mathf.RoundToInt(p.x * 20000f) + "," + Mathf.RoundToInt(p.y * 20000f) + "," + Mathf.RoundToInt(p.z * 20000f);
+                int w;
+                if (!weldOf.TryGetValue(k, out w)) { w = weldOf.Count; weldOf[k] = w; }
+                weld[i] = w;
+            }
+            var cutCount = new Dictionary<long, int>();
+            var fullCount = new Dictionary<long, int>();
+            CountEdges(cut.triangles, weld, cutCount);
+            CountEdges(full.triangles, weld, fullCount);
+            var rep = new Dictionary<int, int>();   // welded id -> a real vertex index
+            for (int i = 0; i < pos.Length; i++) if (!rep.ContainsKey(weld[i])) rep[weld[i]] = i;
+            var nb = new Dictionary<int, List<int>>();
+            foreach (var kv in cutCount)
+            {
+                int fc;
+                if (kv.Value != 1 || !fullCount.TryGetValue(kv.Key, out fc) || fc < 2) continue;
+                int a = (int)(kv.Key >> 32), b = (int)(kv.Key & 0xffffffffL);
+                List<int> l;
+                if (!nb.TryGetValue(a, out l)) { l = new List<int>(); nb[a] = l; } l.Add(b);
+                if (!nb.TryGetValue(b, out l)) { l = new List<int>(); nb[b] = l; } l.Add(a);
+            }
+            var used = new HashSet<long>();
+            int loops = 0;
+            foreach (var start in new List<int>(nb.Keys))
+            {
+                foreach (var first in nb[start])
+                {
+                    if (used.Contains(Key(start, first))) continue;
+                    var loop = new List<int> { start };
+                    used.Add(Key(start, first));
+                    int prev = start, cur = first, guard = 0;
+                    while (cur != start && guard++ < 10000)
+                    {
+                        loop.Add(cur);
+                        int next = -1;
+                        foreach (var c in nb[cur]) if (c != prev && !used.Contains(Key(cur, c))) { next = c; break; }
+                        if (next < 0) foreach (var c in nb[cur]) if (!used.Contains(Key(cur, c))) { next = c; break; }
+                        if (next < 0) break;
+                        used.Add(Key(cur, next));
+                        prev = cur; cur = next;
+                    }
+                    if (cur != start || loop.Count < 3) continue;
+                    AddCap(loop, rep, pos, uv, bw, verts, uvs, nrms, bws, tris);
+                    loops++;
+                }
+            }
+            return loops;
+        }
+
+        private static long Key(int a, int b) { int lo = Mathf.Min(a, b), hi = Mathf.Max(a, b); return ((long)lo << 32) | (uint)hi; }
+
+        private static void CountEdges(int[] t, int[] weld, Dictionary<long, int> count)
+        {
+            for (int i = 0; i + 2 < t.Length; i += 3)
+                for (int e = 0; e < 3; e++)
+                {
+                    int a = weld[t[i + e]], b = weld[t[i + (e + 1) % 3]];
+                    if (a == b) continue;
+                    long k = Key(a, b);
+                    int c; count.TryGetValue(k, out c); count[k] = c + 1;
+                }
+        }
+
+        private static void AddCap(List<int> loop, Dictionary<int, int> rep, Vector3[] pos, Vector2[] uv, BoneWeight[] bw,
+                                   List<Vector3> verts, List<Vector2> uvs, List<Vector3> nrms, List<BoneWeight> bws, List<int> tris)
+        {
+            int n = loop.Count;
+            var c = Vector3.zero; var normal = Vector3.zero; var wsum = new Dictionary<int, float>();
+            for (int i = 0; i < n; i++)
+            {
+                var p = pos[rep[loop[i]]]; var q = pos[rep[loop[(i + 1) % n]]];
+                c += p;
+                normal += new Vector3((p.y - q.y) * (p.z + q.z), (p.z - q.z) * (p.x + q.x), (p.x - q.x) * (p.y + q.y));   // Newell
+                var w = bw[rep[loop[i]]];
+                AddW(wsum, w.boneIndex0, w.weight0); AddW(wsum, w.boneIndex1, w.weight1); AddW(wsum, w.boneIndex2, w.weight2); AddW(wsum, w.boneIndex3, w.weight3);
+            }
+            c /= n;
+            normal = normal.sqrMagnitude > 1e-12f ? normal.normalized : Vector3.up;
+            var top = new List<KeyValuePair<int, float>>(wsum);
+            top.Sort((x, y) => y.Value.CompareTo(x.Value));
+            float tot = 0f; for (int i = 0; i < top.Count && i < 4; i++) tot += top[i].Value;
+            var cw = new BoneWeight();
+            if (top.Count > 0) { cw.boneIndex0 = top[0].Key; cw.weight0 = top[0].Value / tot; }
+            if (top.Count > 1) { cw.boneIndex1 = top[1].Key; cw.weight1 = top[1].Value / tot; }
+            if (top.Count > 2) { cw.boneIndex2 = top[2].Key; cw.weight2 = top[2].Value / tot; }
+            if (top.Count > 3) { cw.boneIndex3 = top[3].Key; cw.weight3 = top[3].Value / tot; }
+            for (int side = 0; side < 2; side++)
+            {
+                var nn = side == 0 ? normal : -normal;
+                int b0 = verts.Count;
+                for (int i = 0; i < n; i++) { int v = rep[loop[i]]; verts.Add(pos[v]); uvs.Add(uv[v]); nrms.Add(nn); bws.Add(bw[v]); }
+                int ci = verts.Count; verts.Add(c); uvs.Add(uv[rep[loop[0]]]); nrms.Add(nn); bws.Add(cw);
+                for (int i = 0; i < n; i++)
+                {
+                    int a = b0 + i, b = b0 + (i + 1) % n;
+                    if (side == 0) { tris.Add(ci); tris.Add(a); tris.Add(b); } else { tris.Add(ci); tris.Add(b); tris.Add(a); }
+                }
+            }
+        }
+
+        private static void AddW(Dictionary<int, float> d, int bone, float w) { if (w <= 0f) return; float o; d.TryGetValue(bone, out o); d[bone] = o + w; }
 
         // Character switched: the next body is built from the other model
         public static void Reset() { _inside.Clear(); Full = NoHead = NoArms = ArmsOnly = null; BodyTex = null; _tried = _texTried = false; }
