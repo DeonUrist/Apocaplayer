@@ -528,29 +528,40 @@ namespace Apocaplayer
             Plugin.Verbose("Throw aim: hand " + off.ToString("0.0") + " deg off the grenade's line (spawn " + tx.ToString("0.00") + " m) -> spine turn " + _aimYaw[key].ToString("0.0"));
         }
 
+        // 1.7.4: during a strike the chest faces where the game hits (the eye's yaw = the crosshair), whatever the legs / strafe / the clip's own
+        // hip turn do: spine, spine1, spine2 turn (a third each, about the world up) so the shoulder line is square to the aim; for punches a
+        // learned per-blow offset is added on top so the fist lands on the middle line (measured against the aim, not the body)
         private void PunchAim()
         {
-            if (_strike == null || _strikeHand == null || !_striking) return;
+            if (_strike == null || !_striking || Game.PlayerCamera == null) return;
             float el = Time.time - _strikeAt, w = Mathf.Min(Plugin.StrikeWindup.Value, _strikeCycle * 0.4f), back = (_strikeCycle - w) * 0.5f;
-            float k = el < w ? el / Mathf.Max(0.001f, w) : el < w + back ? 1f : Mathf.Clamp01(1f - (el - w - back) / Mathf.Max(0.01f, back));
-            float aim;
-            _aimYaw.TryGetValue(_strike.Key, out aim);
-            float d = aim * k;
+            float k = el < w ? Mathf.Clamp01(el / Mathf.Max(0.001f, w * 0.5f)) : el < w + back ? 1f : Mathf.Clamp01(1f - (el - w - back) / Mathf.Max(0.01f, back));
+            Transform s0, s1, s2, la, ra, chest;
+            if (!Bones.TryGetValue("mixamorig:Spine", out s0) || !Bones.TryGetValue("mixamorig:Spine1", out s1) || !Bones.TryGetValue("mixamorig:Spine2", out s2)
+                || !Bones.TryGetValue("mixamorig:LeftArm", out la) || !Bones.TryGetValue("mixamorig:RightArm", out ra)) return;
+            chest = s2;
+            Vector3 up = Root != null ? Root.transform.up : Vector3.up;
+            Vector3 aimF = Vector3.ProjectOnPlane(Game.PlayerCamera.forward, up);
+            if (aimF.sqrMagnitude < 1e-4f) return;
+            Vector3 face = Vector3.ProjectOnPlane(Vector3.Cross(ra.position - la.position, up), up);
+            float square = face.sqrMagnitude > 1e-6f ? Vector3.SignedAngle(face, aimF, up) : 0f;   // turn that makes the chest face the aim
+            float learned = 0f;
+            if (_strikeHand != null) _aimYaw.TryGetValue(_strike.Key, out learned);
+            float d = Mathf.Clamp(square + learned, -90f, 90f) * k;
             if (Mathf.Abs(d) > 0.01f)
             {
-                Turn("mixamorig:Spine", Vector3.up, d / 3f);
-                Turn("mixamorig:Spine1", Vector3.up, d / 3f);
-                Turn("mixamorig:Spine2", Vector3.up, d / 3f);
+                var q = Quaternion.AngleAxis(d / 3f, up);
+                s0.rotation = q * s0.rotation; s1.rotation = q * s1.rotation; s2.rotation = q * s2.rotation;
             }
-            if (_aimMeasured || el < w) return;
+            if (_strikeHand == null || _aimMeasured || el < w) return;
             _aimMeasured = true;
-            Transform hand, chest;
-            if (!Bones.TryGetValue(_strikeHand, out hand) || !Bones.TryGetValue("mixamorig:Spine2", out chest)) return;
-            var v = _anim.InverseTransformPoint(hand.position) - _anim.InverseTransformPoint(chest.position);
-            if (v.z < 0.1f) return;
-            float off = Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg;   // + = right of the middle
-            _aimYaw[_strike.Key] = Mathf.Clamp(aim - off * (k > 0.99f ? 1f : 0.5f), -45f, 45f);
-            Plugin.Verbose("Punch aim: " + _strike.Key + " landed " + off.ToString("0.0") + " deg off the middle -> spine turn " + _aimYaw[_strike.Key].ToString("0.0"));
+            Transform hand;
+            if (!Bones.TryGetValue(_strikeHand, out hand)) return;
+            Vector3 v = Vector3.ProjectOnPlane(hand.position - chest.position, up);
+            if (Vector3.Dot(v, aimF.normalized) < 0.1f) return;
+            float off = Vector3.SignedAngle(aimF, v, up);   // + = fist right of the aim line
+            _aimYaw[_strike.Key] = Mathf.Clamp(learned - off * (k > 0.99f ? 1f : 0.5f), -45f, 45f);
+            Plugin.Verbose("Punch aim: " + _strike.Key + " landed " + off.ToString("0.0") + " deg off the aim (chest squared " + square.ToString("0.0") + ") -> blow offset " + _aimYaw[_strike.Key].ToString("0.0"));
         }
 
         private void PlayStrike(float dt)
