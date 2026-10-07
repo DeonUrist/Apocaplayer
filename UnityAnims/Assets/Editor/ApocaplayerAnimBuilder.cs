@@ -36,7 +36,7 @@ public static class ApocaplayerAnimBuilder
             "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleJump",
             "RifleDeathFront", "RifleDeathBack", "RifleDeathRight", "RifleDeathHeadFront", "RifleDeathHeadBack", "RifleCrouchDeathHeadFront",
             "RifleIdleLow", "RifleWalkLow", "RifleRunLow", "RifleWalkToStop", "WalkStrafeLeft", "WalkStrafeRight", "LeftTurn", "RightTurn", "CrouchStrafeLeft",
-            "PistolIdle", "PistolRun", "PistolFire", "PistolReload", "PistolJump",
+            "PistolIdle", "PistolRun", "PistolFire", "PistolReload", "PistolJump", "ShotgunPump",
             "Idle", "Walk", "WalkBack", "Run", "CrouchIdle", "Kick", "Jump", "Melee", "MeleeCombo", "Punch", "Punch1", "Punch2", "Melee1", "Melee2", "Throw", "ThrowRight" };
         foreach (var n in Loco("Walk", "Strafe")) l.Add("Rifle" + n);
         foreach (var n in Loco("Run", "RunStrafe")) l.Add("Rifle" + n);
@@ -64,7 +64,7 @@ public static class ApocaplayerAnimBuilder
     // else the hips stay put and the feet slide under her (Idle sways 16 cm sideways)
     static bool Moves(string n) { return n.Contains("Walk") || n.Contains("Run") || n.Contains("Sprint") || n.Contains("Strafe") || n.Contains("Jump"); }
 
-    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || (n.Contains("Jump") && !n.Contains("JumpLoop")) || n.Contains("Turn") || n.Contains("Death") || n.Contains("ToStop"); }
+    static bool OneShot(string n) { return n.Contains("Reload") || n.Contains("Pump") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || (n.Contains("Jump") && !n.Contains("JumpLoop")) || n.Contains("Turn") || n.Contains("Death") || n.Contains("ToStop"); }
 
     [MenuItem("Apocaplayer/Build animation bundle")]
     public static void Build()

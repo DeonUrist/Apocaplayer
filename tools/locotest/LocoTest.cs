@@ -99,7 +99,7 @@ static class LocoTest
                 LocoPlan.Weights(m, r, sp, lx, lz, cr, relaxed ? 1f : 0f, LocoPlan.CrouchMirror(k), 75f, w, out hip);
                 float follow = LocoPlan.ChestFollowOf(k, cr, m);
                 bool hold, sync;
-                string up = LocoPlan.Upper(k, relaxed, aim, shoot, false, cr, m, r, lz, w[LocoPlan.B_RCLEFT], Has, out hold, out sync);
+                string up = LocoPlan.Upper(k, relaxed, aim, shoot, false, false, cr, m, r, lz, w[LocoPlan.B_RCLEFT], Has, out hold, out sync);
                 var parts = new List<string>();
                 for (int i = 0; i < LocoPlan.BN; i++)
                 {

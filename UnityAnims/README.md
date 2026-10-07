@@ -29,7 +29,11 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | RifleTurnLeft.fbx, RifleTurnRight.fbx, RifleCrouchTurnLeft.fbx, RifleCrouchTurnRight.fbx | turning in place (played when you turn a lot standing still) | "turn 90 left/right", "crouching turn 90 left/right" |
 | RifleJumpUp.fbx, RifleJumpLoop.fbx, RifleJumpDown.fbx | the rifle jump: take-off, in the air, landing | "jump up", "jump loop", "jump down" |
 | RifleFire.fbx, RifleCrouchFire.fbx, RifleReload.fbx | firing standing / crouched (else the aim clips), the reload | "Firing Rifle", "Crouch Rifle Fire", "Rifle Reload" |
+| ShotgunPump.fbx (2.1.6) | cocking: plays (0.15..0.93 of it, PumpClipSpeed 2x) each time the pump shotgun (slamberg_500) or the bolt rifle (redmark_m11) cocks | "Shotgun Pump" |
 | **Pistol: only the hands** - PistolIdle.fbx (gun lowered), PistolFire.fbx (aim = its first frame, shooting = playing), PistolRun.fbx (its upper body while running), PistolReload.fbx, PistolJump.fbx | the upper body over the rifle legs | "Pistol Idle", "Shooting", "Pistol Run", "Pistol Reload", "Pistol Jump" |
+
+A clip from elsewhere (not Mixamo) goes through `tools/retarget_to_mixamo.py` first (Blender's bpy): it puts the animation on X Bot's mixamorig
+skeleton. 2.1.6's PistolReload.fbx is the Sketchfab Desert Eagle reload retargeted that way; the original is kept in `UnityAnims/Source/`.
 | **Bare hands / melee: only the hands** - Idle.fbx, Walk.fbx, WalkBack.fbx, Run.fbx, CrouchIdle.fbx | the upper body over the rifle legs (Walk / Run in step with them) | "Idle", "Walking", "Walking Backwards", "Running", "Crouching Idle" |
 | Jump.fbx, Kick.fbx | jumping (bare hands), the Kick key | "Jump", "Front Kick" |
 | Melee.fbx, MeleeCombo.fbx, Punch.fbx (Punch1/Punch2) | a swing, two chained blows, bare-hand punches (Punch = eight blows in one clip) | "Sword And Shield Slash", "Sword And Shield Attack", "Punching" |

@@ -152,7 +152,8 @@ namespace Apocaplayer
         }
 
         // the upper source's clip: a new clip starts at once, the old pose fades out under it (as SetUpper)
-        private void RigSet(string clip, bool hold, bool sync)
+        private float _rigSpeed = 1f;
+        private void RigSet(string clip, bool hold, bool sync, float start = 0f, float speed = 1f)
         {
             if (!_rigGraph.IsValid()) return;
             if (clip != _rigClip)
@@ -165,10 +166,11 @@ namespace Apocaplayer
                 _rigCur = AnimationClipPlayable.Create(_rigGraph, Anims.Get(clip) ?? _fallback);
                 _rigCur.SetApplyFootIK(false);
                 _rigGraph.Connect(_rigCur, 0, _rigMix, 0);
-                _rigCur.SetTime(0);
+                var nc = Anims.Get(clip);
+                _rigCur.SetTime(nc != null ? start * nc.length : 0f);
                 _rigMix.SetInputWeight(0, _rigX); _rigMix.SetInputWeight(1, 1f - _rigX);
             }
-            _rigHold = hold; _rigSync = sync;
+            _rigHold = hold; _rigSync = sync; _rigSpeed = speed;
         }
 
         private float PhaseOf(string clip)
@@ -227,7 +229,7 @@ namespace Apocaplayer
             if (_rigHold) { _rigCur.SetSpeed(0); _rigCur.SetTime(0); }
             else
             {
-                _rigCur.SetSpeed(1);
+                _rigCur.SetSpeed(_rigSpeed);
                 // in step with the legs: the same normalized time as the base's main moving clip
                 if (_rigSync && _baseDom >= 0 && cc != null && cc.length > 0.01f)
                     _rigCur.SetTime(LocoPlan.Time01(_stride + Plugin.UpperPhase.Value, PhaseOf(_rigClip), false) * cc.length);
@@ -262,6 +264,7 @@ namespace Apocaplayer
         // the base layer: idle / 8 directions × walk, run, sprint / crouch idle / 8 crouched walks, by the body's direction and speed
         // relaxed: how much of the standing locomotion comes from the relaxed set (not aiming / striking), and the legs' turn toward the way she moves
         private float _relaxW, _hipTurn;
+        private float _pumpUntil; private bool _cocking, _pumpStart;
         private int _locoKind;
         private float YawIn(Transform a, Transform b)   // facing of the line a->b (pointing to her right) about her up axis, + = right
         {
@@ -335,7 +338,7 @@ namespace Apocaplayer
             {
                 idle = "RifleIdle";
                 for (int i = 0; i < BN; i++) if (!l.Contains(_bname[i])) l.Add(_bname[i]);
-                foreach (var n in new[] { "Idle", "RifleWalkLow", "RifleRunLow", "WalkStrafeLeft", "WalkStrafeRight", "WalkBack", "RifleWalkToStop", "LeftTurn", "RightTurn", "RifleAim", "RifleFire", "RifleCrouchAim", "RifleCrouchFire", "RifleReload", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "Kick" })
+                foreach (var n in new[] { "ShotgunPump", "Idle", "RifleWalkLow", "RifleRunLow", "WalkStrafeLeft", "WalkStrafeRight", "WalkBack", "RifleWalkToStop", "LeftTurn", "RightTurn", "RifleAim", "RifleFire", "RifleCrouchAim", "RifleCrouchFire", "RifleReload", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "Kick" })
                     if (Has(n) && !l.Contains(n)) l.Add(n);
             }
             else if (kind == Props.Kind.Pistol)
@@ -499,6 +502,19 @@ namespace Apocaplayer
             _hipTurn = Mathf.Lerp(_hipTurn, hipWant, 1f - Mathf.Exp(-dt * 8f));
             bool click = live && Input.GetMouseButtonDown(0);
             bool reloadingNow = gunKind && ReloadNow(weapon);
+            // (2.1.6) cocking the shotgun / bolt rifle: ShotgunPump's rack on the upper body, once per cock
+            string atk = ""; float atkT;
+            bool cockNow = kind == Props.Kind.Rifle && Game.Attack(weapon, out atk, out atkT) && LocoPlan.IsCocking(atk);
+            if (cockNow && !_cocking && Has("ShotgunPump"))
+            {
+                var pc = Anims.Get("ShotgunPump");
+                _pumpUntil = Time.time + (LocoPlan.PumpTo - LocoPlan.PumpFrom) * pc.length / Mathf.Max(0.1f, Plugin.PumpClipSpeed.Value);
+                _pumpStart = true;
+                Plugin.Verbose("Cocking " + weapon + " (" + atk + "): ShotgunPump");
+            }
+            _cocking = cockNow;
+            if (_reloading || kind != Props.Kind.Rifle) _pumpUntil = 0f;
+            bool pumping = Time.time < _pumpUntil;
             bool pvReload = _previewName != null && _previewName.EndsWith("Reload");
             if (pvReload) reloadingNow = true;
             if (reloadingNow && !_reloading) { _reloadStart = Time.time; }
@@ -602,8 +618,14 @@ namespace Apocaplayer
             string up = null; bool hold = false, sync = false;
             if (_previewName != null && previewSlot >= 0 && _bname[previewSlot] == _previewName) up = null;   // a base clip: its own upper body
             else if (_previewName != null && !_previewName.Contains("Jump") && _previewName != "Kick" && !_previewName.Contains("Turn")) { up = _previewName; hold = false; }
-            else up = LocoPlan.Upper(lk, relaxed, aiming, shooting, _reloading, crouch, m, _runW, legDir.z, _bw[LocoPlan.B_RCLEFT], Has, out hold, out sync);
-            if (up != null) RigSet(up, hold, sync);
+            else up = LocoPlan.Upper(lk, relaxed, aiming, shooting, _reloading, pumping, crouch, m, _runW, legDir.z, _bw[LocoPlan.B_RCLEFT], Has, out hold, out sync);
+            if (up == "ShotgunPump")
+            {   // each cock starts the rack again (the same clip twice in a row: restart it)
+                if (_pumpStart && _rigClip == "ShotgunPump") _rigClip = "";
+                RigSet(up, false, false, LocoPlan.PumpFrom, Plugin.PumpClipSpeed.Value);
+                _pumpStart = false;
+            }
+            else if (up != null) RigSet(up, hold, sync);
             _rigWant = up != null ? 1f : 0f;
             // relaxed running: the legs face the way she runs (hips about up); the chest is put back toward the camera by the rig (rifle, pistol,
             // bare hands all have one), else by a counter-turn of the spine

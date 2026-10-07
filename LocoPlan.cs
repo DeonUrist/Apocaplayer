@@ -129,13 +129,15 @@ namespace Apocaplayer
         // the upper source (UpperRig) - which clip moves the hands; null = the legs' own clip moves them too
         //   hold = its first frame, frozen (aiming without firing); sync = walks / runs in step with the legs
         //   crouchMirror = weight of the mirrored crouch strafe (its arms are mirrored too: a rifle needs the unmirrored clip's hands)
-        public static string Upper(int kind, bool relaxed, bool aiming, bool shooting, bool reloading, float crouch, float m, float runW, float lz, float crouchMirror, Func<string, bool> has, out bool hold, out bool sync)
+        //   pumping (2.1.6): the drawn shotgun / bolt rifle is being cocked (its [Attack] FSM in "pump" / "bolt action") -> ShotgunPump
+        public static string Upper(int kind, bool relaxed, bool aiming, bool shooting, bool reloading, bool pumping, float crouch, float m, float runW, float lz, float crouchMirror, Func<string, bool> has, out bool hold, out bool sync)
         {
             hold = false; sync = false;
             bool moving = m > 0.5f, running = runW > 0.5f, crouched = crouch > 0.5f;
             if (kind == K_RIFLE)
             {
                 if (reloading && has("RifleReload")) return "RifleReload";
+                if (pumping && has("ShotgunPump")) return "ShotgunPump";
                 if (aiming || shooting)
                 {
                     string aim = crouched && has("RifleCrouchAim") ? "RifleCrouchAim" : has("RifleAim") ? "RifleAim" : null;
@@ -190,6 +192,12 @@ namespace Apocaplayer
             if (ph < 0) ph += 1.0;
             return (float)ph;
         }
+        // ---- (2.1.6) cocking: the [Attack] FSM states in which the game cocks a gun (slamberg_500 pump shotgun: "pump", 0.25 s; redmark_m11 bolt
+        // rifle: "bolt action", until its arms' bolt animation ends). Seen only when the gun really cocks - with the hammer already up the FSM
+        // passes those states within the frame. ShotgunPump.fbx: its rack is 0.15 .. 0.93 of the clip (both hands at the shoulder before / after).
+        public static bool IsCocking(string attackState) { return attackState == "pump" || attackState == "bolt action"; }
+        public const float PumpFrom = 0.15f, PumpTo = 0.93f;
+
         // which kinds crouch-strafe left on the mirrored strafe right
         public static bool CrouchMirror(int kind) { return kind == K_NONE; }
 
