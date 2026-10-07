@@ -201,7 +201,7 @@ namespace Apocaplayer
             if (i == 1 || i == 2) mount.Depth = posed.size.z;
             Vector3 offset = i == 0 ? new Vector3(0, -.08f, -.08f - _packDepth * .5f)
                 : i <= 2 ? backpack ? new Vector3(side * (_packWidth * .5f + posed.size.x * .5f + .005f), -.08f, -.08f - _packDepth * .5f)
-                    : new Vector3(0f, -.08f, -.08f - mount.Depth * .5f)
+                    : new Vector3(-.03f, -.04f, -.08f - mount.Depth * .5f)          // (2.2.4) the cross 3 cm to her left and 4 cm higher (Denis: the middle of her back)
                 : i <= 4 ? new Vector3(side * .11f, -.15f, .015f)
                 : i <= 6 ? new Vector3(side * .20f, -.09f, .04f)
                 : new Vector3(0, .03f, -.20f);
