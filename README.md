@@ -103,7 +103,7 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | General | BodyFirstPerson | false | First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat); off = only the first-person arms |
 | General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around her (off by default: the game rotates a held item with it) |
 | General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around her, back behind her on release; None = no key |
-| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
+| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the clip (every rifle / pistol clip), - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
 | Debug | ToggleMiddleMouse | false | Third person: off = hold the observing key / middle mouse button to orbit around her, back behind her on release; on = a press turns orbiting on / off |
 | Debug | VerboseLog | false | Detailed log |
 
@@ -188,16 +188,28 @@ or a glTF animation sampler in the plugin (not written yet).
 ## Better animations (optional bundle)
 
 `UnityAnims/` is a tiny Unity 2020.3.49f1 project: drop Mixamo FBX files in, run *Apocaplayer → Build animation bundle*, and it
-writes `Models/apocaplayer_anims.bundle`. With at least `Idle` + `Walk` in it, her third-person body uses those clips (walk,
-back, strafe, run, crouch, a rifle set, aim/fire/reload, pistol, melee, throw) instead of the raider clips and the procedural
-walk, unmirrored, with the raider gun models moved to her right hand. See `UnityAnims/README.md` for the file names.
+writes `Models/apocaplayer_anims.bundle`. See `UnityAnims/README.md` for the file names.
+
+Since 2.0 the bundle works like this: **Mixamo's Rifle pack is the lower body of every weapon** - idle, walking / running / sprinting in
+eight directions, crouching in eight directions, turning in place and the jump, blended by the body's real direction and speed (no mirrored
+clips: a mirrored strafe put the gun in the other hand). With a rifle the pack's own clips show, and aiming (right mouse button), firing and
+reloading put `RifleAim` / `RifleFire` / `RifleCrouchAim` / `RifleCrouchFire` / `RifleReload` on the upper body. With a pistol the upper body is
+`PistolIdle` (lowered), `PistolRun` while running, `PistolFire` (aiming: its first frame; shooting: playing) and `PistolReload`; with bare hands
+or a melee weapon `Idle`, `Walk` / `WalkBack`, `Run` (in step with the legs) and `CrouchIdle`. A standing clip's upper body on crouched legs
+is done by a hidden second copy of her skeleton (the *UpperRig*) whose spine, arms and head she copies - an avatar mask alone would lift her
+out of the crouch. With at least `RifleIdle` + `RifleWalk` in the bundle her body uses it; without it the raider clips and the procedural walk.
+
+**Weapon poses** (`WeaponAdjustment`, numpad): the weapon's place in her right hand is kept **per clip** - every rifle clip (all 34 locomotion
+clips, aim, fire, reload, turns, jumps, kick) and every pistol clip (idle, run, fire, reload, jump, kick) has its own entry, and numpad 9/3 cycle
+through all of them, each played standing still. A clip without an entry shows the kind's idle pose (`RifleIdle` / `PistolIdle`).
 
 Blast lance: held in her right hand (its world model, placed like a machete); its throw plays `ThrowRight` (right-handed;
 the grenade's `Throw` is the left-handed one) timed so her release comes when the game lets the lance go.
 Melee weapons: a swing plays `Melee` timed to the first-person swing; swings chained straight after it (held button, fast clicks)
-play `MeleeCombo`'s two blows by turns. Bare hands: `Punch1` / `Punch2` (or `Melee1` / `Melee2`) by turns. A strike follows the game's
-`[Attack]` FSM (the hit lands the moment the swing starts): the clip's wind-up in 0.08 s, then the blow and the way back over the swing's
-cycle (0.35 s hands, 0.4 s machete). The blow times are read off the clips (`Body.cs`, `Punches` / `Combo`).
+play `MeleeCombo`'s two blows by turns. Bare hands: `Punch` (eight blows in one clip, in order; or `Punch1` / `Punch2` by turns). During a
+strike the chest faces the crosshair. A strike follows the game's `[Attack]` FSM (the hit lands the moment the swing starts): the clip's
+wind-up in 0.08 s, then the blow and the way back over the swing's cycle (0.35 s hands, 0.4 s machete). The blow times are read off the
+clips (`Body.cs`, `PunchSeq` / `Combo`).
 
 ## Build
 

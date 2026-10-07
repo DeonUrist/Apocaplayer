@@ -7,7 +7,7 @@ using UnityEngine;
 // 1. every FBX in Assets/Mixamo is imported as Humanoid (avatar created from the file), in place (root motion baked into the pose),
 //    looping unless it is a one-shot (Reload, Melee, Throw); its clip is named after the file (Walk.fbx -> "Walk"); standing clips keep their
 //    sideways sway in the pose (feet stay planted), moving ones put it in the root (she walks on the spot)
-// 2. a missing StrafeRight / RifleStrafeRight is made by mirroring the left one (and the other way round)
+// 2. (2.0) nothing is mirrored any more (a mirrored strafe put the gun in the other hand); the Throw is the only mirrored clip
 // 3. the clips are copied to Assets/Clips/*.anim and packed into Build/apocaplayer_anims.bundle (Windows 64)
 // 4. the bundle is copied into the game's BepInEx/plugins/Apocaplayer/Models folder when that folder exists
 public static class ApocaplayerAnimBuilder
@@ -18,21 +18,27 @@ public static class ApocaplayerAnimBuilder
     const string BundleName = "apocaplayer_anims.bundle";
     const string GameModels = @"E:\SteamLibrary\steamapps\common\Apocalypter\BepInEx\plugins\Apocaplayer\Models";
 
-    static readonly string[] Known =
+    // 2.0: the Rifle pack is the lower body of EVERY weapon (8 directions × walk / run / sprint, crouch, turns, jump); the pistol and the bare
+    // hands only need the clips that move the hands (the mod's UpperRig puts their upper body on the rifle legs)
+    static readonly string[] Dirs = { "", "ForwardRight", "Right", "BackRight", "Back", "BackLeft", "Left", "ForwardLeft" };
+    static IEnumerable<string> Loco(string tier, string strafe)
     {
-        "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "RunStrafeLeft", "RunStrafeRight",
-        "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight",
-        "RifleIdle", "RifleWalk", "RifleWalkBack", "RifleStrafeLeft", "RifleStrafeRight", "RifleRun", "RifleRunStrafeLeft", "RifleRunStrafeRight",
-        "RifleCrouchIdle", "RifleCrouchWalk", "RifleCrouchWalkBack", "RifleCrouchStrafeLeft", "RifleCrouchStrafeRight",
-        "RifleFireWalk", "RifleFireWalkBack", "RifleFireStrafeLeft", "RifleFireStrafeRight",
-        "RifleFireCrouchWalk", "RifleFireCrouchWalkBack", "RifleFireCrouchStrafeLeft", "RifleFireCrouchStrafeRight",
-        "PistolIdle", "PistolWalk", "PistolWalkBack", "PistolStrafeLeft", "PistolStrafeRight", "PistolRun", "PistolRunStrafeLeft", "PistolRunStrafeRight",
-        // no Pistol crouch clips: crouched with a pistol = Rifle crouch legs + the pistol's standing upper body (the mod's UpperRig, 1.8.0)
-        "PistolFireWalk", "PistolFireWalkBack", "PistolFireStrafeLeft", "PistolFireStrafeRight", "PistolJump",
-        "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
-        "MeleeCombo", "Punch", "Punch1", "Punch2", "Melee1", "Melee2", "ThrowRight",
-        "RifleFireRun", "RifleFireRunStrafeLeft", "RifleFireRunStrafeRight", "PistolFireRun", "PistolFireRunStrafeLeft", "PistolFireRunStrafeRight",
-    };
+        foreach (var d in Dirs) yield return (d == "Right" || d == "Left") ? strafe + d : tier + d;
+    }
+    static readonly string[] Known = BuildKnown();
+    static string[] BuildKnown()
+    {
+        var l = new List<string> { "RifleIdle", "RifleAim", "RifleFire", "RifleCrouchIdle", "RifleCrouchAim", "RifleCrouchFire", "RifleReload",
+            "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleJump",
+            "RifleDeathFront", "RifleDeathBack", "RifleDeathRight", "RifleDeathHeadFront", "RifleDeathHeadBack", "RifleCrouchDeathHeadFront",
+            "PistolIdle", "PistolRun", "PistolFire", "PistolReload", "PistolJump",
+            "Idle", "Walk", "WalkBack", "Run", "CrouchIdle", "Kick", "Jump", "Melee", "MeleeCombo", "Punch", "Punch1", "Punch2", "Melee1", "Melee2", "Throw", "ThrowRight" };
+        foreach (var n in Loco("Walk", "Strafe")) l.Add("Rifle" + n);
+        foreach (var n in Loco("Run", "RunStrafe")) l.Add("Rifle" + n);
+        foreach (var n in Loco("Sprint", "SprintStrafe")) l.Add("Rifle" + n);
+        foreach (var n in Loco("CrouchWalk", "CrouchStrafe")) l.Add("Rifle" + n);
+        return l.ToArray();
+    }
 
     // naming: [Rifle|Pistol][Fire][Crouch]Action, e.g. RifleCrouchFire, PistolFireWalkBack. File names are normalised to that:
     // RunLeftStrafe -> RunStrafeLeft, wrong capitals (RIfleFireWalk) -> the known spelling, old CrouchRifleFire -> RifleCrouchFire
@@ -51,9 +57,9 @@ public static class ApocaplayerAnimBuilder
     // clips that move her (walk, run, strafe, jump): forward/sideways motion goes to the (ignored) root, so she walks on the spot and the mod can
     // read the clip's walking speed. Everything else stands still (idles, fire, reload, melee, punches, kick ...): its sway is baked into the pose,
     // else the hips stay put and the feet slide under her (Idle sways 16 cm sideways)
-    static bool Moves(string n) { return n.Contains("Walk") || n.Contains("Run") || n.Contains("Strafe") || n.Contains("Jump"); }
+    static bool Moves(string n) { return n.Contains("Walk") || n.Contains("Run") || n.Contains("Sprint") || n.Contains("Strafe") || n.Contains("Jump"); }
 
-    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || n.Contains("Jump"); }
+    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || (n.Contains("Jump") && !n.Contains("JumpLoop")) || n.Contains("Turn") || n.Contains("Death"); }
 
     [MenuItem("Apocaplayer/Build animation bundle")]
     public static void Build()
@@ -82,16 +88,7 @@ public static class ApocaplayerAnimBuilder
             list.Add(main);
             // the blast lance is thrown with the RIGHT hand (it is the drawn weapon): the same clip unmirrored
             if (MirrorThrow && name == "Throw" && !have.Contains("ThrowRight")) list.Add(Setup(src[0], "ThrowRight"));
-            string mirrorName = null;
-            if (name.EndsWith("StrafeLeft")) mirrorName = name.Replace("StrafeLeft", "StrafeRight");
-            else if (name.EndsWith("StrafeRight")) mirrorName = name.Replace("StrafeRight", "StrafeLeft");
-            if (mirrorName != null && !have.Contains(mirrorName))
-            {
-                var m = Setup(src[0], mirrorName);
-                m.mirror = true;
-                list.Add(m);
-                Debug.Log("Apocaplayer: " + mirrorName + " = mirrored " + name);
-            }
+            // (2.0) no mirrored strafes any more: a mirrored clip swaps the hands, the gun ends up in the left one - the rifle pack has both sides
             imp.clipAnimations = list.ToArray();
             imp.SaveAndReimport();
         }
@@ -144,7 +141,8 @@ public static class ApocaplayerAnimBuilder
             loopTime = !OneShot(name),
             loopPose = false,
             // rotation and height baked into the pose; forward/sideways motion of moving clips NOT baked (see Moves)
-            lockRootRotation = true, keepOriginalOrientation = true,
+            // turns in place: the 90° turn stays root motion (ignored) - the body already faces the new way, only the feet shuffle
+            lockRootRotation = !name.Contains("Turn"), keepOriginalOrientation = true,
             // jumps: the game lifts her body itself - their height goes to the (ignored) root so she doesn't rise twice
             lockRootHeightY = !name.Contains("Jump"), keepOriginalPositionY = true, heightFromFeet = false,
             // standing clips: XZ baked, measured from the clip's start (center of mass), so the sway stays and no fixed offset is added

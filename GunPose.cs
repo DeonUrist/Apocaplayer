@@ -12,26 +12,20 @@ namespace Apocaplayer
     // Where each weapon sits in her RIGHT HAND, per animation clip: ABSOLUTE local position (cm) and rotation (degrees, Euler x, y, z) of the
     // weapon model under the hand bone. Nothing in the game changes these: no AutoGrip, no base line, no follow-the-left-hand - only the numpad
     // (WeaponAdjustment) edits them.
-    //   lookup per (weapon, animation): config/Apocaplayer/weapon-poses.txt  >  BuiltinPoses (hard-coded in the mod)  >  the weapon's Idle
-    //   entry  >  the raider's grip.
+    //   (2.0) entries are keyed by the CLIP NAME that moves her hands (RifleWalkForwardLeft, PistolFire, Kick ...), one entry per clip.
+    //   lookup per (weapon, clip): config/Apocaplayer/weapon-poses.txt  >  BuiltinPoses (hard-coded in the mod)  >  the weapon kind's idle clip
+    //   (RifleIdle / PistolIdle, set by Body)  >  the weapon's old "Idle" entry  >  the raider's grip.
     // Every save also writes config/Apocaplayer/BuiltinPoses.generated.cs = the complete table as C#: copy it over BuiltinPoses.cs in the repo
     // to hard-code the poses.
     // Grips from 0.5.x / 0.6.x (offsets on top of the raider grip + AutoGrip, weapon-grips.cfg + the [Weapon grip] lines) are converted once per
     // weapon into absolute poses (Body.PoseProp -> ConvertLegacy), then never read again for that weapon.
     internal static class GunPose
     {
-        // 0..12: the locomotion clips (same order as Body's slots), 13..25: the same slots of the firing set, 26: reload, 27: jump
-        public const int SLOTS = 13, FIRE0 = 13, P_RELOAD = 26, P_JUMP = 27, P_KICK = 28;
-        public static readonly string[] Poses =
-        {
-            "Idle", "Walk", "WalkBack", "StrafeLeft", "StrafeRight", "Run", "RunStrafeLeft", "RunStrafeRight",
-            "CrouchIdle", "CrouchWalk", "CrouchWalkBack", "CrouchStrafeLeft", "CrouchStrafeRight",
-            "Fire", "FireWalk", "FireWalkBack", "FireStrafeLeft", "FireStrafeRight", "FireRun", "FireRunStrafeLeft", "FireRunStrafeRight",
-            "CrouchFire", "FireCrouchWalk", "FireCrouchWalkBack", "FireCrouchStrafeLeft", "FireCrouchStrafeRight",
-            "Reload", "Jump", "Kick",
-        };
-        public static bool IsFire(int pose) { return pose >= FIRE0 && pose < P_RELOAD; }
-        private static int PoseIndex(string name) { return Array.IndexOf(Poses, name); }
+        // the clips the drawn weapon can show (set by Body.SetPoseList): the numpad 9/3 cycle, in that order
+        private static readonly List<string> _list = new List<string>();
+        private static string _idleName = "Idle";
+        public static string[] Poses { get { return _list.ToArray(); } }   // (kept for other mods reading it by reflection)
+        private static int PoseIndex(string name) { int i = _list.IndexOf(name); return i >= 0 ? i : 1000; }
 
         private static string _dir, _file, _export;
         private static readonly Dictionary<string, float[]> _user = new Dictionary<string, float[]>();      // "weapon|Anim" -> x,y,z,rx,ry,rz
@@ -104,7 +98,7 @@ namespace Apocaplayer
                         if (eq <= 0) continue;
                         string anim = line.Substring(0, eq).Trim();
                         var v = Parse(line.Substring(eq + 1));
-                        if (v != null && PoseIndex(anim) >= 0 && !HasAny(section)) _legacy[section + "|" + anim] = v;
+                        if (v != null && !HasAny(section)) _legacy[section + "|" + anim] = v;
                     }
                 }
                 // the main config's [Weapon grip] lines are removed from it on this start (old settings) - keep them in legacy-base-lines.txt
@@ -172,18 +166,21 @@ namespace Apocaplayer
             float[] line;
             _legacyBase.TryGetValue(weapon, out line);
             int n = 0;
-            for (int i = 0; i < Poses.Length; i++)
+            var names = new List<string> { "Idle" };
+            string pre = weapon + "|";
+            foreach (var k in _legacy.Keys) if (k.StartsWith(pre, StringComparison.Ordinal)) { string a = k.Substring(pre.Length); if (!names.Contains(a)) names.Add(a); }
+            foreach (var a in names)
             {
                 float[] off;
-                bool own = _legacy.TryGetValue(weapon + "|" + Poses[i], out off);
+                bool own = _legacy.TryGetValue(weapon + "|" + a, out off);
                 if (!own) off = line ?? new float[6];
                 Vector3 p = basePos + new Vector3(off[0], off[1], off[2]) * 0.01f;
                 Quaternion r = baseRot * Quaternion.Euler(off[3], off[4], off[5]);
-                _user[weapon + "|" + Poses[i]] = Abs(p, r);
+                _user[weapon + "|" + a] = Abs(p, r);
                 if (own) n++;
             }
             Save();
-            Plugin.Log.LogInfo("Weapon poses: " + weapon + " converted from the old grips (" + n + " tuned animation(s), all " + Poses.Length + " written)");
+            Plugin.Log.LogInfo("Weapon poses: " + weapon + " converted from the old grips (" + n + " tuned animation(s), " + names.Count + " written)");
         }
 
         public static float[] Abs(Vector3 p, Quaternion r)
@@ -195,17 +192,11 @@ namespace Apocaplayer
         private static string _liveKey;
         private static float[] _live;
 
-        // the animation's own entry (live edit > file > built in), null when it has none
-        public static float[] Own(string weapon, int pose)
+        // the clip's own entry (live edit > file > built in), null when it has none
+        public static float[] Own(string weapon, string clip)
         {
-            var v = OwnExact(weapon, pose);
-            if (v == null && _rep != null && pose < _rep.Length && _rep[pose] >= 0 && _rep[pose] != pose) v = OwnExact(weapon, _rep[pose]);   // same clip as an earlier entry
-            return v;
-        }
-
-        private static float[] OwnExact(string weapon, int pose)
-        {
-            string k = weapon + "|" + Poses[pose];
+            if (string.IsNullOrEmpty(clip)) return null;
+            string k = weapon + "|" + clip;
             if (_live != null && _liveKey == k) return _live;
             float[] v;
             if (_user.TryGetValue(k, out v)) return v;
@@ -213,85 +204,61 @@ namespace Apocaplayer
             return null;
         }
 
-        // ---------------- which entries play the same clip (set by Body for the drawn weapon)
-        private static int[] _rep;          // pose -> first pose that plays the same clip, -1 = the weapon doesn't play it
-        private static string[] _names;     // pose -> clip name
-        private static readonly List<int> _cycle = new List<int>();
-        public static void SetGroups(int[] rep, string[] names)
+        // ---------------- the drawn weapon's clips (set by Body): the numpad cycle, and the kind's idle clip = the fallback for untuned ones
+        public static void SetPoseList(List<string> names, string idleName)
         {
-            _rep = rep; _names = names;
-            _cycle.Clear();
-            for (int i = 0; i < rep.Length; i++) if (rep[i] == i) _cycle.Add(i);
-            // another weapon: stay on the same animation when this weapon has it (to copy a pose across weapons), else back to live
-            _sel = -1;
-            if (_selPose >= 0 && _selPose < rep.Length && rep[_selPose] >= 0) _sel = _cycle.IndexOf(rep[_selPose]);
+            string was = _sel >= 0 && _sel < _list.Count ? _list[_sel] : null;
+            _list.Clear(); _list.AddRange(names);
+            _idleName = idleName ?? "Idle";
+            _sel = was != null ? _list.IndexOf(was) : -1;   // another weapon: stay on the same clip when it has it (to copy a pose across weapons)
         }
-        private static int Rep(int pose) { return _rep != null && pose < _rep.Length && _rep[pose] >= 0 ? _rep[pose] : pose; }
-        // every entry that plays the same clip as pose
-        private static List<int> Members(int pose)
+        private static void Put(string weapon, string clip, float[] v)
         {
-            var l = new List<int>();
-            int r = Rep(pose);
-            if (_rep == null) { l.Add(pose); return l; }
-            for (int i = 0; i < _rep.Length; i++) if (i == r || _rep[i] == r) l.Add(i);
-            if (!l.Contains(pose)) l.Add(pose);
-            return l;
-        }
-        private static void Put(string weapon, int pose, float[] v)
-        {
-            foreach (var i in Members(pose))
-            {
-                if (v == null) _user.Remove(weapon + "|" + Poses[i]);
-                else _user[weapon + "|" + Poses[i]] = (float[])v.Clone();
-            }
-        }
-        private static string Label(int pose)
-        {
-            string clip = _names != null && pose < _names.Length && _names[pose] != null ? _names[pose] : Poses[pose];
-            var m = Members(pose);
-            var parts = new List<string>();
-            foreach (var i in m) parts.Add(Poses[i]);
-            return clip + " (" + string.Join(", ", parts.ToArray()) + ")";
+            if (v == null) _user.Remove(weapon + "|" + clip);
+            else _user[weapon + "|" + clip] = (float[])v.Clone();
         }
 
-        public static bool HasPose(string weapon, int pose) { return !string.IsNullOrEmpty(weapon) && Own(weapon, pose) != null; }
+        public static bool HasPose(string weapon, string clip) { return !string.IsNullOrEmpty(weapon) && Own(weapon, clip) != null; }
 
-        // what the animation shows: its own entry, else the weapon's Idle entry, else the raider grip (def)
-        public static float[] Effective(string weapon, int pose, float[] def)
+        // what the clip shows: its own entry, else the kind's idle clip, else the weapon's old Idle entry, else the raider grip (def)
+        public static float[] Effective(string weapon, string clip, float[] def)
         {
-            return Own(weapon, pose) ?? Own(weapon, 0) ?? def;
+            return Own(weapon, clip) ?? Own(weapon, _idleName) ?? Own(weapon, "Idle") ?? def;
+        }
+        public static float[] Effective(string weapon, int pose, float[] def)   // (other mods, by index into Poses)
+        {
+            return Effective(weapon, pose >= 0 && pose < _list.Count ? _list[pose] : null, def);
         }
 
-        // blend of the animations' poses by weight -> hand-local position (m) and rotation
-        public static void Blend(string weapon, float[] w, Vector3 defPos, Quaternion defRot, out Vector3 pos, out Quaternion rot)
+        // blend of the clips' poses by weight -> hand-local position (m) and rotation
+        public static void Blend(string weapon, Dictionary<string, float> w, Vector3 defPos, Quaternion defRot, out Vector3 pos, out Quaternion rot)
         {
             var def = Abs(defPos, defRot);
             pos = Vector3.zero; float sum = 0f; var q = Vector4.zero; Quaternion first = Quaternion.identity; bool any = false;
-            for (int i = 0; i < Poses.Length; i++)
+            foreach (var kv in w)
             {
-                if (w[i] <= 0.0001f) continue;
-                var v = Effective(weapon, i, def);
-                pos += new Vector3(v[0], v[1], v[2]) * (0.01f * w[i]);
+                if (kv.Value <= 0.0001f) continue;
+                var v = Effective(weapon, kv.Key, def);
+                pos += new Vector3(v[0], v[1], v[2]) * (0.01f * kv.Value);
                 var r = Quaternion.Euler(v[3], v[4], v[5]);
                 if (!any) { first = r; any = true; }
                 if (Quaternion.Dot(first, r) < 0f) r = new Quaternion(-r.x, -r.y, -r.z, -r.w);
-                q += new Vector4(r.x, r.y, r.z, r.w) * w[i];
-                sum += w[i];
+                q += new Vector4(r.x, r.y, r.z, r.w) * kv.Value;
+                sum += kv.Value;
             }
-            if (sum <= 0f) { var v = Effective(weapon, 0, def); pos = new Vector3(v[0], v[1], v[2]) * 0.01f; rot = Quaternion.Euler(v[3], v[4], v[5]); return; }
+            if (sum <= 0f) { var v = Effective(weapon, _idleName, def); pos = new Vector3(v[0], v[1], v[2]) * 0.01f; rot = Quaternion.Euler(v[3], v[4], v[5]); return; }
             pos /= sum;
             q.Normalize();
             rot = new Quaternion(q.x, q.y, q.z, q.w);
         }
 
-        public static void SetLive(string weapon, int pose, float[] v)
+        public static void SetLive(string weapon, string clip, float[] v)
         {
-            pose = Rep(pose);
-            string k = weapon + "|" + Poses[pose];
+            string k = weapon + "|" + clip;
             if (_liveKey != k) Flush();
-            _liveKey = k; _live = v; _liveWeapon = weapon; _livePose = pose;
+            _liveKey = k; _live = v; _liveWeapon = weapon; _livePose = clip;
         }
-        private static string _liveWeapon; private static int _livePose;
+        private static string _liveWeapon, _livePose;
 
         // writes the edited pose (once, when the keys are let go / the weapon or animation changes)
         public static void Flush()
@@ -353,17 +320,16 @@ namespace Apocaplayer
         private static string _hint = "", _note = "";
 
         public static bool Editing { get { return Plugin.WeaponAdjust != null && Plugin.WeaponAdjust.Value; } }
-        // Numpad 9/3: the selected animation of the drawn weapon (index into _cycle), played standing still; -1 = what she really plays
-        private static int _sel = -1, _selPose = -1;   // _selPose: the selected animation (pose index), kept across weapons
-        public static int Preview { get { return Editing && ThirdPerson.On && _sel >= 0 && _sel < _cycle.Count ? _cycle[_sel] : -1; } }
-        public static void ResetSelection() { _sel = -1; _selPose = -1; }
+        // Numpad 9/3: the selected clip of the drawn weapon (index into _list), played standing still; -1 = what she really plays
+        private static int _sel = -1;
+        public static string Preview { get { return Editing && ThirdPerson.On && _sel >= 0 && _sel < _list.Count ? _list[_sel] : null; } }
+        public static void ResetSelection() { _sel = -1; }
         private static void Step(int d)
         {
-            if (_cycle.Count == 0) { _sel = -1; _selPose = -1; return; }
+            if (_list.Count == 0) { _sel = -1; return; }
             _sel += d;
-            if (_sel >= _cycle.Count) _sel = -1;
-            else if (_sel < -1) _sel = _cycle.Count - 1;
-            _selPose = _sel >= 0 ? _cycle[_sel] : -1;
+            if (_sel >= _list.Count) _sel = -1;
+            else if (_sel < -1) _sel = _list.Count - 1;
         }
 
         private static bool Pressed(params KeyCode[] keys)
@@ -383,7 +349,7 @@ namespace Apocaplayer
         private static string _status = "";
         public static void Status(string s) { _status = s ?? ""; }
 
-        public static bool Keys(string weapon, int pose, float[] shown, out Vector3 move, out Vector3 rot)
+        public static bool Keys(string weapon, string pose, float[] shown, out Vector3 move, out Vector3 rot)
         {
             move = rot = Vector3.zero;
             _hint = "";
@@ -400,9 +366,9 @@ namespace Apocaplayer
             bool anyKey = a != 0f || b != 0f || c != 0f;
             if (!anyKey) Flush();
             bool own = HasPose(weapon, pose);
-            _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   " + (_sel >= 0 ? "SELECTED " + (_sel + 1) + "/" + _cycle.Count + ": " : "playing: ") + Label(pose) + "   [" + _status + "]"
-                  + (own ? "" : pose != 0 && HasPose(weapon, 0) ? " - shows the Idle pose" : " - shows the raider grip") + "   pose " + string.Join(", ", Array.ConvertAll(shown, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
-                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = next/previous animation of this weapon (then back to what she plays).  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/Apocaplayer/weapon-poses.txt"
+            _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   " + (_sel >= 0 ? "SELECTED " + (_sel + 1) + "/" + _list.Count + ": " : "playing: ") + pose + "   [" + _status + "]"
+                  + (own ? "" : HasPose(weapon, _idleName) ? " - shows the " + _idleName + " pose" : HasPose(weapon, "Idle") ? " - shows the old Idle pose" : " - shows the raider grip") + "   pose " + string.Join(", ", Array.ConvertAll(shown, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
+                  + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = next/previous clip of this weapon (" + _list.Count + "; then back to what she plays).  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/Apocaplayer/weapon-poses.txt"
                   + (string.IsNullOrEmpty(_note) ? "" : "\n" + _note);
             return anyKey;
         }
