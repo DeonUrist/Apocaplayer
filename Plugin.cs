@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.5.5";
+        public const string VERSION = "1.6.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -37,7 +37,7 @@ namespace Apocaplayer
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime, SeatDrop;
         internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey, HeadlightsKey, CassetteKey, VolumeDownKey, VolumeUpKey;
         internal static ConfigEntry<bool> VehicleHotkeyHint, VehicleStatusHint;
-        internal static ConfigEntry<bool> OcclusionPrototype;
+        internal static ConfigEntry<bool> OcclusionPrototype, OcclusionInVehicle;
         internal static ConfigEntry<bool> AutomaticStepUp;
         internal static ConfigEntry<float> OcclusionOpacity, OcclusionRadius;
         internal enum Gender { Female, Male, Max }
@@ -65,7 +65,7 @@ namespace Apocaplayer
             // the config file: General (Enabled, Character, IgnitionKey, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
-            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (body like Male, the game's arms; his own TAB picture). Everything else is the same.");
+            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (his body, his arms in first person - armoured left sleeve, bare right forearm, black gloves - and his own TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             // Preserve a previously rebound ignition key when moving it into VEHICLE.
             var oldIgnition = Config.Bind("General", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");
@@ -84,6 +84,7 @@ namespace Apocaplayer
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat). Off = only the first-person arms.");
             AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
             OcclusionPrototype = BindCameraCulling(Config);
+            OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on). Off: in a vehicle the camera moves in front of what blocks it instead.");
             EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
             ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));

@@ -13,8 +13,8 @@ namespace Apocaplayer
     internal static class Model
     {
         public static Mesh Full, NoHead, NoArms, ArmsOnly;
-        public static Texture2D BodyTex, ArmsTex;
-        private static bool _tried, _texTried, _armsTried;
+        public static Texture2D BodyTex, ArmsTex, ArmsLeftTex;
+        private static bool _tried, _texTried, _armsTried, _armsLeftTried;
 
         private static readonly HashSet<string> HeadBones = new HashSet<string> { "mixamorig:Head" };
         private static readonly HashSet<string> HeadNeckBones = new HashSet<string> { "mixamorig:Head", "mixamorig:Neck" };
@@ -299,7 +299,7 @@ namespace Apocaplayer
         private static void AddW(Dictionary<int, float> d, int bone, float w) { if (w <= 0f) return; float o; d.TryGetValue(bone, out o); d[bone] = o + w; }
 
         // Character switched: the next body is built from the other model
-        public static void Reset() { _inside.Clear(); Full = NoHead = NoArms = ArmsOnly = null; BodyTex = null; _tried = _texTried = false; }
+        public static void Reset() { _inside.Clear(); Full = NoHead = NoArms = ArmsOnly = null; BodyTex = ArmsTex = ArmsLeftTex = null; _tried = _texTried = _armsTried = _armsLeftTried = false; }
 
         public static Texture2D Body()
         {
@@ -309,8 +309,15 @@ namespace Apocaplayer
 
         public static Texture2D Arms()
         {
-            if (!_armsTried) { _armsTried = true; ArmsTex = Load(Plugin.ArmsTextureFile.Value, "Apocaplayer_arms"); }
+            if (!_armsTried) { _armsTried = true; ArmsTex = Load(Plugin.IsMax ? "Models/Player2_max_arms.png" : Plugin.ArmsTextureFile.Value, Plugin.IsMax ? "Apocaplayer_max_arms" : "Apocaplayer_arms"); }
             return ArmsTex;
+        }
+
+        // Max only: his left arm (armoured sleeve) differs from the right; null = both arms use Arms()
+        public static Texture2D ArmsLeft()
+        {
+            if (!_armsLeftTried) { _armsLeftTried = true; ArmsLeftTex = Plugin.IsMax ? Load("Models/Player2_max_arms_left.png", "Apocaplayer_max_arms_left") : null; }
+            return ArmsLeftTex;
         }
 
         private static Texture2D Load(string rel, string name)

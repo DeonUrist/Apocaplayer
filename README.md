@@ -60,6 +60,8 @@ BepInEx\plugins\Apocaplayer\Models\Player_male.glb
 BepInEx\plugins\Apocaplayer\Models\Player_male.png
 BepInEx\plugins\Apocaplayer\Models\Player_max.glb
 BepInEx\plugins\Apocaplayer\Models\Player_max.png
+BepInEx\plugins\Apocaplayer\Models\Player2_max_arms.png       (Max's right arm + kick leg in first person)
+BepInEx\plugins\Apocaplayer\Models\Player2_max_arms_left.png  (Max's left arm in first person)
 BepInEx\plugins\Apocaplayer\Models\player_character_2_UI_max.png   (Max on the TAB screen)
 BepInEx\plugins\Apocaplayer\Models\player_character_2_UI.png
 BepInEx\plugins\Apocaplayer\Models\apocaplayer_anims.bundle   (optional: the Mixamo animations, built with UnityAnims/)
@@ -80,11 +82,12 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | Section | Key | Default | |
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
-| General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Max: the road warrior (body like Male, the game's arms; his own TAB picture). Animations, weapon poses and everything else are the same |
+| General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Max: the road warrior (his body, his arms in first person, his own TAB picture). Animations, weapon poses and everything else are the same |
 | General | FirstPersonArms | false | First person with nothing in hand: the body's own arms (walk swing, hands on the wheel). Off = no body arms in first person; the game's weapon/item arms always show |
 | Debug | FirstPersonCameraX / Y / Z | 0 | On foot, first person with BodyFirstPerson: move the view right / up / forward (m) relative to her body (her body moves the opposite way; aiming and clicks unchanged) |
 | Debug | FirstPersonDrivingCameraX / Y / Z | 0 | The same in the driver's seat (seat's right / up / forward), on top of the built-in seat offset (-0.03, 0.02, 0.02) |
 | General | 3rd person camera culling | true | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius. Off restores camera collision movement |
+| General | 3rd person camera culling in vehicles | false | Use the camera culling while driving too (off: in a vehicle the camera moves in front of what blocks it). The ground is never cut away |
 | CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
 | CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |

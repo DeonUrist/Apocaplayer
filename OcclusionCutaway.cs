@@ -129,7 +129,7 @@ namespace Apocaplayer
         {
             if (collider == null || Mine(collider.transform)) return;
             var terrain = collider.GetComponent<Terrain>();
-            if (terrain != null) { _terrains[terrain] = now; return; }
+            if (terrain != null) return;   // the ground is never cut away (1.6.0: the window used to open holes into the terrain)
             var bounds = collider.bounds;
             bool overheadPanel = bounds.size.y < .5f && Mathf.Max(bounds.size.x, bounds.size.z) > 1f && bounds.center.y >= _headHeight - .15f;
             if (overhead || overheadPanel || RoofOrVehicle(collider.transform)) _largeSeen = now;
@@ -251,7 +251,7 @@ namespace Apocaplayer
 
         private void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
-            if (_prepared && ThirdPerson.On && !ThirdPerson.Peek && Plugin.OcclusionPrototype.Value) Graphics.Blit(source, destination, _composite, 0);
+            if (_prepared && ThirdPerson.On && !ThirdPerson.Peek && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value)) Graphics.Blit(source, destination, _composite, 0);
             else Graphics.Blit(source, destination);
             _prepared = false;
         }

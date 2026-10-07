@@ -40,7 +40,7 @@ namespace Apocaplayer
             {
                 DestroyBody();
                 Model.Reset();
-                if (!Plugin.Female) Arms.Restore();
+                Arms.Restore();   // the next character's arms (or the game's for Male)
                 InventoryModel.CharacterChanged();
                 Plugin.Log.LogInfo("Character: " + Plugin.Character.Value);
             }
@@ -72,7 +72,7 @@ namespace Apocaplayer
                 if (!Game.Ready) { RustlinerDoors.Restore(); if (_body != null) DestroyBody(); return; }
                 RustlinerDoors.Tick();
                 if (!Game.Dead) { _lastVelocity = Game.Velocity; _lastCar = Game.InCar ? Game.CarRoot : null; }
-                if (Plugin.FemaleArms.Value && Plugin.Female) Arms.Tick(); else Arms.Restore();
+                if (Plugin.FemaleArms.Value && (Plugin.Female || Plugin.IsMax)) Arms.Tick(); else Arms.Restore();
                 ThirdPerson.Tick();
                 Car.Tick();
                 GunPose.ClearHint();                       // set again in LateUpdate while a weapon is being adjusted

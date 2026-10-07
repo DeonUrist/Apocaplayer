@@ -142,7 +142,7 @@ namespace Apocaplayer
             }
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
             bool want = On || CarShift;
-            if (!On || Peek || !Plugin.OcclusionPrototype.Value) OcclusionCutaway.Stop();
+            if (!On || Peek || !Plugin.OcclusionPrototype.Value || (Game.InCar && !Plugin.OcclusionInVehicle.Value)) OcclusionCutaway.Stop();
             if (want && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
             if (On && !Peek) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
@@ -219,7 +219,7 @@ namespace Apocaplayer
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;
-            bool cutaway = Plugin.OcclusionPrototype.Value && OcclusionCutaway.Available;
+            bool cutaway = Plugin.OcclusionPrototype.Value && (car == null || Plugin.OcclusionInVehicle.Value) && OcclusionCutaway.Available;   // driving: culling only with its own setting
             if (!cutaway)
                 foreach (var h in Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore))
                 {
