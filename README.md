@@ -41,7 +41,7 @@ Equipped gear appears on both character models: the worn backpack on the back at
 the vertical axis and fitted close to the body; the first two shotguns/rifles/automatic rifles crossed close against the bare back,
 or vertical beside an equipped backpack with muzzles down and magazines facing backward;
 the first two pistols/SMGs at the right and left thighs; the first two machetes/knives/shivs at opposite belt sides;
-and equipped binoculars behind the belt. Items are chosen in slot order, including slots 4–6 supplied by the optional inventory mod.
+and equipped binoculars behind the belt. The equipped flashlight is worn too: the Police Flashlight on the left of the belt, the Old and Military Flashlights on the left of the chest, all pointing forward; while the flashlight is on, a small light glows at its lens. Items are chosen in slot order, including slots 4–6 supplied by the optional inventory mod.
 Drawing an item hides only its own mount and reserves that place until it is sheathed; a third item is never promoted to fill it.
 Models are visual copies of the actual inventory items. Equipping, removing, and replacing gear updates them automatically.
 `EquipmentInventory.cs` reads Apocapocket's logical inventory (also accepts the Apocainventory namespace with the same contract),

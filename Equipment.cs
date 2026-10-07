@@ -19,10 +19,17 @@ namespace Apocaplayer
         }
         private readonly Body _body;
         private readonly EquipmentInventory _inventory = new EquipmentInventory();
-        // Backpack; two long guns; two sidearms; two blades; binoculars.
-        private readonly Mount[] _mounts = new Mount[8];
-        private readonly GameObject[] _chosen = new GameObject[8];
-        private readonly int[] _slots = new int[8];
+        // Backpack; two long guns; two sidearms; two blades; binoculars; flashlight (8).
+        private readonly Mount[] _mounts = new Mount[9];
+        private readonly GameObject[] _chosen = new GameObject[9];
+        private readonly int[] _slots = new int[9];
+        // The equipped flashlight (QuickItems/Flashlight_Item): flashlight3 = Police (left belt, pointing forward), flashlight1 = Old and
+        // flashlight2 = Military (left chest, pointing forward). Lens directions in the item meshes (read from the assets): flashlight3 +Y,
+        // flashlight1/2 -X with +Y up. When the game's light is on (PlayerCamera/Flashlight active) a small point light glows at the lens.
+        private const int FlashIndex = 8;
+        private bool _flashPolice;
+        private Light _glow;
+        private Transform _gameFlashlight;
         private bool _visible, _shadow;
         private float _packDepth, _packWidth;
 
@@ -74,6 +81,7 @@ namespace Apocaplayer
                 _chosen[0] = EquipmentInventory.FirstItem(quick != null ? quick.Find("Backpack_Item") : null);
                 var binocular = EquipmentInventory.FirstItem(quick != null ? quick.Find("Binocular_Item") : null);
                 if (binocular != null) { _chosen[7] = binocular; _slots[7] = -1; }
+                _chosen[FlashIndex] = EquipmentInventory.FirstItem(quick != null ? quick.Find("Flashlight_Item") : null); _slots[FlashIndex] = -1;
                 for (int i = 0; i < _mounts.Length; i++) Update(i, _chosen[i], _slots[i]);
             }
             for (int i = 0; i < _mounts.Length; i++) { Position(i); Show(i); }
@@ -86,12 +94,14 @@ namespace Apocaplayer
             if (mount.Anchor != null) { mount.Anchor.gameObject.SetActive(false); UnityEngine.Object.Destroy(mount.Anchor.gameObject); }
             mount.Item = item; mount.Visual = null; mount.Anchor = null; mount.Renderers = null;
             if (i == 0) _packDepth = _packWidth = 0;
+            if (i == FlashIndex) _glow = null;   // destroyed with the old anchor
             if (item == null) return;
             mount.Anchor = new GameObject("Apocaplayer.Equipment." + i).transform;
             mount.Anchor.SetParent(_body.Root.transform, false);
             mount.Visual = Props.CopyForMount(item, mount.Anchor);
             if (i == 0) mount.Visual.transform.localScale *= .8f;
             mount.Renderers = mount.Visual.GetComponentsInChildren<Renderer>(true);
+            if (i == FlashIndex) { MountFlashlight(mount, item); return; }
             var bounds = LocalBounds(mount.Visual);
             mount.Bounds = bounds;
             Vector3 axis = MajorAxis(bounds.size), thin = ThinAxis(bounds.size, axis);
@@ -110,10 +120,65 @@ namespace Apocaplayer
             Plugin.Verbose("Equipment mount " + i + ": " + item.name + " bounds=" + bounds.size);
         }
 
+        private void MountFlashlight(Mount mount, GameObject item)
+        {
+            _flashPolice = item.name.ToLowerInvariant().Contains("flashlight3");
+            // lens direction / up in the item mesh -> forward / up on the body
+            Quaternion rotation = _flashPolice
+                ? Quaternion.LookRotation(Vector3.forward, Vector3.up) * Quaternion.Inverse(Quaternion.LookRotation(Vector3.up, Vector3.forward))
+                : Quaternion.LookRotation(Vector3.forward, Vector3.up) * Quaternion.Inverse(Quaternion.LookRotation(Vector3.left, Vector3.up));
+            mount.Visual.transform.localRotation = rotation;
+            mount.Visual.transform.localPosition = Vector3.zero;
+            var b = LocalBounds(mount.Visual);
+            mount.Visual.transform.localPosition = -b.center;
+            mount.Bounds = b; mount.Depth = b.size.z;
+            // the glow: just in front of the lens (the lens is the front face; on the old/military lights it is the upper part)
+            var g = new GameObject("Apocaplayer.FlashlightGlow");
+            g.transform.SetParent(mount.Anchor, false);
+            float lensY = _flashPolice ? 0f : b.size.y * .25f;
+            g.transform.localPosition = new Vector3(0f, lensY, b.size.z * .5f + .03f);
+            _glow = g.AddComponent<Light>();
+            _glow.type = LightType.Point;
+            _glow.range = .45f;
+            _glow.intensity = 2.2f;
+            _glow.color = new Color(1f, .93f, .78f);
+            _glow.shadows = LightShadows.None;
+            _glow.enabled = false;
+            Plugin.Verbose("Equipment mount " + FlashIndex + ": " + item.name + (_flashPolice ? " (police: left belt)" : " (left chest)") + " bounds=" + b.size);
+        }
+
+        private bool FlashlightOn
+        {
+            get
+            {
+                if (_gameFlashlight == null && Game.PlayerCamera != null) _gameFlashlight = Game.PlayerCamera.Find("Flashlight");
+                return _gameFlashlight != null && _gameFlashlight.gameObject.activeInHierarchy;
+            }
+        }
+
+        private void PositionFlashlight(Mount mount, bool mirror)
+        {
+            string bone = _flashPolice ? "Hips" : "Spine2";
+            Transform parent;
+            if (!_body.Bones.TryGetValue("mixamorig:" + bone, out parent)) return;
+            if (mount.Anchor.parent != parent) mount.Anchor.SetParent(parent, false);
+            float left = mirror ? 1f : -1f;   // the character's left
+            Vector3 offset = _flashPolice
+                ? new Vector3(left * .19f, -.06f, .05f)                                          // on the left of the belt, along the hip
+                : new Vector3(left * .09f, .07f, .10f + mount.Bounds.size.z * .5f);         // left chest, against the jacket
+            float[] bind = Bindposes.Human["mixamorig:" + bone];
+            var matrix = Matrix4x4.identity;
+            for (int row = 0; row < 3; row++) for (int col = 0; col < 4; col++) matrix[row, col] = bind[row * 4 + col];
+            Quaternion neutral = matrix.rotation;
+            mount.Anchor.localRotation = neutral;
+            mount.Anchor.localPosition = neutral * offset;
+        }
+
         private void Position(int i)
         {
             var mount = _mounts[i]; if (mount.Anchor == null) return;
             bool mirror = _body.Root.transform.localScale.x < 0;
+            if (i == FlashIndex) { PositionFlashlight(mount, mirror); return; }
             string bone = i <= 2 ? "Spine2" : i <= 4 ? ((i == 3) != mirror ? "RightUpLeg" : "LeftUpLeg") : "Hips";
             Transform parent;
             if (!_body.Bones.TryGetValue("mixamorig:" + bone, out parent)) return;
@@ -178,6 +243,11 @@ namespace Apocaplayer
             {
                 renderer.enabled = !drawn && (_visible || _shadow);
                 renderer.shadowCastingMode = _visible ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
+            }
+            if (i == FlashIndex && _glow != null)
+            {
+                bool glow = _visible && FlashlightOn;
+                if (_glow.enabled != glow) _glow.enabled = glow;
             }
         }
 
