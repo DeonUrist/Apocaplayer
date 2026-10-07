@@ -308,6 +308,7 @@ namespace Apocaplayer
             b._rootMotion = clone.AddComponent<RootMotionTap>();
             b.Root.SetActive(true);
             b.BuildGraph(flexa);
+            if (b._mixamo) b.BuildUpperRig(clone);
             b.MeasureLegs();
             Plugin.Log.LogInfo("Body built from Flexa's skeleton (" + b.Bones.Count + " bones)");
             return b;
@@ -631,6 +632,7 @@ namespace Apocaplayer
         {
             if (_ragdoll != null) { _ragdoll.Destroy(); _ragdoll = null; }
             try { if (_graph.IsValid()) _graph.Destroy(); } catch (Exception) { }
+            try { if (_urGraph.IsValid()) _urGraph.Destroy(); } catch (Exception) { }
             if (Root != null) UnityEngine.Object.Destroy(Root);
             Root = null;
         }
@@ -912,6 +914,7 @@ namespace Apocaplayer
             for (int i = 0; i < N; i++) set.Mix.SetInputWeight(i, i == (crouch ? S_CIDLE : S_IDLE) ? 1f : 0f);
             _layers.SetInputWeight(0, 1f);
             if (_cuMix.IsValid()) { _layers.SetInputWeight(3, 0f); _cuW = 0f; _cuPistolK = 0f; }
+            _pcW = 0f;
         }
 
         public void LateCar(Transform player, bool firstPerson)
@@ -1141,7 +1144,7 @@ namespace Apocaplayer
         {
             _unarmed = MakeSet("");
             _rifle = MakeSet("Rifle");
-            var crouchFire = Anims.First("RifleFireCrouchIdle", "CrouchRifleFire", "RifleCrouchFire");
+            var crouchFire = Anims.First("RifleFireCrouchIdle", "RifleCrouchFire", "CrouchRifleFire");
             if (_rifle != null && (Anims.Get("RifleFireWalk") != null || Anims.Get("RifleFireCrouchWalk") != null))
                 _fire = MakeSet("RifleFire", Anims.First("RifleFire", "RifleFireIdle", "RifleIdle"), crouchFire);
             _pistol = MakeSet("Pistol");
@@ -1221,7 +1224,11 @@ namespace Apocaplayer
         private void DriveCrouchArms(float crouch, float m, bool fire)
         {
             if (!_cuMix.IsValid()) { _cuW = 0f; _cuPistolK = 0f; return; }
+#if APOCA_OLD_PISTOL_CROUCH   // 1.7.0-1.7.3 pistol crouch experiment (PistolFire arms on the rifle chest) - TO DELETE, replaced by the UpperRig (1.8.0)
             float pistol = _pistol != null ? _armPW : 0f;
+#else
+            float pistol = 0f;   // crouched with a pistol: the UpperRig gives the whole upper body (PistolCrouchUpper)
+#endif
             float unarmed = Mathf.Clamp01(1f - _armW - _armPW);
             float sum = pistol + unarmed;
             if (sum > 0.001f)
@@ -1277,6 +1284,7 @@ namespace Apocaplayer
                 s1.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s1.rotation;
                 s2.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s2.rotation;
             }
+#if APOCA_OLD_PISTOL_CROUCH   // TO DELETE (1.7.1-1.7.3 pistol crouch lean / arm raise)
             // pistol: the rifle crouch hunches over the rifle; sit up to CrouchPistolLean (spine, spine1, spine2 a third each)
             Transform s0, neck, hipsT;
             if (_cuPistolK > 0.01f && Bones.TryGetValue("mixamorig:Spine", out s0) && Bones.TryGetValue("mixamorig:Head", out neck) && Bones.TryGetValue("mixamorig:Hips", out hipsT))
@@ -1322,6 +1330,93 @@ namespace Apocaplayer
                             + " deg (target " + Plugin.CrouchPistolLean.Value + ", k " + _cuPistolK.ToString("F2") + ")");
                     }
                 }
+            }
+#endif
+        }
+
+        // ---------------------------------------------------------------- UpperRig (1.8.0): crouched with a pistol
+        // Lower body = the Rifle crouch clips (the pistol sets' crouch slots, MakeSet); upper body = the pistol's own standing clips:
+        // PistolIdle (lowered gun), PistolFire (aiming = its first frame held, shooting = playing), PistolReload. An avatar mask can't do that
+        // (its Body part carries the hips - they would stand up out of the crouch), so a second, invisible copy of her skeleton plays the
+        // pistol clip on its own graph, and her spine gets the copy's spine orientation relative to the character (above her crouched hips),
+        // every bone above it the copy's local rotation.
+        private PlayableGraph _urGraph;
+        private Transform _urAnim;
+        private AnimationMixerPlayable _urMix;
+        private AnimationClipPlayable _urIdle, _urFire, _urReload;
+        private readonly List<KeyValuePair<Transform, Transform>> _urPairs = new List<KeyValuePair<Transform, Transform>>();   // (her bone, copy bone) above the spine
+        private Transform _urSpine, _urSpineCopy;
+        private float _pcW, _urFireW, _urReloadW;
+        private bool _urAim, _urShoot;
+        private const int UR_IDLE = 0, UR_FIRE = 1, UR_RELOAD = 2;
+
+        private void BuildUpperRig(GameObject src)
+        {
+            var idle = Anims.Get("PistolIdle");
+            if (idle == null || !Plugin.CrouchRemap.Value || Anims.Get("RifleCrouchIdle") == null) return;
+            try
+            {
+                var go = UnityEngine.Object.Instantiate(src, Root.transform, false);
+                go.name = "UpperRig";
+                go.transform.localPosition = Vector3.zero; go.transform.localRotation = Quaternion.identity;
+                foreach (var r in go.GetComponentsInChildren<Renderer>(true)) UnityEngine.Object.DestroyImmediate(r);
+                foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true)) UnityEngine.Object.DestroyImmediate(mb);
+                _urAnim = go.transform;
+                var copy = new Dictionary<string, Transform>();
+                foreach (var t in go.GetComponentsInChildren<Transform>(true)) if (t.name.StartsWith("mixamorig:")) copy[t.name] = t;
+                var an = go.GetComponent<Animator>();
+                an.applyRootMotion = false; an.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                if (!Bones.TryGetValue("mixamorig:Spine", out _urSpine) || !copy.TryGetValue("mixamorig:Spine", out _urSpineCopy)) { UnityEngine.Object.Destroy(go); return; }
+                foreach (var kv in Bones)
+                {
+                    Transform c;
+                    if (kv.Value == _urSpine || !kv.Value.IsChildOf(_urSpine) || !copy.TryGetValue(kv.Key, out c)) continue;
+                    _urPairs.Add(new KeyValuePair<Transform, Transform>(kv.Value, c));
+                }
+                _urGraph = PlayableGraph.Create("ApocaplayerUpperRig");
+                _urGraph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
+                var output = AnimationPlayableOutput.Create(_urGraph, "upper", an);
+                _urMix = AnimationMixerPlayable.Create(_urGraph, 3);
+                _urIdle = AnimationClipPlayable.Create(_urGraph, idle);
+                _urFire = AnimationClipPlayable.Create(_urGraph, Anims.Get("PistolFire") ?? idle);
+                _urReload = AnimationClipPlayable.Create(_urGraph, Anims.Get("PistolReload") ?? idle);
+                foreach (var p in new[] { _urIdle, _urFire, _urReload }) p.SetApplyFootIK(false);
+                _urGraph.Connect(_urIdle, 0, _urMix, UR_IDLE);
+                _urGraph.Connect(_urFire, 0, _urMix, UR_FIRE);
+                _urGraph.Connect(_urReload, 0, _urMix, UR_RELOAD);
+                _urMix.SetInputWeight(UR_IDLE, 1f);
+                _urFire.SetSpeed(0); _urReload.SetSpeed(0);
+                output.SetSourcePlayable(_urMix);
+                _urGraph.Play();
+                Plugin.Log.LogInfo("Crouched with a pistol: legs from the Rifle crouch clips, upper body from PistolIdle / PistolFire / PistolReload (" + _urPairs.Count + " bones)");
+            }
+            catch (Exception e) { Plugin.Log.LogError("UpperRig: " + e.Message); _urPairs.Clear(); }
+        }
+
+        private void PistolCrouchUpper(float dt, float crouch)
+        {
+            if (!_urGraph.IsValid() || _urSpine == null) { _pcW = 0f; return; }
+            _pcW = (_pistol != null ? _armPW : 0f) * crouch * (1f - _actionW);
+            if (_pcW < 0.001f) { _urFireW = 0f; _urReloadW = 0f; return; }
+            float k = 1f - Mathf.Exp(-dt * 14f);
+            _urReloadW = Mathf.Lerp(_urReloadW, _reloading ? 1f : 0f, k);
+            _urFireW = Mathf.Lerp(_urFireW, (_urAim || _urShoot) && !_reloading ? 1f : 0f, k);
+            // the clips: idle loops; fire holds its first frame while aiming, plays while shooting; reload from its start
+            if (_urShoot && !_reloading) { if (_urFire.GetSpeed() == 0) _urFire.SetTime(0); _urFire.SetSpeed(1); }
+            else { _urFire.SetSpeed(0); _urFire.SetTime(0); }
+            var rc = _urReload.GetAnimationClip();
+            if (_reloading && rc != null) _urReload.SetTime(Mathf.Min(Time.time - _reloadStart, rc.length - 0.01f));
+            _urMix.SetInputWeight(UR_RELOAD, _urReloadW);
+            _urMix.SetInputWeight(UR_FIRE, (1f - _urReloadW) * _urFireW);
+            _urMix.SetInputWeight(UR_IDLE, (1f - _urReloadW) * (1f - _urFireW));
+            _urGraph.Evaluate(dt);
+            // her spine: the copy's spine orientation relative to the character, on top of her crouched hips; everything above: local rotations
+            var target = _anim.rotation * (Quaternion.Inverse(_urAnim.rotation) * _urSpineCopy.rotation);
+            _urSpine.rotation = Quaternion.Slerp(_urSpine.rotation, target, _pcW);
+            for (int i = 0; i < _urPairs.Count; i++)
+            {
+                var pr = _urPairs[i];
+                pr.Key.localRotation = Quaternion.Slerp(pr.Key.localRotation, pr.Value.localRotation, _pcW);
             }
         }
 
@@ -1447,16 +1542,18 @@ namespace Apocaplayer
             // right mouse button (the game's Aim Down Sights) with a rifle: the rifle comes up as when shooting (the RifleFire set: raised and aimed,
             // the spine following the view's pitch) instead of the low RifleIdle carry. Standing still the firing clip holds its first frame
             // (the aim, no recoil) until she really shoots. Pistols are already up in PistolIdle.
-            bool aiming = !Game.Paused && rifleSet && pv < 0 && Game.AimDownSights;
+            bool aiming = !Game.Paused && (rifleSet || pistolSet) && pv < 0 && Game.AimDownSights;   // 1.8.0: PistolIdle is a lowered gun - pistols aim with PistolFire
             bool shooting = !Game.Paused && (pvFire || Input.GetMouseButton(0));
             bool firing = (shooting || aiming) && fireSet != null && !_reloading && Time.time >= _throwUntil;
-            if (_fire != null)
+            foreach (var fs in new[] { _fire, _pfire })
             {
-                bool hold = aiming && !shooting;
-                if (hold && !_aimHold) { _fire.P[S_IDLE].SetTime(0); _fire.P[S_CIDLE].SetTime(0); }
-                _fire.P[S_IDLE].SetSpeed(hold ? 0 : 1); _fire.P[S_CIDLE].SetSpeed(hold ? 0 : 1);
-                _aimHold = hold;
+                if (fs == null) continue;
+                bool hold = aiming && !shooting && fs == fireSet;
+                if (hold && !_aimHold) { fs.P[S_IDLE].SetTime(0); fs.P[S_CIDLE].SetTime(0); }
+                fs.P[S_IDLE].SetSpeed(hold ? 0 : 1); fs.P[S_CIDLE].SetSpeed(hold ? 0 : 1);
             }
+            _aimHold = aiming && !shooting && fireSet != null;
+            _urAim = aiming; _urShoot = shooting;
             _fireW = _snap ? (firing ? 1f : 0f) : Mathf.MoveTowards(_fireW, firing ? 1f : 0f, dt * 10f);
             if (_snap) { _upperClip = ""; Plugin.Verbose("View switched: animation state re-synced"); }
             if (_rifle != null || _pistol != null)
@@ -1523,6 +1620,8 @@ namespace Apocaplayer
 
             if (Time.time < _throwUntil && Anims.Get(_throwClip) != null)
                 PlayThrow();
+            else if (kind == Props.Kind.Pistol && _pcW > 0.5f)
+                SetUpper("", 0f, 0f);   // crouched with a pistol: the UpperRig does the upper body (idle / aim / fire / reload); the upper layer's Body part would lift her hips
             else if (_reloading && kind != Props.Kind.None && kind != Props.Kind.Melee)
                 SetUpper(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload", 1f, 1f);
             else if (kind == Props.Kind.Melee || kind == Props.Kind.None && weapon != "")
@@ -1533,10 +1632,8 @@ namespace Apocaplayer
             }
             else if (kind == Props.Kind.Pistol)
             {
-                // same pattern as rifles: the full-body PistolFire* set while shooting, else crouch-fire / fire / aim on the upper body
-                string crouchPFire = Anims.Get("CrouchPistolFire") != null ? "CrouchPistolFire" : Anims.Get("PistolCrouchFire") != null ? "PistolCrouchFire" : null;
+                // same pattern as rifles: the full-body PistolFire* set while shooting / aiming, else fire / aim on the upper body
                 if (fire && _pfire != null) SetUpper("", 0f, 0f);
-                else if (fire && _crouch > 0.5f && crouchPFire != null) SetUpper(crouchPFire, 1f, 1f);
                 else if (fire && Anims.Get("PistolFire") != null) SetUpper("PistolFire", 1f, 1f);
                 else if (Anims.Get("PistolAim") != null) SetUpper("PistolAim", 1f, 1f);
                 else if (_pistol == null) SetUpper(Plugin.PistolClip.Value, 1f, 1f);
@@ -1544,7 +1641,7 @@ namespace Apocaplayer
             }
             else if (kind == Props.Kind.Rifle)
             {
-                string crouchFire = Anims.Get("CrouchRifleFire") != null ? "CrouchRifleFire" : Anims.Get("RifleCrouchFire") != null ? "RifleCrouchFire" : null;
+                string crouchFire = Anims.Get("RifleCrouchFire") != null ? "RifleCrouchFire" : Anims.Get("CrouchRifleFire") != null ? "CrouchRifleFire" : null;   // old file name accepted
                 if (fire && _fire != null) SetUpper("", 0f, 0f);   // the full-body RifleFire* set does it
                 else if (fire && _crouch > 0.5f && crouchFire != null) SetUpper(crouchFire, 1f, 1f);
                 else if (fire && Anims.Get("RifleFire") != null) SetUpper("RifleFire", 1f, 1f);
@@ -1579,6 +1676,7 @@ namespace Apocaplayer
             }
             if (set.CrouchMissing && _crouch > 0.001f) Crouch(_crouch);
             ChestToFront(yaw);
+            PistolCrouchUpper(dt, kind == Props.Kind.Pistol ? (set.CrouchMissing ? 0f : _crouch) : 0f);
             float pitch = view == View.FirstPerson ? 0f : camPitch * Plugin.AimPitchShare.Value * (1f - _prone);
             if (Mathf.Abs(pitch) > 0.5f)
             {
@@ -1620,11 +1718,12 @@ namespace Apocaplayer
                 _poseW[GunPose.FIRE0 + i] = (1f - R) * F * _slotW[i];
             }
             _poseW[GunPose.P_RELOAD] = R;
-            if (_cuPistolK > 0.001f)   // crouched with a pistol: her hands are PistolFire's (crouch arms layer)
+            if (_pcW > 0.001f)   // crouched with a pistol: her hands are the UpperRig's PistolIdle (S_IDLE grip) / PistolFire (FIRE0 + S_IDLE grip)
                 for (int i = S_CIDLE; i < N; i++)
                 {
-                    float a = _poseW[i] * _cuPistolK, b = _poseW[GunPose.FIRE0 + i] * _cuPistolK;
-                    _poseW[i] -= a; _poseW[GunPose.FIRE0 + i] -= b; _poseW[GunPose.FIRE0 + S_IDLE] += a + b;
+                    float a = _poseW[i] * _pcW, b = _poseW[GunPose.FIRE0 + i] * _pcW, c = a + b;
+                    _poseW[i] -= a; _poseW[GunPose.FIRE0 + i] -= b;
+                    _poseW[S_IDLE] += c * (1f - _urFireW); _poseW[GunPose.FIRE0 + S_IDLE] += c * _urFireW;
                 }
             // a jump (whole-body action layer) takes over as much as its layer weight
             float J = _actionClip != null && _actionClip.EndsWith("Jump") ? _actionW : 0f;
@@ -1654,8 +1753,8 @@ namespace Apocaplayer
             var clip = new AnimationClip[n];
             if (set != null) for (int i = 0; i < N; i++) clip[i] = set.P[i].GetAnimationClip();
             if (fireSet != null) for (int i = 0; i < N; i++) clip[GunPose.FIRE0 + i] = fireSet.P[i].GetAnimationClip();
-            if (kind == Props.Kind.Pistol && _cuMix.IsValid() && fireSet != null && Anims.Get("PistolFire") != null)
-                for (int i = S_CIDLE; i < N; i++) { clip[i] = Anims.Get("PistolFire"); clip[GunPose.FIRE0 + i] = Anims.Get("PistolFire"); }
+            if (kind == Props.Kind.Pistol && _urGraph.IsValid() && set != null)   // crouched: the UpperRig's PistolIdle / PistolFire grips
+                for (int i = S_CIDLE; i < N; i++) { clip[i] = set.P[S_IDLE].GetAnimationClip(); clip[GunPose.FIRE0 + i] = fireSet != null ? fireSet.P[S_IDLE].GetAnimationClip() : clip[i]; }
             if (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) clip[GunPose.P_RELOAD] = Clip(kind == Props.Kind.Pistol ? "PistolReload" : "RifleReload");
             if (kind != Props.Kind.None) clip[GunPose.P_JUMP] = Anims.Get(JumpClip(kind));
             if (kind != Props.Kind.None) clip[GunPose.P_KICK] = Anims.Get("Kick");

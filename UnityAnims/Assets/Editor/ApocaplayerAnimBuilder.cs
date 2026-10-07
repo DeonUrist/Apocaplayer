@@ -27,17 +27,23 @@ public static class ApocaplayerAnimBuilder
         "RifleFireWalk", "RifleFireWalkBack", "RifleFireStrafeLeft", "RifleFireStrafeRight",
         "RifleFireCrouchWalk", "RifleFireCrouchWalkBack", "RifleFireCrouchStrafeLeft", "RifleFireCrouchStrafeRight",
         "PistolIdle", "PistolWalk", "PistolWalkBack", "PistolStrafeLeft", "PistolStrafeRight", "PistolRun", "PistolRunStrafeLeft", "PistolRunStrafeRight",
-        "PistolCrouchIdle", "PistolCrouchWalk", "PistolCrouchWalkBack", "PistolCrouchStrafeLeft", "PistolCrouchStrafeRight",
-        "PistolFireWalk", "PistolFireWalkBack", "PistolFireStrafeLeft", "PistolFireStrafeRight",
-        "PistolFireCrouchWalk", "PistolFireCrouchWalkBack", "PistolFireCrouchStrafeLeft", "PistolFireCrouchStrafeRight",
-        "CrouchPistolFire", "PistolCrouchFire", "PistolJump",
-        "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "CrouchRifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
-        "MeleeCombo", "Punch1", "Punch2", "Melee1", "Melee2", "ThrowRight",
+        // no Pistol crouch clips: crouched with a pistol = Rifle crouch legs + the pistol's standing upper body (the mod's UpperRig, 1.8.0)
+        "PistolFireWalk", "PistolFireWalkBack", "PistolFireStrafeLeft", "PistolFireStrafeRight", "PistolJump",
+        "Kick", "Jump", "RifleJump", "RifleAim", "RifleFire", "RifleCrouchFire", "RifleReload", "PistolAim", "PistolFire", "PistolReload", "Melee", "Throw",
+        "MeleeCombo", "Punch", "Punch1", "Punch2", "Melee1", "Melee2", "ThrowRight",
         "RifleFireRun", "RifleFireRunStrafeLeft", "RifleFireRunStrafeRight", "PistolFireRun", "PistolFireRunStrafeLeft", "PistolFireRunStrafeRight",
     };
 
-    // RunLeftStrafe -> RunStrafeLeft (either word order works for file names)
-    static string Norm(string n) { return n.Replace("LeftStrafe", "StrafeLeft").Replace("RightStrafe", "StrafeRight"); }
+    // naming: [Rifle|Pistol][Fire][Crouch]Action, e.g. RifleCrouchFire, PistolFireWalkBack. File names are normalised to that:
+    // RunLeftStrafe -> RunStrafeLeft, wrong capitals (RIfleFireWalk) -> the known spelling, old CrouchRifleFire -> RifleCrouchFire
+    static string Norm(string n)
+    {
+        n = n.Replace("LeftStrafe", "StrafeLeft").Replace("RightStrafe", "StrafeRight");
+        if (n == "CrouchRifleFire") n = "RifleCrouchFire";
+        if (n == "CrouchPistolFire") n = "PistolCrouchFire";
+        foreach (var k in Known) if (string.Equals(k, n, System.StringComparison.OrdinalIgnoreCase)) return k;
+        return n;
+    }
 
     // the grenade is thrown with the LEFT hand (the right one holds the gun)
     const bool MirrorThrow = true;

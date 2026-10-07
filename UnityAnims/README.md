@@ -13,7 +13,7 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
   either works, the clips are retargeted in the game.
 - For each clip: **Download → Format: FBX for Unity (.fbx), Skin: With Skin, Frames per second: 30, Keyframe Reduction: none**.
   For walk/run/strafe/crouch-walk leave **In Place unticked**: the builder keeps her on the spot anyway, and the clip's real walking speed lets the mod play it in step with you (In Place clips use the BundleWalkSpeed/BundleRunSpeed guesses).
-- Save it into `Assets/Mixamo/` named **exactly** as in the first column (the file name becomes the clip name the mod looks for).
+- Save it into `Assets/Mixamo/` named **exactly** as in the first column (the file name becomes the clip name the mod looks for). Naming: `[Rifle|Pistol][Fire][Crouch]Action` - e.g. `RifleCrouchFire`, `PistolFireWalkBack`; the builder fixes wrong capitals and `RunLeftStrafe` word order.
 
 | File name | What | Suggested Mixamo search |
 |---|---|---|
@@ -28,16 +28,16 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | RifleIdle.fbx, RifleWalk.fbx, RifleWalkBack.fbx, RifleStrafeLeft.fbx, RifleRun.fbx, RifleCrouchIdle.fbx, RifleCrouchWalk.fbx | the same set holding a rifle (used with rifles, shotguns, crossbow) | "Rifle Idle", "Rifle Walk", "Walking Backwards Rifle", "Strafe Left Rifle", "Rifle Run", "Crouch Rifle Idle", "Crouch Walk Rifle" (Mixamo's *Pro Rifle Pack* has all of them) |
 | RifleCrouchWalkBack.fbx, RifleCrouchStrafeLeft.fbx | crouched with a rifle, backwards / sideways | "Crouch Walk Back Rifle", "Crouch Walk Left Rifle" |
 | RifleFireWalk.fbx, RifleFireWalkBack.fbx, RifleFireStrafeLeft.fbx, RifleFireCrouchWalk.fbx, RifleFireCrouchWalkBack.fbx, RifleFireCrouchStrafeLeft.fbx | walking / crouching while firing a rifle (whole body; used while you hold fire and move) | "Walking Firing Rifle", "Walk Backward Firing Rifle", "Strafe Left Firing Rifle", "Crouch Walk Firing Rifle" |
-| PistolIdle.fbx, PistolWalk.fbx, PistolWalkBack.fbx, PistolStrafeLeft.fbx, PistolRun.fbx, PistolRunStrafeLeft.fbx, PistolCrouchIdle.fbx, PistolCrouchWalk.fbx, PistolCrouchWalkBack.fbx, PistolCrouchStrafeLeft.fbx | the same set holding a pistol / revolver / SMG (one strafe side is enough; a missing back clip = the forward one reversed) | "Pistol Idle", "Pistol Walk", "Pistol Walk Backward", "Pistol Strafe", "Pistol Run", "Pistol Kneeling Idle" / "Crouch Pistol" (Mixamo's *Pistol Pack*) |
-| PistolFireWalk.fbx, PistolFireWalkBack.fbx, PistolFireStrafeLeft.fbx, PistolFireCrouchWalk.fbx, PistolFireCrouchWalkBack.fbx, PistolFireCrouchStrafeLeft.fbx | walking / crouching while firing a pistol (whole body) | "Pistol Walk Shooting" … |
-| CrouchPistolFire.fbx, PistolJump.fbx | firing while crouched (upper body) / jumping with a pistol | "Kneeling Pistol Shoot", "Pistol Jump" |
-| CrouchRifleFire.fbx | firing while crouched (upper body, looped while you hold the button) | "Crouch Rifle Fire" |
+| PistolIdle.fbx, PistolWalk.fbx, PistolWalkBack.fbx, PistolStrafeLeft.fbx, PistolRun.fbx, PistolRunStrafeLeft.fbx | the same set holding a pistol / revolver / SMG; PistolIdle = gun lowered (one strafe side is enough; a missing back clip = the forward one reversed). **No Pistol crouch clips**: crouched with a pistol the legs are the Rifle crouch clips and the upper body is PistolIdle / PistolFire / PistolReload | "Pistol Idle", "Pistol Walk", "Pistol Walk Backward", "Pistol Strafe", "Pistol Run" |
+| PistolFireWalk.fbx, PistolFireWalkBack.fbx, PistolFireStrafeLeft.fbx | walking while firing **or aiming** (right mouse button) a pistol (whole body) | "Pistol Walk Shooting" … |
+| PistolJump.fbx | jumping with a pistol | "Pistol Jump" |
+| RifleCrouchFire.fbx | firing while crouched (upper body, looped while you hold the button) | "Crouch Rifle Fire" |
 | Kick.fbx | a front kick, played when you use the game's Kick key | "Front Kick", "Mma Kick" |
 | Jump.fbx / RifleJump.fbx | jumping, unarmed / with a rifle (jump on the spot; the game lifts her) | "Jump", "Rifle Jump" |
 | RifleAim.fbx | rifle raised to the shoulder (upper body) | "Rifle Aiming Idle" |
 | RifleFire.fbx | firing a rifle, looped while you hold the mouse button | "Firing Rifle" |
 | RifleReload.fbx | rifle reload, played when you press Reload | "Reloading", "Rifle Reload" |
-| PistolAim.fbx / PistolFire.fbx / PistolReload.fbx | pistol / revolver | "Pistol Idle", "Shooting", "Pistol Reload" |
+| PistolFire.fbx / PistolReload.fbx | pistol / revolver: PistolFire is also the aim (right mouse button: its first frame held) | "Shooting", "Pistol Reload" |
 | Melee.fbx | a swing (knife, machete, wrench) | "Sword And Shield Slash", "Stabbing", "Punching" |
 | MeleeCombo.fbx | two blows in a row (melee weapon swings chained one after the other) | "Sword And Shield Attack" |
 | RifleFireRun.fbx (PistolFireRun.fbx) | running while shooting: the gun stays up (else the Run clip, gun lowered); also used for running sideways while shooting | "Rifle Run" with the rifle raised |
