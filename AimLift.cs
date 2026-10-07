@@ -27,22 +27,38 @@ namespace Apocaplayer
 
         private static readonly Dictionary<string, float[]> _v = new Dictionary<string, float[]>();
         // (2.1.9) Denis's tuned values, hard-coded (aim-lift.txt overrides them; the same "weapon|clip[@crouch]=lift, head, forward")
+        // (2.2.2) Denis's final tuning (config/Apocaplayer/aim-lift.txt of 2026-10-08 02:23), standing and crouched
         private static readonly string[] BuiltinData =
         {
-            "22_pipe_revolver|PistolFire=-6.5, 0, 0",
+            "22_pipe_pistol|PistolFire=9.7, -12, 0",
+            "22_pipe_pistol|PistolFire@crouch=3.5, -12, 0",
+            "22_pipe_revolver|PistolFire=12.1, -28.8, 0",
+            "22_pipe_revolver|PistolFire@crouch=8.8, -28.8, 0",
+            "22_pipe_smg|PistolFire=11.9, -23.6, 0",
+            "22_pipe_smg|PistolFire@crouch=1.1, -23.6, 0",
+            "akm_trash|RifleAim=8.1, -0.4, 0",
+            "akm_trash|RifleCrouchAim@crouch=12.1, -9.4, 0",
+            "akms|RifleAim=11.4, -24, 0",
+            "akms|RifleCrouchAim@crouch=10.1, 8.6, 0",
             "borz_smg|PistolFire=-0.6, 0, 0",
-            "crossbow|RifleAim=6.5, -11.4, 0",
-            "crossbow|RifleCrouchAim@crouch=-1.7, -5.2, 0",
-            "folk_17|PistolFire=4.8, 0, 0",
-            "redmark_m11_scoped|RifleAim=15, 5.6, 0",
+            "crossbow|RifleAim=12.8, -11.4, 0",
+            "crossbow|RifleCrouchAim@crouch=12.6, -5.2, 0",
+            "folk_17|PistolFire=9.9, 0, 0",
+            "folk_17|PistolFire@crouch=4.2, 0.6, 0",
+            "m16a1|RifleAim=12.9, -30, 0",
+            "m16a1|RifleCrouchAim@crouch=15, -12.2, 0",
+            "redmark_m11_scoped|RifleAim=11.2, -6.6, 0",
+            "redmark_m11_scoped|RifleCrouchAim@crouch=15, -17.8, 0",
             "redmark_m11|RifleAim=10.1, 9, 0",
             "rochester_m24_chopped|RifleAim=7, -1.4, 0",
-            "rochester_m24|RifleAim=8, -4.4, 0",
-            "rochester_m24|RifleCrouchAim@crouch=5.9, -3.4, 0",
-            "slamberg_500_chopped|RifleAim=8.2, 6.4, 0",
-            "slamberg_500|RifleAim=7.5, 10, 0",
-            "slamfire_shotgun|RifleAim=7, -11, 0",
-            "slamfire_shotgun|RifleCrouchAim@crouch=9, -9.4, 0"
+            "rochester_m24|RifleAim=11.6, -15.4, 0",
+            "rochester_m24|RifleCrouchAim@crouch=11.4, -3.4, 0",
+            "slamberg_500_chopped|RifleAim=12.3, -8.2, 0",
+            "slamberg_500_chopped|RifleCrouchAim@crouch=15, -8.4, 0",
+            "slamberg_500|RifleAim=11.6, -10, -2.8",
+            "slamberg_500|RifleCrouchAim@crouch=17.7, -19.4, 0",
+            "slamfire_shotgun|RifleAim=8.1, -17.2, 0",
+            "slamfire_shotgun|RifleCrouchAim@crouch=12, -17.6, 0"
         };
         private static Dictionary<string, float[]> _builtin;
         private static float[] Builtin(string key)
