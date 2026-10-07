@@ -53,7 +53,7 @@ namespace Apocaplayer
 
         // ---- actions
         private bool _actionIsTurn;
-        private float _turnAcc, _turnLastYaw, _turnDecayAt;
+        private float _turnAcc, _turnLastYaw, _turnDecayAt, _turnFrom, _turnStarted, _turnDuration = 1f;
         private bool _turnInit;
         private string _jumpPhase = "";
         private float _walkedAt = -10f, _stopAt = -10f;                       // rifle jump: "up" -> "loop" -> "down"
@@ -388,17 +388,26 @@ namespace Apocaplayer
             float d = Mathf.DeltaAngle(_turnLastYaw, yawDeg);
             _turnLastYaw = yawDeg;
             if (Plugin.TurnClipAngle.Value <= 0f) return;
-            if (m > 0.15f || Time.time < _actionUntil) { _turnAcc = 0f; return; }
-            if (Mathf.Abs(d) > 0.05f) { _turnAcc += d; _turnDecayAt = Time.time + 0.4f; }
+            // (2.1.4) a running turn clip doesn't block the next one: past 60 % of it, a further TurnClipAngle starts the next turn
+            bool turning = _actionIsTurn && _actionClip != null && _actionClip.Contains("Turn") && Time.time < _actionUntil;
+            if (m > 0.15f || (Time.time < _actionUntil && !turning)) { _turnAcc = 0f; return; }
+            if (Mathf.Abs(d) > 0.05f) { if (Mathf.Abs(_turnAcc) < 0.01f) _turnFrom = Time.time; _turnAcc += d; _turnDecayAt = Time.time + 0.4f; }
             else if (Time.time > _turnDecayAt) _turnAcc = Mathf.MoveTowards(_turnAcc, 0f, Time.deltaTime * 120f);
             if (Mathf.Abs(_turnAcc) < Plugin.TurnClipAngle.Value) return;
+            if (turning && Time.time < _turnStarted + 0.6f * _turnDuration) return;
             bool left = _turnAcc < 0f;
             string clip = crouch > 0.5f ? (left ? "RifleCrouchTurnLeft" : "RifleCrouchTurnRight") : relaxed && Has(left ? "LeftTurn" : "RightTurn") ? (left ? "LeftTurn" : "RightTurn") : (left ? "RifleTurnLeft" : "RifleTurnRight");
             if (!Has(clip)) clip = left ? "RifleTurnLeft" : "RifleTurnRight";
+            float acc = _turnAcc, took = Time.time - _turnFrom;
             _turnAcc = 0f;
-            if (!Has(clip)) return;
+            var c = Anims.Get(clip);
+            if (c == null) return;
+            float sp = LocoPlan.TurnSpeed(acc, took, c.length, Plugin.TurnClipSpeedMin.Value, Plugin.TurnClipSpeedMax.Value);
             StartAction(clip);
-            _actionIsTurn = true;
+            _action.SetSpeed(sp);
+            _turnDuration = c.length / sp; _turnStarted = Time.time;
+            _actionUntil = Time.time + _turnDuration + 0.1f;
+            _actionIsTurn = true; _actionFade = 10f;
         }
 
         private void LateMixamo(View view, float dt, Quaternion yaw, float camPitch)

@@ -212,6 +212,14 @@ namespace Apocaplayer
             neck = -HeadBack * delta;
         }
 
+        // ---- (2.1.4) turning in place: a turn clip covers ~90° in its length (0.9..1.3 s) - played at 1x it lagged far behind the camera. Its speed
+        // now follows how fast she turned: (degrees turned / seconds it took) / (90° / clip length), at least minSpeed, at most maxSpeed.
+        public static float TurnSpeed(float degrees, float seconds, float clipLength, float minSpeed, float maxSpeed)
+        {
+            float rate = Math.Abs(degrees) / Math.Max(0.05f, seconds), clipRate = 90f / Math.Max(0.1f, clipLength);
+            return Clamp(rate / clipRate, minSpeed, Math.Max(minSpeed, maxSpeed));
+        }
+
         // ---- jumps: where in each jump clip the feet leave the ground (lift), are highest (apex) and touch down again (touch), as shares of the clip
         // (-1 = not in the clip). Measured on the FBX with the real ground (tools/locotest/check_actions.py re-measures and compares) - in the
         // game the clips' height goes to the root, so the pose alone can't tell a crouch before the jump from the feet tucked up in the air.
