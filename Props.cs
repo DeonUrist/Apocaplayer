@@ -235,7 +235,17 @@ namespace Apocaplayer
             return dir;
         }
 
-        private static Matrix4x4 BindWorld(string bone)
+        // (2.2.0, ModAPI) a left-hand local pose reflected across the body's middle plane, expressed under the right hand (as Instantiate does)
+        internal static void MirrorToRight(Vector3 lp, Quaternion lr, out Vector3 pos, out Quaternion rot)
+        {
+            var L = BindWorld("mixamorig:LeftHand"); var R = BindWorld("mixamorig:RightHand");
+            var S = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
+            var M = R.inverse * S * L * Matrix4x4.TRS(lp, lr, Vector3.one) * S;
+            pos = M.GetColumn(3);
+            rot = Quaternion.LookRotation(M.GetColumn(2), M.GetColumn(1));
+        }
+
+        internal static Matrix4x4 BindWorld(string bone)
         {
             float[] v;
             var m = Matrix4x4.identity;

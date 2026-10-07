@@ -154,6 +154,40 @@ offset; above 5 cm she will look deformed). Export from Blender with *Skinning* 
 hidden `Model`/`Texture` entries at it. The arms texture is a separate atlas (see *How it works*); re-bake it with
 `tools/bake.py` for a new outfit.
 
+## ModAPI (for other mods)
+
+Other mods can animate **any humanoid** (NPCs, companions, mannequins) exactly like her third-person body:
+the same clips and the same logic, so what the player gets, they get. Only the clips the player itself
+uses are offered (`ModAPI.ClipNames()`, 70 of the bundle's 76; the death clips are not part of it).
+
+```csharp
+using Apocaplayer;                                   // reference Apocaplayer.dll; [BepInDependency("com.denis.apocalypter.apocaplayer", SoftDependency)]
+if (ModAPI.Ready) {
+    var c = ModAPI.Attach(animator);                 // null: not a humanoid / no animation bundle
+    c.SetWeapon(gunModel);                           // into the right hand at the player's weapon poses (put back by SetWeapon(null) / Dispose)
+    // every frame, in Update - the velocity comes from its Rigidbody by itself (or ManualVelocity + Velocity)
+    c.Crouched = ...; c.Aiming = ...; c.Firing = ...; c.Airborne = ...; c.AimPitch = ...;
+    // events
+    c.Reload(seconds); c.Reload(seconds, rounds);   // the whole clip fitted to the time / one round at a time
+    c.Pump(); c.Jump(); c.Kick(); c.Throw(); c.Strike(seconds); c.Shoot();
+    c.Suspended = true;                              // the Animator's own controller for a while (death, a seat ...)
+    c.Dispose();                                     // also automatic when the Animator is destroyed
+}
+```
+
+- **Locomotion**: idle, 8 directions x walk / run / sprint, crouch idle, 8 crouched walks, the relaxed set when not
+  aiming, direction changes that turn instead of snapping, turns in place driven by its turn, walk-to-stop, jumps.
+- **Hands**: the rifle low-ready and aim, the pistol lowered and aimed, fire, reloads (whole or one round at a time),
+  `ShotgunPump`; the aim lift and the weapon pose per clip from the player's tables; throws, punches, melee swings, kicks.
+- **Facts**: `WeaponKey`, `WeaponKind`, `WeaponPose`, `AimLiftOf`, `ReloadClip`, `ReloadClipSeconds`, `RoundSeconds`,
+  `ReloadsOneRoundAtATime`, `CocksAfterShot`, `NativeSpeed`, `GetClip` (player clips only).
+- State to read: `HandsClip`, `ActionClip`, `UpperClip`, `Reloading`, `Pumping`, `SpeedCap` (the fastest it may move
+  without its feet sliding).
+
+The decisions are in `CharPlan.cs` (no Unity types); `tools/modapitest/run.sh` runs every weapon kind through every
+situation and two NPC timelines outside the game (5.8 million frame checks), builds the poses from the FBX clips and
+draws them. NPCAI 1.2.0 uses it for its gunmen.
+
 ## How it works
 
 - **Body** (`Body.cs`): a clone of Flexa's `Anim` object (Animator, avatar `enemy_1_IdleAvatar`, the skeleton, the

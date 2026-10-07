@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.1.11";
+        public const string VERSION = "2.2.0";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -210,7 +210,7 @@ namespace Apocaplayer
             try { FemalePain.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Female pain sounds: " + e.Message); }
 
-            SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); };
+            SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); ModAPI.OnSceneLoaded(); };
             EnsureRunner();
             Log.LogInfo(NAME + " " + VERSION + " loaded");
         }
@@ -232,6 +232,7 @@ namespace Apocaplayer
             _runner = new GameObject("Apocaplayer.Runner") { hideFlags = HideFlags.HideAndDontSave };
             UnityEngine.Object.DontDestroyOnLoad(_runner);
             _runner.AddComponent<Runner>();
+            _runner.AddComponent<ModApiRunner>();          // (2.2.0) characters animated through ModAPI, after the Animators
         }
 
         internal static string ModPath(string rel)

@@ -225,6 +225,31 @@ namespace Apocaplayer
         {
             return Own(weapon, clip) ?? Own(weapon, _idleName) ?? Own(weapon, "Idle") ?? def;
         }
+        // (2.2.0, ModAPI) the same for a character that is not the player: its own kind's idle clip as the fallback (not the drawn weapon's)
+        public static float[] EffectiveFor(string weapon, string clip, string idleName, float[] def)
+        {
+            return Own(weapon, clip) ?? Own(weapon, idleName) ?? Own(weapon, "Idle") ?? def;
+        }
+        public static void BlendFor(string weapon, Dictionary<string, float> w, string idleName, Vector3 defPos, Quaternion defRot, out Vector3 pos, out Quaternion rot)
+        {
+            var def = Abs(defPos, defRot);
+            pos = Vector3.zero; float sum = 0f; var q = Vector4.zero; Quaternion first = Quaternion.identity; bool any = false;
+            foreach (var kv in w)
+            {
+                if (kv.Value <= 0.0001f) continue;
+                var v = EffectiveFor(weapon, kv.Key, idleName, def);
+                pos += new Vector3(v[0], v[1], v[2]) * (0.01f * kv.Value);
+                var r = Quaternion.Euler(v[3], v[4], v[5]);
+                if (!any) { first = r; any = true; }
+                if (Quaternion.Dot(first, r) < 0f) r = new Quaternion(-r.x, -r.y, -r.z, -r.w);
+                q += new Vector4(r.x, r.y, r.z, r.w) * kv.Value;
+                sum += kv.Value;
+            }
+            if (sum <= 0f) { var v = EffectiveFor(weapon, idleName, idleName, def); pos = new Vector3(v[0], v[1], v[2]) * 0.01f; rot = Quaternion.Euler(v[3], v[4], v[5]); return; }
+            pos /= sum;
+            q.Normalize();
+            rot = new Quaternion(q.x, q.y, q.z, q.w);
+        }
         public static float[] Effective(string weapon, int pose, float[] def)   // (other mods, by index into Poses)
         {
             return Effective(weapon, pose >= 0 && pose < _list.Count ? _list[pose] : null, def);
