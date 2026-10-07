@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.2.0";
+        public const string VERSION = "2.2.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -97,7 +97,7 @@ namespace Apocaplayer
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift her hands, Home/End tilt her head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
-            ToggleMiddleMouse = H("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
+            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: on = a press of the observing key (RebindObserving) / middle mouse button locks the camera orbiting around her (her rotation stays) until the next press - handy with WeaponAdjustment; off = hold it to orbit, back behind her on release.");
             VerboseLog = H("Debug", "VerboseLog", false, "Detailed log lines.");
             // first-person view vs her body (with BodyFirstPerson), on foot and driving: the game's camera stays where it is (aiming, clicks, weapons
             // unchanged) - her body is moved the opposite way. (2.1.11) sliders in CAMERA, next to each other; the old [Debug] values move over
