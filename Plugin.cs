@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.5.2";
+        public const string VERSION = "1.5.3";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -29,6 +29,7 @@ namespace Apocaplayer
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
+        internal static ConfigEntry<float> FpCamX, FpCamY, FpCamZ, FpCarCamX, FpCarCamY, FpCarCamZ;
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
         internal static ConfigEntry<bool> ToggleMiddleMouse, EnableMMB;
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime, SeatDrop;
@@ -88,6 +89,14 @@ namespace Apocaplayer
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
+            // first-person eye vs her head: the game's camera stays where it is (aiming, clicks, weapons unchanged) - her body is moved the opposite way
+            const string fpd = " (m). Moves the first-person view relative to her body: the body is shifted the opposite way under the game's camera, so aiming, clicks and weapons are unchanged.";
+            FpCamX = Config.Bind("Debug", "FirstPersonCameraX", 0f, "On foot, first person, with BodyFirstPerson: view to the right (+) / left (-)" + fpd);
+            FpCamY = Config.Bind("Debug", "FirstPersonCameraY", 0f, "On foot, first person, with BodyFirstPerson: view up (+) / down (-)" + fpd);
+            FpCamZ = Config.Bind("Debug", "FirstPersonCameraZ", 0f, "On foot, first person, with BodyFirstPerson: view forward (+) / back (-)" + fpd);
+            FpCarCamX = Config.Bind("Debug", "FirstPersonDrivingCameraX", 0f, "Driving, first person, with BodyFirstPerson: view to the right (+) / left (-) of the seat" + fpd);
+            FpCarCamY = Config.Bind("Debug", "FirstPersonDrivingCameraY", 0f, "Driving, first person, with BodyFirstPerson: view up (+) / down (-)" + fpd);
+            FpCarCamZ = Config.Bind("Debug", "FirstPersonDrivingCameraZ", 0f, "Driving, first person, with BodyFirstPerson: view forward (+) / back (-)" + fpd);
             FemaleArms = H("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person animations (and the kick leg).");
             ReplaceDriver = H("General", "ReplaceDriver", true, "She replaces the game's man in the driver's seat and on the TAB screen.");
             ThirdPersonOnFoot = H("General", "ThirdPersonOnFoot", true, "The Change Camera key switches to a camera behind her, on foot and in cars.");

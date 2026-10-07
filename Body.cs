@@ -64,7 +64,8 @@ namespace Apocaplayer
             public Vector3 Take() { var d = Delta; Delta = Vector3.zero; return d; }
         }
         private Animator _animator;
-        private SkinnedMeshRenderer _smr, _shadow, _fpArms;
+        private SkinnedMeshRenderer _smr, _shadow, _fpArms, _inner;
+        private bool _innerOn;
         private Material _mat;
         public readonly Dictionary<string, Transform> Bones = new Dictionary<string, Transform>();
         private readonly Dictionary<string, Quaternion> _bindLocal = new Dictionary<string, Quaternion>();
@@ -267,6 +268,23 @@ namespace Apocaplayer
             b._fpArms.localBounds = new Bounds(Vector3.zero, Vector3.one * 2.5f);
             b._fpArms.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             b._fpArms.enabled = false;
+
+            // first person: the camera sits inside her (neck opening, near-plane cuts through the chest when looking down). The inside of
+            // the body mesh is drawn too (same mesh, reversed faces, darker), so a cut shows her inside instead of the ground through her.
+            var inr = new GameObject("ApocaplayerInside");
+            inr.transform.SetParent(b._smr.transform.parent, false);
+            b._inner = inr.AddComponent<SkinnedMeshRenderer>();
+            b._inner.bones = b._smr.bones;
+            b._inner.rootBone = b._smr.rootBone;
+            var im = new Material(b._mat) { name = "Apocaplayer inside" };
+            if (im.HasProperty("_Color")) im.color = im.color * 0.45f;
+            if (im.HasProperty("_Glossiness")) im.SetFloat("_Glossiness", 0f);
+            b._inner.sharedMaterial = im;
+            b._inner.updateWhenOffscreen = true;
+            b._inner.localBounds = new Bounds(Vector3.zero, Vector3.one * 2.5f);
+            b._inner.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            b._inner.receiveShadows = false;
+            b._inner.enabled = false;
 
             // bind-pose local rotations (for the car pose's unmapped bones)
             var bindWorld = new Dictionary<string, Matrix4x4>();
@@ -600,6 +618,15 @@ namespace Apocaplayer
             if (_equipment != null) _equipment.SetVisible(body, shadow);
             if (_smr.enabled != body) _smr.enabled = body;
             if (_shadow.enabled != shadow) _shadow.enabled = shadow;
+            bool inner = body && _innerOn && _inner != null && _inner.sharedMesh != null;
+            if (_inner != null && _inner.enabled != inner) _inner.enabled = inner;
+        }
+
+        // first person: [Debug] camera offsets (view right/up/forward in the given frame) - her body moves the opposite way under the camera
+        public void ShiftFirstPerson(Quaternion frame, Vector3 viewOffset)
+        {
+            if (Root == null || viewOffset.sqrMagnitude < 1e-8f) return;
+            Root.transform.position -= frame * viewOffset;
         }
 
         // the body's own arms in first person (nothing in hand) - drawn on top of whatever mesh the body has (NoArms / hidden)
@@ -981,6 +1008,8 @@ namespace Apocaplayer
         {
             var want = !firstPerson ? Model.Full : inCar && !gameArms && Plugin.EmptyHandArms.Value ? Model.NoHead : Model.NoArms;   // arms on the wheel only with FirstPersonArms
             if (_smr.sharedMesh != want) _smr.sharedMesh = want;
+            _innerOn = firstPerson;
+            if (_inner != null) { var inside = firstPerson ? Model.Inside(want) : null; if (_inner.sharedMesh != inside) _inner.sharedMesh = inside; }
             var mode = firstPerson ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             if (_smr.shadowCastingMode != mode) _smr.shadowCastingMode = mode;
         }

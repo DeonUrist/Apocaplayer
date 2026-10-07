@@ -148,8 +148,33 @@ namespace Apocaplayer
             return mesh;
         }
 
+        // the same mesh seen from inside: faces reversed, normals flipped (first person: what the camera cuts open shows her inside)
+        private static readonly Dictionary<Mesh, Mesh> _inside = new Dictionary<Mesh, Mesh>();
+        public static Mesh Inside(Mesh m)
+        {
+            if (m == null) return null;
+            Mesh r;
+            if (_inside.TryGetValue(m, out r) && r != null) return r;
+            r = new Mesh { name = m.name + "_inside" };
+            if (m.vertexCount > 65535) r.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            r.vertices = m.vertices;
+            r.uv = m.uv;
+            var n = m.normals;
+            for (int i = 0; i < n.Length; i++) n[i] = -n[i];
+            var t = m.triangles;
+            for (int i = 0; i + 2 < t.Length; i += 3) { int a = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = a; }
+            r.triangles = t;
+            r.normals = n;
+            r.boneWeights = m.boneWeights;
+            r.bindposes = m.bindposes;
+            r.RecalculateBounds();
+            r.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            _inside[m] = r;
+            return r;
+        }
+
         // Character switched: the next body is built from the other model
-        public static void Reset() { Full = NoHead = NoArms = ArmsOnly = null; BodyTex = null; _tried = _texTried = false; }
+        public static void Reset() { _inside.Clear(); Full = NoHead = NoArms = ArmsOnly = null; BodyTex = null; _tried = _texTried = false; }
 
         public static Texture2D Body()
         {
