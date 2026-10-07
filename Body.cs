@@ -128,7 +128,7 @@ namespace Apocaplayer
                 _graph.Disconnect(_layers, 2);
                 _action.Destroy();
                 _action = AnimationClipPlayable.Create(_graph, c);
-                _action.SetApplyFootIK(true);
+                _action.SetApplyFootIK(false);   // jumps / turns / kick: no foot IK (2.0.2)
                 _graph.Connect(_action, 0, _layers, 2);
             }
             float t0 = Mathf.Clamp01(startFraction) * c.length;   // jumps: skip the clip's crouch before take-off, the game pushes her up at once

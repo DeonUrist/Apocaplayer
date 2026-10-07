@@ -99,7 +99,9 @@ namespace Apocaplayer
                 }
                 _bname[i] = n; _breverse[i] = rev;
                 _bp[i] = AnimationClipPlayable.Create(_graph, Anims.Get(n));
-                _bp[i].SetApplyFootIK(true);
+                // foot IK only standing and walking (crouched too): the clips' foot goals come from X Bot and on Flexa's legs the solver twisted
+                // the shins in the long running strides and the jumps (2.0.2)
+                _bp[i].SetApplyFootIK(Plugin.FootIK.Value && (i < B_RUN || i >= B_CIDLE));
                 _graph.Connect(_bp[i], 0, _base, i);
                 _base.SetInputWeight(i, i == B_IDLE ? 1f : 0f);
             }

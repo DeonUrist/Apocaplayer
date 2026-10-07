@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.0.1";
+        public const string VERSION = "2.0.2";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -52,6 +52,7 @@ namespace Apocaplayer
         internal static ConfigEntry<bool> CrouchRemap;
         internal static ConfigEntry<float> CrouchArmsRest, CrouchArmsPhase, CrouchPistolLean, CrouchPistolArms;   // (1.7.x, unused since 2.0)
         internal static ConfigEntry<float> UpperPhase, ClipSprintSpeed, SprintFrom, TurnClipAngle;
+        internal static ConfigEntry<bool> FootIK;
         internal static ConfigEntry<bool> DynamicCrosshair;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
@@ -157,6 +158,7 @@ namespace Apocaplayer
             ClipSprintSpeed = H("Animation", "BundleSprintSpeed", 5.5f, "Ground speed (m/s) at which the rifle pack's sprint clips play at normal speed (when the clip has no root motion of its own).");
             SprintFrom = H("Animation", "SprintFrom", 4.3f, "Ground speed (m/s) above which the rifle pack's sprint clips replace its run clips (the game runs at 5).");
             TurnClipAngle = H("Animation", "TurnClipAngle", 70f, "Standing still and turned this many degrees: a turn-in-place clip (RifleTurnLeft/Right, crouched RifleCrouchTurnLeft/Right) plays. 0 = never.");
+            FootIK = H("Animation", "FootIK", true, "Unity's humanoid foot IK on the bundle's idle and walking clips (standing and crouched). Never on the run / sprint / jump clips: their foot goals were made on another skeleton and the solver twisted the shins.");
             CrouchDrop = H("Animation", "CrouchDrop", 0.42f, "How far the hips go down when crouched, m.");
             AimPitchShare = H("Animation", "AimPitch", 0.9f, "Share of the camera pitch the spine follows (aiming up/down).");
 
