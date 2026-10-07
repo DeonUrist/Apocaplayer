@@ -346,6 +346,7 @@ namespace Apocaplayer
         }
 
         public static void Note(string s) { _note = s ?? ""; }
+        public static string AimLine = "";      // (2.1.7) Body's aim-lift line under the hint
         private static string _status = "";
         public static void Status(string s) { _status = s ?? ""; }
 
@@ -369,7 +370,7 @@ namespace Apocaplayer
             _hint = (_rotateMode ? "ROTATING " : "MOVING ") + weapon + "   " + (_sel >= 0 ? "SELECTED " + (_sel + 1) + "/" + _list.Count + ": " : "playing: ") + pose + "   [" + _status + "]"
                   + (own ? "" : HasPose(weapon, _idleName) ? " - shows the " + _idleName + " pose" : HasPose(weapon, "Idle") ? " - shows the old Idle pose" : " - shows the raider grip") + "   pose " + string.Join(", ", Array.ConvertAll(shown, x => x.ToString("0.0", CultureInfo.InvariantCulture))) + "\n"
                   + "8/2, 6/4, 7/1 = move (or turn).  5 = MOVING / ROTATING.  9/3 = next/previous clip of this weapon (" + _list.Count + "; then back to what she plays).  - = delete.  / = copy pose, * = paste" + (_clip != null ? " (copied)" : "") + ".  Saved in config/Apocaplayer/weapon-poses.txt"
-                  + (string.IsNullOrEmpty(_note) ? "" : "\n" + _note);
+                  + (string.IsNullOrEmpty(_note) ? "" : "\n" + _note) + (string.IsNullOrEmpty(AimLine) ? "" : "\n" + AimLine);
             return anyKey;
         }
 
@@ -380,7 +381,7 @@ namespace Apocaplayer
         public static void OnGUI()
         {
             if (string.IsNullOrEmpty(_hint)) return;
-            var r = new Rect(20, Screen.height - 110, Screen.width - 40, 80);
+            var r = new Rect(20, Screen.height - 150, Screen.width - 40, 130);
             var st = new GUIStyle(GUI.skin.label) { fontSize = 16 };
             st.normal.textColor = Color.black; GUI.Label(new Rect(r.x + 1, r.y + 1, r.width, r.height), _hint, st);
             st.normal.textColor = Color.yellow; GUI.Label(r, _hint, st);

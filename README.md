@@ -204,6 +204,10 @@ one crosses over like aiming; pistol and rifle keep it), and crouch-walking with
 shared by the three spine bones. Letting go of the keys after walking forward plays `RifleWalkToStop`'s last step from the point of its walk cycle
 that matches her legs (no match, the right foot swinging: no clip). Jumps: each jump clip starts just before its take-off, holds its apex
 while she is in the air and goes to its touch-down when the game's [Jump] FSM lands her; moving, it fades straight back to the legs.
+**Aim lift** (2.1.7): the game shoots from her eyes, the Mixamo aim clips hold the rifle ~30 cm lower - while an aim / fire clip moves her
+hands both hands are lifted (and pushed forward) by an arm IK and her head tilts onto the stock, per weapon and clip (default rifles: 15 cm,
+10°). With WeaponAdjustment on, while aiming (or with an aim clip picked by numpad 9/3): Page Up/Down = lift, Home/End = head, Insert/Delete =
+forward; the hint shows how far the top of the gun is under the eyes. Saved to `config/Apocaplayer/aim-lift.txt` (weapon-poses.txt untouched).
 Reloads play `RifleReload` / `PistolReload` on the upper body; cocking the pump shotgun or the bolt rifle (their [Attack] FSM in "pump" /
 "bolt action") plays `ShotgunPump`'s rack. Every moving clip is played at the same point of the stride: each clip's phase (where its left foot is highest) is measured once on her
 skeleton, so clips from different downloads and the mirrored strafe step together.

@@ -264,6 +264,76 @@ namespace Apocaplayer
         // the base layer: idle / 8 directions × walk, run, sprint / crouch idle / 8 crouched walks, by the body's direction and speed
         // relaxed: how much of the standing locomotion comes from the relaxed set (not aiming / striking), and the legs' turn toward the way she moves
         private float _relaxW, _hipTurn;
+        // ---- (2.1.7) aim lift (AimLift.cs): both hands raised / pushed forward by a two-bone arm IK and the head tilted onto the stock while an aim /
+        // fire clip moves her hands, per weapon and clip; live keys with WeaponAdjustment on
+        private float _aimLiftW; private string _aimLiftClip; private bool _aimDirty;
+        private void ApplyAimLift(string weapon, Props.Kind kind, float dt)
+        {
+            string clip = _rigClip;
+            bool on = !string.IsNullOrEmpty(weapon) && (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && AimLift.IsAimClip(clip) && _rigEff > 0.01f && !_reloading;
+            _aimLiftW = _snap ? (on ? 1f : 0f) : Mathf.MoveTowards(_aimLiftW, on ? 1f : 0f, dt * 6f);
+            if (on) _aimLiftClip = clip;
+            AimKeys(weapon, on ? clip : null, dt);
+            if (_aimLiftW < 0.001f || _aimLiftClip == null || string.IsNullOrEmpty(weapon)) return;
+            var v = AimLift.Get(weapon, _aimLiftClip);
+            float w = _aimLiftW;
+            var d = (_anim.up * v[0] + _anim.forward * v[2]) * (0.01f * w);
+            if (d.sqrMagnitude > 1e-8f)
+            {
+                LiftArm("mixamorig:RightArm", "mixamorig:RightForeArm", "mixamorig:RightHand", d);
+                LiftArm("mixamorig:LeftArm", "mixamorig:LeftForeArm", "mixamorig:LeftHand", d);
+            }
+            if (Mathf.Abs(v[1]) > 0.01f) Turn("mixamorig:Head", Vector3.right, v[1] * w);
+        }
+        private static double[] D3(Vector3 p) { return new double[] { p.x, p.y, p.z }; }
+        private void LiftArm(string upper, string lower, string hand, Vector3 d)
+        {
+            Transform s, e, h;
+            if (!Bones.TryGetValue(upper, out s) || !Bones.TryGetValue(lower, out e) || !Bones.TryGetValue(hand, out h)) return;
+            var hr = h.rotation;
+            var t = h.position + d;
+            var ne = AimLift.Elbow(D3(s.position), D3(e.position), D3(h.position), D3(t));
+            var E = new Vector3((float)ne[0], (float)ne[1], (float)ne[2]);
+            s.rotation = Quaternion.FromToRotation(e.position - s.position, E - s.position) * s.rotation;
+            e.rotation = Quaternion.FromToRotation(h.position - e.position, t - e.position) * e.rotation;
+            h.rotation = hr;
+        }
+        private void AimKeys(string weapon, string clip, float dt)
+        {
+            if (!GunPose.Editing || string.IsNullOrEmpty(weapon) || !ThirdPerson.On) { GunPose.AimLine = ""; return; }
+            if (clip == null)
+            {
+                GunPose.AimLine = "AIM LIFT: aim (right mouse) or pick an aim clip (RifleAim, RifleCrouchAim, PistolFire ...) with 9/3 to adjust it here.";
+                if (_aimDirty) { AimLift.Save(); _aimDirty = false; }
+                return;
+            }
+            float lift = (Input.GetKey(KeyCode.PageUp) ? 1f : 0f) - (Input.GetKey(KeyCode.PageDown) ? 1f : 0f);
+            float head = (Input.GetKey(KeyCode.End) ? 1f : 0f) - (Input.GetKey(KeyCode.Home) ? 1f : 0f);
+            float fwd = (Input.GetKey(KeyCode.Insert) ? 1f : 0f) - (Input.GetKey(KeyCode.Delete) ? 1f : 0f);
+            var v = (float[])AimLift.Get(weapon, clip).Clone();
+            if (lift != 0f || head != 0f || fwd != 0f)
+            {
+                v[0] = Mathf.Clamp(v[0] + lift * 5f * dt, -20f, 45f);
+                v[1] = Mathf.Clamp(v[1] + head * 15f * dt, -30f, 40f);
+                v[2] = Mathf.Clamp(v[2] + fwd * 5f * dt, -20f, 30f);
+                AimLift.Set(weapon, clip, v); _aimDirty = true;
+            }
+            else if (_aimDirty) { AimLift.Save(); _aimDirty = false; }
+            // how far the top of the gun is under the shots' start (the camera = her eyes), along her up axis
+            string gap = "";
+            if (_prop != null && Game.PlayerCamera != null)
+            {
+                var rs = _prop.GetComponentsInChildren<Renderer>();
+                if (rs.Length > 0)
+                {
+                    var b = rs[0].bounds; for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+                    float g = Vector3.Dot(Game.PlayerCamera.position - b.center, _anim.up) * 100f - b.extents.y * 100f;
+                    gap = "  -  the top of the gun is " + g.ToString("0") + " cm " + (g >= 0f ? "below" : "above") + " where the shots start (her eyes)";
+                }
+            }
+            GunPose.AimLine = "AIM LIFT " + weapon + " | " + clip + ": lift " + v[0].ToString("0.0") + " cm, head down " + v[1].ToString("0") + "°, forward " + v[2].ToString("0.0") + " cm"
+                + (AimLift.Own(weapon, clip) ? "" : " (default)") + gap + "\nPage Up/Down = lift, Home/End = head, Insert/Delete = forward. Saved in config/Apocaplayer/aim-lift.txt";
+        }
         private float _pumpUntil; private bool _cocking, _pumpStart;
         private int _locoKind;
         private float YawIn(Transform a, Transform b)   // facing of the line a->b (pointing to her right) about her up axis, + = right
@@ -669,6 +739,7 @@ namespace Apocaplayer
                 Turn("mixamorig:Spine2", Vector3.right, pitch * 0.3f);
                 Turn("mixamorig:Neck", Vector3.right, pitch * 0.1f);
             }
+            ApplyAimLift(weapon, kind, dt);
             ThrowAim();
             PunchAim();
             PoseProp(kind, yaw);
