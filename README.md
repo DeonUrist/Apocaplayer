@@ -1,5 +1,7 @@
 # Apocaplayer
 
+![Apocaplayer: Female and Max](media/Apocaplayer_banner.png)
+
 BepInEx 5 mod for **Apocalypter**: see your character - a full body in first person, a third-person camera on foot and in cars,
 and a choice of **Female** (her own model), **Male** (the game's own player man) or **Max** (a road warrior in a leather jacket), with the same animations and features for both.
 
