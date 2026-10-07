@@ -1156,7 +1156,7 @@ namespace Apocaplayer
         }
         private AnimationMixerPlayable _cuMix;
         private AnimationClipPlayable _cuWalk, _cuRest, _cuPistol;
-        private float _cuW, _cuPistolK;
+        private float _cuW, _cuPistolK, _leanLogAt;
         private const int CU_WALK = 0, CU_REST = 1, CU_PISTOL = 2;
 
         private void MakeCrouchArms()
@@ -1253,11 +1253,11 @@ namespace Apocaplayer
                 s2.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s2.rotation;
             }
             // pistol: the rifle crouch hunches over the rifle; sit up to CrouchPistolLean (spine, spine1, spine2 a third each)
-            Transform s0, neck;
-            if (_cuPistolK > 0.01f && Bones.TryGetValue("mixamorig:Spine", out s0) && Bones.TryGetValue("mixamorig:Neck", out neck))
+            Transform s0, neck, hipsT;
+            if (_cuPistolK > 0.01f && Bones.TryGetValue("mixamorig:Spine", out s0) && Bones.TryGetValue("mixamorig:Head", out neck) && Bones.TryGetValue("mixamorig:Hips", out hipsT))
             {
                 Vector3 right = Vector3.Cross(up, fwd).normalized;
-                Vector3 back = Vector3.ProjectOnPlane(neck.position - s0.position, right);
+                Vector3 back = Vector3.ProjectOnPlane(neck.position - hipsT.position, right);   // the whole torso: hips to head
                 if (back.sqrMagnitude > 1e-4f)
                 {
                     float lean = Mathf.Atan2(Vector3.Dot(back, fwd), Vector3.Dot(back, up)) * Mathf.Rad2Deg;   // + = leaning forward
@@ -1268,6 +1268,13 @@ namespace Apocaplayer
                         s0.rotation = step * s0.rotation;
                         s1.rotation = step * s1.rotation;
                         s2.rotation = step * s2.rotation;
+                    }
+                    if (Plugin.VerboseLog.Value && Time.time > _leanLogAt)
+                    {
+                        _leanLogAt = Time.time + 2f;
+                        Vector3 after = Vector3.ProjectOnPlane(neck.position - hipsT.position, right);
+                        Plugin.Verbose("Pistol crouch: torso lean " + lean.ToString("F1") + " -> " + (Mathf.Atan2(Vector3.Dot(after, fwd), Vector3.Dot(after, up)) * Mathf.Rad2Deg).ToString("F1")
+                            + " deg (target " + Plugin.CrouchPistolLean.Value + ", k " + _cuPistolK.ToString("F2") + ")");
                     }
                 }
             }

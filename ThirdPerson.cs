@@ -259,7 +259,6 @@ namespace Apocaplayer
         public static bool HasCrosshair;
         public static Vector2 CrosshairScreen;
         private static RectTransform _xhair;
-        private static Vector3 _xhairHome;
         private static bool _xhairMoved;
         private static float _xhairFind;
         private static readonly RaycastHit[] _eyeHits = new RaycastHit[32];
@@ -310,9 +309,13 @@ namespace Apocaplayer
                 || Game.InCar && Game.CarRoot != null && t.IsChildOf(Game.CarRoot);   // the gun mod / game ignore their own car too
         }
 
+        // the game's cursor icons on the HUD Canvas (level1: Canvas/MousePoint = the dot, MouseWrench, MouseCrosshair, MouseHand): all of them move
+        private static readonly string[] CursorNames = { "MouseCrosshair", "MousePoint", "MouseWrench", "MouseHand" };
+        private static readonly RectTransform[] _cursors = new RectTransform[4];
+        private static readonly Vector3[] _cursorHome = new Vector3[4];
         private static void MoveCrosshair(Vector2 screen)
         {
-            if (_xhair == null)
+            if (_xhair == null || _xhair.parent == null)
             {
                 if (Time.unscaledTime < _xhairFind) return;
                 _xhairFind = Time.unscaledTime + 1f;
@@ -320,9 +323,16 @@ namespace Apocaplayer
                 if (go == null) return;
                 _crosshair = go;
                 _xhair = go.GetComponent<RectTransform>();
-                if (_xhair == null) return;
-                _xhairHome = _xhair.localPosition; _xhairMoved = false;
-                Plugin.Verbose("Crosshair: found " + go.name + " (dynamic crosshair on)");
+                if (_xhair == null || _xhair.parent == null) return;
+                var n = new System.Collections.Generic.List<string>();
+                for (int i = 0; i < CursorNames.Length; i++)
+                {
+                    var c = _xhair.parent.Find(CursorNames[i]) as RectTransform;
+                    _cursors[i] = c;
+                    if (c != null) { _cursorHome[i] = c.localPosition; n.Add(c.name); }
+                }
+                _xhairMoved = false;
+                Plugin.Verbose("Crosshair: dynamic cursor icons " + string.Join(", ", n.ToArray()));
             }
             var parent = _xhair.parent as RectTransform;
             var canvas = _xhair.GetComponentInParent<Canvas>();
@@ -332,13 +342,18 @@ namespace Apocaplayer
             Vector2 lc, lt;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f), uiCam, out lc)) return;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, screen, uiCam, out lt)) return;
-            if (!_xhairMoved) { _xhairHome = _xhair.localPosition; _xhairMoved = true; }
-            _xhair.localPosition = _xhairHome + (Vector3)(lt - lc);
+            if (!_xhairMoved)
+            {
+                for (int i = 0; i < _cursors.Length; i++) if (_cursors[i] != null) _cursorHome[i] = _cursors[i].localPosition;
+                _xhairMoved = true;
+            }
+            Vector3 delta = lt - lc;
+            for (int i = 0; i < _cursors.Length; i++) if (_cursors[i] != null) _cursors[i].localPosition = _cursorHome[i] + delta;
         }
 
         private static void RestoreCrosshair()
         {
-            if (_xhair != null && _xhairMoved) _xhair.localPosition = _xhairHome;
+            if (_xhairMoved) for (int i = 0; i < _cursors.Length; i++) if (_cursors[i] != null) _cursors[i].localPosition = _cursorHome[i];
             _xhairMoved = false;
         }
 

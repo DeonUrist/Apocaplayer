@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.7.1";
+        public const string VERSION = "1.7.2";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -150,7 +150,7 @@ namespace Apocaplayer
             CrouchRemap = H("Animation", "CrouchRifleLegs", true, "Bundle clips, crouched unarmed / with a pistol: the legs (and hips/spine) from the Rifle crouch clips, the arms and head from CrouchWalk (unarmed) or PistolFire (pistol).");
             CrouchArmsRest = H("Animation", "CrouchArmsRestFrame", 0.25f, "Unarmed crouch standing still: the CrouchWalk frame (0..1 of the clip) whose arms are held.");
             CrouchArmsPhase = H("Animation", "CrouchArmsPhase", 0f, "Unarmed crouch walking: CrouchWalk arms' phase against the rifle crouch legs (0..1; 0.5 = the other step).");
-            CrouchPistolLean = H("Animation", "CrouchPistolLean", 8f, "Crouched with a pistol: how far (degrees) the chest leans forward; the rifle crouch's deeper lean is straightened to this.");
+            CrouchPistolLean = H("Animation", "CrouchPistolLean", 3f, "Crouched with a pistol: how far (degrees) the torso (hips to head) leans forward; the rifle crouch's deeper lean is straightened to this.");
             CrouchDrop = H("Animation", "CrouchDrop", 0.42f, "How far the hips go down when crouched, m.");
             AimPitchShare = H("Animation", "AimPitch", 0.9f, "Share of the camera pitch the spine follows (aiming up/down).");
 
