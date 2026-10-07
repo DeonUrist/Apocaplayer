@@ -188,9 +188,8 @@ namespace Apocaplayer
             bool backpack = _mounts[0].Visual != null;
             if (i == 1 || i == 2)
             {
-                Quaternion rotation = backpack
-                    ? Quaternion.LookRotation(Vector3.down, Vector3.back) * Quaternion.Inverse(Quaternion.LookRotation(mount.Barrel, mount.Magazine))
-                    : Quaternion.AngleAxis(i == 1 ? -35f : 35f, Vector3.forward) * Quaternion.LookRotation(Vector3.up, Vector3.forward)
+                // (2.1.11) both long guns straight on her back (on the backpack when she wears one), at the same spot, crossed
+                Quaternion rotation = Quaternion.AngleAxis(i == 1 ? -35f : 35f, Vector3.forward) * Quaternion.LookRotation(Vector3.up, Vector3.forward)
                         * Quaternion.Inverse(Quaternion.LookRotation(mount.Barrel, ThinAxis(mount.Bounds.size, MajorAxis(mount.Bounds.size))));
                 mount.Visual.transform.localRotation = rotation;
                 mount.Visual.transform.localPosition = -(rotation * mount.Bounds.center);
@@ -199,8 +198,7 @@ namespace Apocaplayer
             if (i == 1 || i == 2) mount.Depth = posed.size.z;
             float gunLayer = mount.Depth * .5f + (i == 2 ? _mounts[1].Depth + .005f : 0);
             Vector3 offset = i == 0 ? new Vector3(0, -.08f, -.08f - _packDepth * .5f)
-                : i <= 2 ? backpack ? new Vector3(side * (_packWidth * .5f + posed.size.x * .5f + .005f), -.08f, -.08f - _packDepth * .5f)
-                    : new Vector3(side * .025f, -.08f, -.08f - gunLayer)
+                : i <= 2 ? new Vector3(0f, -.08f, -.08f - (backpack ? _packDepth : 0f) - gunLayer)
                 : i <= 4 ? new Vector3(side * .11f, -.15f, .015f)
                 : i <= 6 ? new Vector3(side * .20f, -.09f, .04f)
                 : new Vector3(0, .03f, -.20f);

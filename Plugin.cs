@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.1.10";
+        public const string VERSION = "2.1.11";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -97,16 +97,12 @@ namespace Apocaplayer
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift her hands, Home/End tilt her head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
-            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
-            VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
-            // first-person eye vs her head: the game's camera stays where it is (aiming, clicks, weapons unchanged) - her body is moved the opposite way
-            const string fpd = " (m). Moves the first-person view relative to her body: the body is shifted the opposite way under the game's camera, so aiming, clicks and weapons are unchanged.";
-            FpCamX = Config.Bind("Debug", "FirstPersonCameraX", 0f, "On foot, first person, with BodyFirstPerson: view to the right (+) / left (-)" + fpd);
-            FpCamY = Config.Bind("Debug", "FirstPersonCameraY", 0f, "On foot, first person, with BodyFirstPerson: view up (+) / down (-)" + fpd);
-            FpCamZ = Config.Bind("Debug", "FirstPersonCameraZ", 0f, "On foot, first person, with BodyFirstPerson: view forward (+) / back (-)" + fpd);
-            FpCarCamX = Config.Bind("Debug", "FirstPersonDrivingCameraX", 0f, "Driving, first person, with BodyFirstPerson: view to the right (+) / left (-) of the seat, on top of the built-in seat offset (0 = default)" + fpd);
-            FpCarCamY = Config.Bind("Debug", "FirstPersonDrivingCameraY", 0f, "Driving, first person, with BodyFirstPerson: view up (+) / down (-)" + fpd);
-            FpCarCamZ = Config.Bind("Debug", "FirstPersonDrivingCameraZ", 0f, "Driving, first person, with BodyFirstPerson: view forward (+) / back (-)" + fpd);
+            ToggleMiddleMouse = H("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
+            VerboseLog = H("Debug", "VerboseLog", false, "Detailed log lines.");
+            // first-person view vs her body (with BodyFirstPerson), on foot and driving: the game's camera stays where it is (aiming, clicks, weapons
+            // unchanged) - her body is moved the opposite way. (2.1.11) sliders in CAMERA, next to each other; the old [Debug] values move over
+            FpCamX = CameraSlider("FirstPersonBodyX", "FirstPersonCameraX"); FpCamY = CameraSlider("FirstPersonBodyY", "FirstPersonCameraY"); FpCamZ = CameraSlider("FirstPersonBodyZ", "FirstPersonCameraZ");
+            FpCarCamX = CameraSlider("FirstPersonDrivingX", "FirstPersonDrivingCameraX"); FpCarCamY = CameraSlider("FirstPersonDrivingY", "FirstPersonDrivingCameraY"); FpCarCamZ = CameraSlider("FirstPersonDrivingZ", "FirstPersonDrivingCameraZ");
             FemaleArms = H("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person animations (and the kick leg).");
             ReplaceDriver = H("General", "ReplaceDriver", true, "She replaces the game's man in the driver's seat and on the TAB screen.");
             ThirdPersonOnFoot = H("General", "ThirdPersonOnFoot", true, "The Change Camera key switches to a camera behind her, on foot and in cars.");
@@ -164,7 +160,7 @@ namespace Apocaplayer
             PumpClipSpeed = H("Animation", "PumpClipSpeed", 2f, "ShotgunPump (cocking the pump shotgun / bolt rifle) plays this fast (x normal; its rack is ~2 s at 1x).");
             DirBlendSpeed = H("Animation", "DirBlendSpeed", 360f, "How fast (degrees per second) the legs' walking direction turns when the movement keys change (strafe left -> forward passes the diagonal).");
             FootIK = H("Animation", "FootIK", true, "Unity's humanoid foot IK on the bundle's idle and walking clips (standing and crouched). Never on the run / sprint / jump clips: their foot goals were made on another skeleton and the solver twisted the shins.");
-            RunLegsIn = Config.Bind("Animation", "RunLegsIn", 6f, new ConfigDescription("Running (bundle animations): each thigh turned this many degrees toward the middle, the feet kept flat - the rifle pack's run and sprint cycles stand wide on her hips. 0 = the clips as they are.", new AcceptableValueRange<float>(-10f, 20f)));
+            RunLegsIn = H("Animation", "RunLegsIn", 10f, "Running (bundle animations): each thigh turned this many degrees toward the middle, the feet kept flat - the rifle pack's run and sprint cycles stand wide on her hips (10 = Denis's setting).");
             WalkToStop = H("Animation", "WalkToStop", true, "Relaxed walking forward and stopping: the RifleWalkToStop clip's last step settles her feet.");
             RunLegsTurn = H("Animation", "RunLegsTurn", 75f, "Relaxed running (not aiming): the legs turn up to this many degrees toward the way she runs; the chest keeps facing the camera.");
             CrouchDrop = H("Animation", "CrouchDrop", 0.42f, "How far the hips go down when crouched, m.");
@@ -217,6 +213,17 @@ namespace Apocaplayer
             SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); };
             EnsureRunner();
             Log.LogInfo(NAME + " " + VERSION + " loaded");
+        }
+
+        // a first-person offset slider (m) in CAMERA without a description; its old [Debug] value is carried over once
+        private ConfigEntry<float> CameraSlider(string key, string oldKey)
+        {
+            bool fresh = !Config.ContainsKey(new ConfigDefinition("CAMERA", key));
+            var old = Config.Bind("Debug", oldKey, 0f, "");
+            float v = old.Value; Config.Remove(old.Definition);
+            var e = Config.Bind("CAMERA", key, 0f, new ConfigDescription("", new AcceptableValueRange<float>(-0.3f, 0.3f)));
+            if (fresh && Mathf.Abs(v) > 1e-5f) e.Value = Mathf.Clamp(v, -0.3f, 0.3f);
+            return e;
         }
 
         private static void EnsureRunner()
