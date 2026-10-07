@@ -43,7 +43,7 @@ namespace Apocaplayer
         private readonly float[] _bw = new float[BN];
         private bool _noCrouchClips, _hasSprint;
         private int _baseDom = -1;                            // the moving slot with the most weight (the uppers walk in step with it)
-        private float _sprintW;
+        private float _sprintW, _stride;
         private string _previewName;                          // WeaponAdjustment: the selected clip, played standing still
 
         // ---- the upper source (UpperRig)
@@ -203,12 +203,8 @@ namespace Apocaplayer
                 // in step with the legs: the same normalized time as the base's main moving clip
                 if (_rigSync && _baseDom >= 0 && cc != null && cc.length > 0.01f)
                 {
-                    var lc = _bp[_baseDom].GetAnimationClip();
-                    if (lc != null && lc.length > 0.01f)
-                    {
-                        double f = _bp[_baseDom].GetTime() / lc.length + Plugin.UpperPhase.Value; f -= Math.Floor(f);
-                        _rigCur.SetTime(f * cc.length);
-                    }
+                    double f = _stride + Plugin.UpperPhase.Value; f -= Math.Floor(f);
+                    _rigCur.SetTime(f * cc.length);
                 }
                 else if (cc != null && !cc.isLooping && _rigCur.GetTime() > cc.length) { if (_previewName != null) _rigCur.SetTime(0); else _rigCur.SetTime(cc.length - 0.001); }
             }
@@ -258,7 +254,10 @@ namespace Apocaplayer
                 w[B_SPRINT + i0] += spr * (1f - f); w[B_SPRINT + i1] += spr * f;
                 w[B_CWALK + i0] += cw * (1f - f); w[B_CWALK + i1] += cw * f;
             }
-            _baseDom = -1; float best = 0.05f;
+            // one stride for all moving clips: blending two directions / two tiers that are at different points of their stride (run at 0.3,
+            // sprint at 0.8 ...) mangles the legs - so every moving slot is put at the same normalized time each frame (a blend tree's "sync"),
+            // and the shared phase advances at the weighted rate of the clips in use
+            _baseDom = -1; float best = 0.05f, rate = 0f, rateW = 0f;
             for (int i = 0; i < BN; i++)
             {
                 _base.SetInputWeight(i, w[i]);
@@ -266,7 +265,19 @@ namespace Apocaplayer
                 if (w[i] > best) { best = w[i]; _baseDom = i; }
                 float native = i >= B_SPRINT && i < B_CIDLE ? Plugin.ClipSprintSpeed.Value : i >= B_RUN && i < B_SPRINT ? Plugin.ClipRunSpeed.Value : i >= B_CWALK ? Plugin.ClipCrouchSpeed.Value : Plugin.ClipWalkSpeed.Value;
                 float sp = previewSlot >= 0 ? 1f : ClipSpeed(speed, Native(_bp[i], native));
-                _bp[i].SetSpeed(_breverse[i] ? -sp : sp);
+                var c = _bp[i].GetAnimationClip();
+                float len = c != null && c.length > 0.05f ? c.length : 1f;
+                if (w[i] > 0.001f) { rate += w[i] * sp / len; rateW += w[i]; }
+                _bp[i].SetSpeed(0);
+            }
+            if (rateW > 0.001f) _stride += Time.deltaTime * rate / rateW;
+            _stride -= Mathf.Floor(_stride);
+            for (int i = 0; i < BN; i++)
+            {
+                if (i == B_IDLE || i == B_CIDLE || w[i] <= 0.001f) continue;
+                var c = _bp[i].GetAnimationClip();
+                float len = c != null ? c.length : 1f;
+                _bp[i].SetTime((_breverse[i] ? 1f - _stride : _stride) * len);
             }
         }
 
