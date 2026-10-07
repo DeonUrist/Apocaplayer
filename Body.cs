@@ -342,7 +342,8 @@ namespace Apocaplayer
             _graph = PlayableGraph.Create("Apocaplayer");
             _graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
             var output = AnimationPlayableOutput.Create(_graph, "body", _animator);
-            _mixamo = Anims.Loaded && Anims.Get("RifleIdle") != null && Anims.Get("RifleWalk") != null;   // 2.0: the rifle pack's legs carry every weapon
+            _mixamo = Anims.Loaded && Anims.Get("RifleIdle") != null && (Anims.Get("RifleWalk") != null || Anims.Get("RifleWalkLow") != null);   // 2.0: the rifle pack's legs carry every weapon
+            if (Anims.Loaded && !_mixamo) Plugin.Log.LogWarning("Animation bundle without RifleIdle + RifleWalk / RifleWalkLow: the bundle's locomotion is OFF (the game's clips + procedural legs)");
             if (_mixamo) { BuildMixamo(output); return; }
             _loco = AnimationMixerPlayable.Create(_graph, 2);
             var idle = Clip(Plugin.IdleClip.Value);

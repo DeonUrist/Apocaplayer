@@ -193,15 +193,24 @@ writes `Models/apocaplayer_anims.bundle`. See `UnityAnims/README.md` for the fil
 
 Since 2.0 the bundle works like this: **Mixamo's Rifle pack is the lower body of every weapon** - idle, walking / running / sprinting in
 eight directions, crouching in eight directions, turning in place and the jump, blended by the body's real direction and speed (no mirrored
-clips: a mirrored strafe put the gun in the other hand). The pack's set is an *aiming* set (hips square, legs crossing); it is used while aiming, shooting or swinging. The rest of the time the legs are the
-relaxed set: the low-ready walk / run (`RifleWalkLow` / `RifleRunLow`), the strafe walk (`WalkStrafeLeft`, mirrored for the right side - the same on
-both sides), `WalkBack`, with the legs turned toward the way she runs; `RifleWalkToStop` settles a stop, `LeftTurn` / `RightTurn` a turn in place.
-With a rifle the low-ready clips' hands show on those legs, and aiming (right mouse button), firing and
+clips: a mirrored strafe put the gun in the other hand). The pack's set is an *aiming* set (hips square, the right foot turned out, legs
+crossing on strafes): it carries a melee weapon always, and a pistol / rifle while aiming or shooting. Otherwise (bare hands, throwables,
+a lowered pistol or rifle) the standing legs are the **relaxed set**: `Idle` standing, the low-ready walk `RifleWalkLow` forward, the strafe walk
+`WalkStrafeLeft` (mirrored for the right side), `WalkBack`, diagonals blended from those two; running = `RifleRunLow` / `RifleSprint` with the hips
+turned toward the way she runs (`RunLegsTurn`), the pack's straight run back for backward; `RifleWalkToStop`'s last step settles a stop and
+`LeftTurn` / `RightTurn` (mirrored) turn her in place. **Crouched, every weapon uses the pack's crouch** (its own crouched arms with a rifle).
+Every moving clip is played at the same point of the stride: each clip's phase (where its left foot is highest) is measured once on her
+skeleton, so clips from different downloads and the mirrored strafe step together.
+With a rifle the low-ready hands show over the relaxed legs, and aiming (right mouse button), firing and
 reloading put `RifleAim` / `RifleFire` / `RifleCrouchAim` / `RifleCrouchFire` / `RifleReload` on the upper body. With a pistol the upper body is
 `PistolIdle` (lowered), `PistolRun` while running, `PistolFire` (aiming: its first frame; shooting: playing) and `PistolReload`; with bare hands
 or a melee weapon `Idle`, `Walk` / `WalkBack`, `Run` (in step with the legs) and `CrouchIdle`. A standing clip's upper body on crouched legs
 is done by a hidden second copy of her skeleton (the *UpperRig*) whose spine, arms and head she copies - an avatar mask alone would lift her
-out of the crouch. With at least `RifleIdle` + `RifleWalk` in the bundle her body uses it; without it the raider clips and the procedural walk.
+out of the crouch. With at least `RifleIdle` + `RifleWalk` (or `RifleWalkLow`) in the bundle her body uses it; without them the raider clips and the
+procedural walk (the log says so).
+
+All the choices above are in `LocoPlan.cs`; `tools/locotest/` runs them for every weapon and position outside the game and draws / measures
+the poses from the FBX clips (`run.sh`).
 
 **Weapon poses** (`WeaponAdjustment`, numpad): the weapon's place in her right hand is kept **per clip** - every rifle clip (all 34 locomotion
 clips, aim, fire, reload, turns, jumps, kick) and every pistol clip (idle, run, fire, reload, jump, kick) has its own entry, and numpad 9/3 cycle
