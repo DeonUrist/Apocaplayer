@@ -27,7 +27,7 @@ namespace Apocaplayer
 
         private static readonly Dictionary<string, float[]> _v = new Dictionary<string, float[]>();
         // (2.1.9) Denis's tuned values, hard-coded (aim-lift.txt overrides them; the same "weapon|clip[@crouch]=lift, head, forward")
-        // (2.2.2) Denis's final tuning (config/Apocaplayer/aim-lift.txt of 2026-10-08 02:23), standing and crouched
+        // (2.2.3) Denis's final tuning (config/Apocaplayer/aim-lift.txt of 2026-10-08 02:43), standing and crouched
         private static readonly string[] BuiltinData =
         {
             "22_pipe_pistol|PistolFire=9.7, -12, 0",
@@ -36,10 +36,12 @@ namespace Apocaplayer
             "22_pipe_revolver|PistolFire@crouch=8.8, -28.8, 0",
             "22_pipe_smg|PistolFire=11.9, -23.6, 0",
             "22_pipe_smg|PistolFire@crouch=1.1, -23.6, 0",
+            "akm_drum|RifleAim=11.5, -10.6, 0",
+            "akm_drum|RifleCrouchAim@crouch=10.6, -28.8, 0",
             "akm_trash|RifleAim=8.1, -0.4, 0",
             "akm_trash|RifleCrouchAim@crouch=12.1, -9.4, 0",
             "akms|RifleAim=11.4, -24, 0",
-            "akms|RifleCrouchAim@crouch=10.1, 8.6, 0",
+            "akms|RifleCrouchAim@crouch=10.1, -14.6, 0",
             "borz_smg|PistolFire=-0.6, 0, 0",
             "crossbow|RifleAim=12.8, -11.4, 0",
             "crossbow|RifleCrouchAim@crouch=12.6, -5.2, 0",
