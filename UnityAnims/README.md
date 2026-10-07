@@ -13,6 +13,7 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
   either works, the clips are retargeted in the game.
 - For each clip: **Download → Format: FBX for Unity (.fbx), Skin: With Skin, Frames per second: 30, Keyframe Reduction: none**.
   For walk/run/strafe/crouch-walk leave **In Place unticked**: the builder keeps her on the spot anyway, and the clip's real walking speed lets the mod play it in step with you (In Place clips use the BundleWalkSpeed/BundleRunSpeed guesses).
+- A pack downloaded **Without Skin** (small FBX files, ~400 KB) needs the pack's skinned character (Mixamo gives it with the pack, e.g. `X Bot.fbx`) in `Assets/Avatar/`: the builder copies its avatar into every skinless clip. Without it, each clip builds its own avatar from a skeleton with no bind pose, and the legs twist / bow in the fast clips.
 - Save it into `Assets/Mixamo/` named **exactly** as in the first column (the file name becomes the clip name the mod looks for). Naming: `[Rifle|Pistol][Crouch]Action[Direction]` - e.g. `RifleCrouchWalkBackLeft`, `RifleTurnRight`, `PistolFire`; the builder fixes wrong capitals and `RunLeftStrafe` word order.
 
 | File name | What | Suggested Mixamo search |

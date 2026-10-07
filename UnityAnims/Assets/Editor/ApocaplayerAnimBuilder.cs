@@ -13,6 +13,10 @@ using UnityEngine;
 public static class ApocaplayerAnimBuilder
 {
     const string Src = "Assets/Mixamo";
+    // the skinned character the pack was made on (Mixamo gives it with the pack: X Bot). Animation FBXs downloaded "Without Skin" have no
+    // bind pose, so an avatar built from each of them gets a wrong T-pose (the legs' twist axes off) and the clips retarget twisted /
+    // bow-legged in the fast clips. Their avatar is copied from this file instead; FBXs with skin keep their own.
+    const string AvatarDir = "Assets/Avatar";
     const string ClipDir = "Assets/Clips";
     const string OutDir = "Build";
     const string BundleName = "apocaplayer_anims.bundle";
@@ -72,13 +76,32 @@ public static class ApocaplayerAnimBuilder
         var known = new HashSet<string>(Known);
         foreach (var n in have) if (!known.Contains(n)) Debug.LogWarning("Apocaplayer: " + n + ".fbx is not a name the mod uses (it is packed anyway)");
 
+        // 0: the shared avatar (Assets/Avatar/*.fbx, the pack's skinned character)
+        Avatar shared = null;
+        foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { AvatarDir }))
+        {
+            string ap = AssetDatabase.GUIDToAssetPath(guid);
+            var ai = (ModelImporter)AssetImporter.GetAtPath(ap);
+            if (ai.animationType != ModelImporterAnimationType.Human || ai.avatarSetup != ModelImporterAvatarSetup.CreateFromThisModel)
+            { ai.animationType = ModelImporterAnimationType.Human; ai.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel; ai.SaveAndReimport(); }
+            foreach (var o in AssetDatabase.LoadAllAssetsAtPath(ap)) { var av = o as Avatar; if (av != null && av.isValid && av.isHuman) { shared = av; break; } }
+            if (shared != null) { Debug.Log("Apocaplayer: avatar for skinless clips = " + ap); break; }
+        }
+
         // 1 + 2: importer settings
         foreach (var path in fbx)
         {
             string name = Norm(Path.GetFileNameWithoutExtension(path));
             var imp = (ModelImporter)AssetImporter.GetAtPath(path);
             imp.animationType = ModelImporterAnimationType.Human;
-            imp.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            bool skinned = false;
+            foreach (var o in AssetDatabase.LoadAllAssetsAtPath(path)) if (o is SkinnedMeshRenderer) { skinned = true; break; }
+            if (!skinned && shared != null) { imp.avatarSetup = ModelImporterAvatarSetup.CopyFromOther; imp.sourceAvatar = shared; }
+            else
+            {
+                imp.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                if (!skinned) Debug.LogWarning("Apocaplayer: " + name + ".fbx has no skin and there is no " + AvatarDir + "/*.fbx avatar - its own avatar may give a wrong T-pose (twisted legs)");
+            }
             imp.importAnimation = true;
             var src = imp.defaultClipAnimations;
             if (src.Length == 0) { Debug.LogError("Apocaplayer: " + path + " has no animation"); continue; }
