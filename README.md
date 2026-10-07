@@ -193,7 +193,10 @@ writes `Models/apocaplayer_anims.bundle`. See `UnityAnims/README.md` for the fil
 
 Since 2.0 the bundle works like this: **Mixamo's Rifle pack is the lower body of every weapon** - idle, walking / running / sprinting in
 eight directions, crouching in eight directions, turning in place and the jump, blended by the body's real direction and speed (no mirrored
-clips: a mirrored strafe put the gun in the other hand). With a rifle the pack's own clips show, and aiming (right mouse button), firing and
+clips: a mirrored strafe put the gun in the other hand). The pack's set is an *aiming* set (hips square, legs crossing); it is used while aiming, shooting or swinging. The rest of the time the legs are the
+relaxed set: the low-ready walk / run (`RifleWalkLow` / `RifleRunLow`), the strafe walk (`WalkStrafeLeft`, mirrored for the right side - the same on
+both sides), `WalkBack`, with the legs turned toward the way she runs; `RifleWalkToStop` settles a stop, `LeftTurn` / `RightTurn` a turn in place.
+With a rifle the low-ready clips' hands show on those legs, and aiming (right mouse button), firing and
 reloading put `RifleAim` / `RifleFire` / `RifleCrouchAim` / `RifleCrouchFire` / `RifleReload` on the upper body. With a pistol the upper body is
 `PistolIdle` (lowered), `PistolRun` while running, `PistolFire` (aiming: its first frame; shooting: playing) and `PistolReload`; with bare hands
 or a melee weapon `Idle`, `Walk` / `WalkBack`, `Run` (in step with the legs) and `CrouchIdle`. A standing clip's upper body on crouched legs

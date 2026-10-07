@@ -35,6 +35,7 @@ public static class ApocaplayerAnimBuilder
         var l = new List<string> { "RifleIdle", "RifleAim", "RifleFire", "RifleCrouchIdle", "RifleCrouchAim", "RifleCrouchFire", "RifleReload",
             "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleJump",
             "RifleDeathFront", "RifleDeathBack", "RifleDeathRight", "RifleDeathHeadFront", "RifleDeathHeadBack", "RifleCrouchDeathHeadFront",
+            "RifleIdleLow", "RifleWalkLow", "RifleRunLow", "RifleWalkToStop", "WalkStrafeLeft", "WalkStrafeRight", "LeftTurn", "RightTurn",
             "PistolIdle", "PistolRun", "PistolFire", "PistolReload", "PistolJump",
             "Idle", "Walk", "WalkBack", "Run", "CrouchIdle", "Kick", "Jump", "Melee", "MeleeCombo", "Punch", "Punch1", "Punch2", "Melee1", "Melee2", "Throw", "ThrowRight" };
         foreach (var n in Loco("Walk", "Strafe")) l.Add("Rifle" + n);
@@ -63,7 +64,7 @@ public static class ApocaplayerAnimBuilder
     // else the hips stay put and the feet slide under her (Idle sways 16 cm sideways)
     static bool Moves(string n) { return n.Contains("Walk") || n.Contains("Run") || n.Contains("Sprint") || n.Contains("Strafe") || n.Contains("Jump"); }
 
-    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || (n.Contains("Jump") && !n.Contains("JumpLoop")) || n.Contains("Turn") || n.Contains("Death"); }
+    static bool OneShot(string n) { return n.Contains("Reload") || n == "Melee" || n.StartsWith("Throw") || n == "Kick" || (n.Contains("Jump") && !n.Contains("JumpLoop")) || n.Contains("Turn") || n.Contains("Death") || n.Contains("ToStop"); }
 
     [MenuItem("Apocaplayer/Build animation bundle")]
     public static void Build()
@@ -111,7 +112,16 @@ public static class ApocaplayerAnimBuilder
             list.Add(main);
             // the blast lance is thrown with the RIGHT hand (it is the drawn weapon): the same clip unmirrored
             if (MirrorThrow && name == "Throw" && !have.Contains("ThrowRight")) list.Add(Setup(src[0], "ThrowRight"));
-            // (2.0) no mirrored strafes any more: a mirrored clip swaps the hands, the gun ends up in the left one - the rifle pack has both sides
+            // (2.0) nothing with a gun is mirrored (a mirrored clip swaps the hands). (2.1) the RELAXED legs-only clips are: the mod only takes
+            // their legs (the hands come from its upper rig), so a mirrored WalkStrafeLeft / LeftTurn is the right side
+            string mirrorName = name == "WalkStrafeLeft" ? "WalkStrafeRight" : name == "LeftTurn" ? "RightTurn" : null;
+            if (mirrorName != null && !have.Contains(mirrorName))
+            {
+                var m = Setup(src[0], mirrorName);
+                m.mirror = true;
+                list.Add(m);
+                Debug.Log("Apocaplayer: " + mirrorName + " = mirrored " + name);
+            }
             imp.clipAnimations = list.ToArray();
             imp.SaveAndReimport();
         }

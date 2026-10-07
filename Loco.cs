@@ -20,7 +20,10 @@ namespace Apocaplayer
     internal sealed partial class Body
     {
         // ---- base layer slots
-        private const int B_IDLE = 0, B_WALK = 1, B_RUN = 9, B_SPRINT = 17, B_CIDLE = 25, B_CWALK = 26, BN = 34;
+        // 0..33 the pack's aiming set; 34..40 (2.1) the RELAXED set: idle, walk F / R / B / L (relaxed walk, mirrored strafes, walk back), run, sprint
+        private const int B_IDLE = 0, B_WALK = 1, B_RUN = 9, B_SPRINT = 17, B_CIDLE = 25, B_CWALK = 26, B_RIDLE = 34, B_RWALK = 35, B_RRUN = 39, B_RSPRINT = 40, BN = 41;
+        private static readonly string[] RelaxedNames = { "RifleIdleLow", "RifleWalkLow", "WalkStrafeRight", "WalkBack", "WalkStrafeLeft", "RifleRunLow", "RifleSprint" };
+        private static readonly string[] RelaxedFallback = { "RifleIdle", "RifleWalk", "RifleStrafeRight", "RifleWalkBack", "RifleStrafeLeft", "RifleRun", "RifleRun" };
         private static readonly string[] DirWord = { "", "ForwardRight", "Right", "BackRight", "Back", "BackLeft", "Left", "ForwardLeft" };   // 0 = forward, clockwise
         private static string DirName(string tier, string strafe, int d)
         {
@@ -31,6 +34,7 @@ namespace Apocaplayer
         {
             if (i == B_IDLE) return "RifleIdle";
             if (i == B_CIDLE) return "RifleCrouchIdle";
+            if (i >= B_RIDLE) return RelaxedNames[i - B_RIDLE];
             if (i < B_RUN) return "Rifle" + DirName("Walk", "Strafe", i - B_WALK);
             if (i < B_SPRINT) return "Rifle" + DirName("Run", "RunStrafe", i - B_RUN);
             if (i < B_CIDLE) return "Rifle" + DirName("Sprint", "SprintStrafe", i - B_SPRINT);
@@ -62,7 +66,8 @@ namespace Apocaplayer
         private bool _actionIsTurn;
         private float _turnAcc, _turnLastYaw, _turnDecayAt;
         private bool _turnInit;
-        private string _jumpPhase = "";                       // rifle jump: "up" -> "loop" -> "down"
+        private string _jumpPhase = "";
+        private float _walkedAt = -10f, _stopAt = -10f;                       // rifle jump: "up" -> "loop" -> "down"
 
         // ---- weapon poses, per clip name
         private readonly Dictionary<string, float> _poseWn = new Dictionary<string, float>();
@@ -81,7 +86,8 @@ namespace Apocaplayer
             for (int i = 0; i < BN; i++)
             {
                 string n = names[i]; bool rev = false;
-                if (!Has(n))
+                if (!Has(n) && i >= B_RIDLE) { missing.Add(n); n = RelaxedFallback[i - B_RIDLE]; if (!Has(n)) n = i == B_RIDLE ? "RifleIdle" : "RifleWalk"; }
+                else if (!Has(n))
                 {
                     missing.Add(n);
                     int d = i >= B_CWALK ? i - B_CWALK : i >= B_SPRINT ? i - B_SPRINT : i >= B_RUN ? i - B_RUN : i >= B_WALK ? i - B_WALK : -1;
@@ -121,6 +127,7 @@ namespace Apocaplayer
             Plugin.Log.LogInfo("Animations from the bundle (rifle pack legs for every weapon): " + (BN - missing.Count) + "/" + BN + " locomotion clips"
                 + (missing.Count > 0 ? ", missing (stand-ins used): " + string.Join(", ", missing.ToArray()) : "")
                 + "; uppers: " + Have("RifleAim", "RifleFire", "RifleCrouchAim", "RifleCrouchFire", "RifleReload", "PistolIdle", "PistolRun", "PistolFire", "PistolReload", "Idle", "Walk", "WalkBack", "Run", "CrouchIdle")
+                + "; relaxed: " + Have("RifleIdleLow", "RifleWalkLow", "RifleRunLow", "WalkStrafeLeft", "WalkStrafeRight", "WalkBack", "RifleWalkToStop", "LeftTurn", "RightTurn")
                 + "; actions: " + Have("Kick", "Jump", "PistolJump", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight"));
         }
         private static int Cardinal(int d) { return d == 1 || d == 7 ? 0 : d == 3 || d == 5 ? 4 : d; }   // the diagonal's forward / back
@@ -237,24 +244,42 @@ namespace Apocaplayer
         }
 
         // the base layer: idle / 8 directions × walk, run, sprint / crouch idle / 8 crouched walks, by the body's direction and speed
-        private void DriveBase(float m, float r, float sprint, Vector3 local, float crouch, float speed, int previewSlot)
+        // relaxed: how much of the standing locomotion comes from the relaxed set (not aiming / striking), and the legs' turn toward the way she moves
+        private float _relaxW, _hipTurn;
+        private void DriveBase(float m, float r, float sprint, Vector3 local, float crouch, float speed, int previewSlot, float relax, out float hipTurn)
         {
             var w = _bw;
+            hipTurn = 0f;
             for (int i = 0; i < BN; i++) w[i] = 0f;
             if (previewSlot >= 0) w[previewSlot] = 1f;
             else
             {
-                float ang = local.sqrMagnitude > 1e-4f ? Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg : 0f;
+                float ang = local.sqrMagnitude > 1e-4f ? Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg : 0f;   // + = to her right
+                float sang = ang;
                 if (ang < 0f) ang += 360f;
                 float bin = ang / 45f; int i0 = Mathf.FloorToInt(bin) % 8, i1 = (i0 + 1) % 8; float f = bin - Mathf.Floor(bin);
-                float st = 1f - crouch;
-                w[B_IDLE] = (1f - m) * st;
+                float st = 1f - crouch, aimS = st * (1f - relax), relS = st * relax;
+                w[B_IDLE] = (1f - m) * aimS;
+                w[B_RIDLE] = (1f - m) * relS;
                 w[B_CIDLE] = (1f - m) * crouch;
-                float walk = m * (1f - r) * st, run = m * r * (1f - sprint) * st, spr = m * r * sprint * st, cw = m * crouch;
+                // the aiming set: 8 directions in every tier
+                float walk = m * (1f - r) * aimS, run = m * r * (1f - sprint) * aimS, spr = m * r * sprint * aimS, cw = m * crouch;
                 w[B_WALK + i0] += walk * (1f - f); w[B_WALK + i1] += walk * f;
                 w[B_RUN + i0] += run * (1f - f); w[B_RUN + i1] += run * f;
                 w[B_SPRINT + i0] += spr * (1f - f); w[B_SPRINT + i1] += spr * f;
                 w[B_CWALK + i0] += cw * (1f - f); w[B_CWALK + i1] += cw * f;
+                // the relaxed set: walking = the four real directions blended (a diagonal = half forward, half the mirrored strafe - the same both
+                // sides); running = the forward run with the legs turned toward the way she goes (hips, chest kept to the camera by the rig),
+                // and the aiming set's run back when she runs backward
+                float rwalk = m * (1f - r) * relS, rrun = m * r * relS;
+                float qb = ang / 90f; int q0 = Mathf.FloorToInt(qb) % 4, q1 = (q0 + 1) % 4; float qf = qb - Mathf.Floor(qb);
+                w[B_RWALK + q0] += rwalk * (1f - qf); w[B_RWALK + q1] += rwalk * qf;
+                float back = Mathf.Clamp01((Mathf.Abs(sang) - 100f) / 40f);
+                float fwdRun = rrun * (1f - back), backRun = rrun * back;
+                w[B_RRUN] += fwdRun * (1f - sprint); w[B_RSPRINT] += fwdRun * sprint;
+                w[B_RUN + i0] += backRun * (1f - sprint) * (1f - f); w[B_RUN + i1] += backRun * (1f - sprint) * f;
+                w[B_SPRINT + i0] += backRun * sprint * (1f - f); w[B_SPRINT + i1] += backRun * sprint * f;
+                if (m > 0.05f) hipTurn = Mathf.Clamp(sang, -Plugin.RunLegsTurn.Value, Plugin.RunLegsTurn.Value) * (1f - back) * (r * relS);
             }
             // one stride for all moving clips: blending two directions / two tiers that are at different points of their stride (run at 0.3,
             // sprint at 0.8 ...) mangles the legs - so every moving slot is put at the same normalized time each frame (a blend tree's "sync"),
@@ -263,9 +288,10 @@ namespace Apocaplayer
             for (int i = 0; i < BN; i++)
             {
                 _base.SetInputWeight(i, w[i]);
-                if (i == B_IDLE || i == B_CIDLE) continue;
+                if (i == B_IDLE || i == B_CIDLE || i == B_RIDLE) continue;
                 if (w[i] > best) { best = w[i]; _baseDom = i; }
-                float native = i >= B_SPRINT && i < B_CIDLE ? Plugin.ClipSprintSpeed.Value : i >= B_RUN && i < B_SPRINT ? Plugin.ClipRunSpeed.Value : i >= B_CWALK ? Plugin.ClipCrouchSpeed.Value : Plugin.ClipWalkSpeed.Value;
+                float native = i == B_RSPRINT || (i >= B_SPRINT && i < B_CIDLE) ? Plugin.ClipSprintSpeed.Value : i == B_RRUN || (i >= B_RUN && i < B_SPRINT) ? Plugin.ClipRunSpeed.Value
+                             : i >= B_CWALK && i < B_RIDLE ? Plugin.ClipCrouchSpeed.Value : Plugin.ClipWalkSpeed.Value;
                 float sp = previewSlot >= 0 ? 1f : ClipSpeed(speed, Native(_bp[i], native));
                 var c = _bp[i].GetAnimationClip();
                 float len = c != null && c.length > 0.05f ? c.length : 1f;
@@ -276,7 +302,7 @@ namespace Apocaplayer
             _stride -= Mathf.Floor(_stride);
             for (int i = 0; i < BN; i++)
             {
-                if (i == B_IDLE || i == B_CIDLE || w[i] <= 0.001f) continue;
+                if (i == B_IDLE || i == B_CIDLE || i == B_RIDLE || w[i] <= 0.001f) continue;
                 var c = _bp[i].GetAnimationClip();
                 float len = c != null ? c.length : 1f;
                 _bp[i].SetTime((_breverse[i] ? 1f - _stride : _stride) * len);
@@ -295,7 +321,7 @@ namespace Apocaplayer
             {
                 idle = "RifleIdle";
                 for (int i = 0; i < BN; i++) if (!l.Contains(_bname[i])) l.Add(_bname[i]);
-                foreach (var n in new[] { "RifleAim", "RifleFire", "RifleCrouchAim", "RifleCrouchFire", "RifleReload", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "Kick" })
+                foreach (var n in new[] { "RifleIdleLow", "RifleWalkLow", "RifleRunLow", "RifleWalkToStop", "LeftTurn", "RightTurn", "RifleAim", "RifleFire", "RifleCrouchAim", "RifleCrouchFire", "RifleReload", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "Kick" })
                     if (Has(n) && !l.Contains(n)) l.Add(n);
             }
             else if (kind == Props.Kind.Pistol)
@@ -345,7 +371,7 @@ namespace Apocaplayer
         }
 
         // standing still and turned a lot: a turn-in-place clip (the rifle pack's, full body; the upper source stays on it for pistols / bare hands)
-        private void TurnInPlace(float yawDeg, float m, float crouch)
+        private void TurnInPlace(float yawDeg, float m, float crouch, bool relaxed)
         {
             if (!_turnInit) { _turnInit = true; _turnLastYaw = yawDeg; }
             float d = Mathf.DeltaAngle(_turnLastYaw, yawDeg);
@@ -356,7 +382,7 @@ namespace Apocaplayer
             else if (Time.time > _turnDecayAt) _turnAcc = Mathf.MoveTowards(_turnAcc, 0f, Time.deltaTime * 120f);
             if (Mathf.Abs(_turnAcc) < Plugin.TurnClipAngle.Value) return;
             bool left = _turnAcc < 0f;
-            string clip = crouch > 0.5f ? (left ? "RifleCrouchTurnLeft" : "RifleCrouchTurnRight") : (left ? "RifleTurnLeft" : "RifleTurnRight");
+            string clip = crouch > 0.5f ? (left ? "RifleCrouchTurnLeft" : "RifleCrouchTurnRight") : relaxed && Has(left ? "LeftTurn" : "RightTurn") ? (left ? "LeftTurn" : "RightTurn") : (left ? "RifleTurnLeft" : "RifleTurnRight");
             if (!Has(clip)) clip = left ? "RifleTurnLeft" : "RifleTurnRight";
             _turnAcc = 0f;
             if (!Has(clip)) return;
@@ -401,11 +427,16 @@ namespace Apocaplayer
                 if (previewSlot < 0 && _previewName.Contains("Crouch")) { crouch = 1f; previewSlot = B_CIDLE; }
                 else if (previewSlot < 0) { crouch = 0f; previewSlot = B_IDLE; }
             }
-            DriveBase(m, _runW, _sprintW, local, crouch, _speedSmooth, previewSlot);
-
             // aiming (right mouse button) / shooting / reloading
             bool aiming = live && gunKind && _previewName == null && Game.AimDownSights;
             bool shooting = live && Input.GetMouseButton(0);
+            // relaxed legs (the low-ready walk / run, mirrored strafes, legs turned the way she goes) unless she aims, shoots a gun, swings or throws
+            bool relaxed = !(aiming || (shooting && gunKind) || _striking || _meleeStart > 0f || Time.time < _throwUntil) && _previewName == null;
+            if (_previewName != null) relaxed = previewSlot >= B_RIDLE;
+            _relaxW = _snap ? (relaxed ? 1f : 0f) : Mathf.MoveTowards(_relaxW, relaxed ? 1f : 0f, dt * 5f);
+            float hipWant;
+            DriveBase(m, _runW, _sprintW, local, crouch, _speedSmooth, previewSlot, _relaxW, out hipWant);
+            _hipTurn = Mathf.Lerp(_hipTurn, hipWant, 1f - Mathf.Exp(-dt * 8f));
             bool click = live && Input.GetMouseButtonDown(0);
             bool reloadingNow = gunKind && ReloadNow(weapon);
             bool pvReload = _previewName != null && _previewName.EndsWith("Reload");
@@ -444,7 +475,12 @@ namespace Apocaplayer
             _jumpState = js;
             if (_previewName != null && (_previewName.Contains("Jump") || _previewName == "Kick" || _previewName.Contains("Turn")) && Time.time > _actionUntil - 0.2f)
             { StartAction(_previewName); _actionIsTurn = _previewName.Contains("Turn"); }
-            if (_previewName == null) TurnInPlace(yaw.eulerAngles.y, m, crouch);
+            if (_previewName == null) TurnInPlace(yaw.eulerAngles.y, m, crouch, relaxed);
+            // walking relaxed and coming to a stop: the walk-to-stop clip settles the feet (the hands stay the rig's)
+            bool walkingNow = relaxed && crouch < 0.5f && m > 0.6f && _runW < 0.5f;
+            if (walkingNow) _walkedAt = Time.time;
+            if (_previewName == null && relaxed && m < 0.25f && Time.time - _walkedAt < 0.35f && Time.time > _actionUntil && Has("RifleWalkToStop") && _stopAt < _walkedAt)
+            { _stopAt = Time.time; StartAction("RifleWalkToStop"); _actionIsTurn = true; }
             UpdateAction(dt);
 
             // melee weapons and bare hands: one strike per game swing; throws
@@ -468,6 +504,12 @@ namespace Apocaplayer
             else if (kind == Props.Kind.Rifle)
             {
                 if (_reloading && Has("RifleReload")) up = "RifleReload";
+                else if (relaxed)
+                {   // the relaxed legs may be the unarmed strafes / turns: the hands always come from the low-ready rifle clips
+                    if (moving && running) { up = Has("RifleRunLow") ? "RifleRunLow" : "RifleRun"; sync = true; }
+                    else if (moving) { up = Has("RifleWalkLow") ? "RifleWalkLow" : "RifleWalk"; sync = true; }
+                    else up = Has("RifleIdleLow") ? "RifleIdleLow" : "RifleIdle";
+                }
                 else if (aiming || shooting)
                 {
                     bool cr = crouch > 0.5f;
@@ -494,6 +536,13 @@ namespace Apocaplayer
             }
             if (up != null) RigSet(up, hold, sync);
             _rigWant = up != null ? 1f : 0f;
+            // relaxed running: the legs face the way she runs (hips about up); the chest is put back toward the camera by the rig (rifle, pistol,
+            // bare hands all have one), else by a counter-turn of the spine
+            if (Mathf.Abs(_hipTurn) > 0.2f && _actionW < 0.5f)
+            {
+                Turn("mixamorig:Hips", Vector3.up, _hipTurn);
+                if (_rigWant < 0.5f) { Turn("mixamorig:Spine", Vector3.up, -_hipTurn * 0.5f); Turn("mixamorig:Spine1", Vector3.up, -_hipTurn * 0.5f); }
+            }
             // full-body actions (kick, jumps) take the upper body with them; a turn in place keeps the hands
             float rigScale = (1f - _upperW) * (_actionIsTurn ? 1f : 1f - _actionW);
             RigApply(dt, rigScale);

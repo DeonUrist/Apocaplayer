@@ -24,6 +24,8 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | RifleRun.fbx, RifleRunBack.fbx, RifleRunStrafeLeft/Right.fbx, RifleRunForwardLeft/Right.fbx, RifleRunBackLeft/Right.fbx | running, 8 directions | "run forward ..." |
 | RifleSprint.fbx, RifleSprintBack.fbx, RifleSprintStrafeLeft/Right.fbx, RifleSprintForwardLeft/Right.fbx, RifleSprintBackLeft/Right.fbx | sprinting, 8 directions (used above SprintFrom m/s, the game's run) | "sprint forward ..." |
 | RifleCrouchWalk.fbx, RifleCrouchWalkBack.fbx, RifleCrouchStrafeLeft/Right.fbx, RifleCrouchWalkForwardLeft/Right.fbx, RifleCrouchWalkBackLeft/Right.fbx | crouched walking, 8 directions | "walk crouching forward ..." |
+| **Relaxed legs** (2.1, not aiming): RifleWalkLow.fbx, RifleRunLow.fbx, WalkStrafeLeft.fbx (mirrored for the right side), WalkBack.fbx, RifleIdleLow.fbx (optional) | the low-ready walk / run; strafing walks blend the forward walk with the mirrored strafe (the same both sides); running sideways turns the legs toward the way she runs | "Rifle Walk", "Rifle Run", "Walk Strafe Left", "Walking Backwards", "Rifle Idle" |
+| RifleWalkToStop.fbx, LeftTurn.fbx (mirrored for RightTurn) | relaxed: coming to a stop after walking; turning in place | "Walk To Stop", "Left Turn" |
 | RifleTurnLeft.fbx, RifleTurnRight.fbx, RifleCrouchTurnLeft.fbx, RifleCrouchTurnRight.fbx | turning in place (played when you turn a lot standing still) | "turn 90 left/right", "crouching turn 90 left/right" |
 | RifleJumpUp.fbx, RifleJumpLoop.fbx, RifleJumpDown.fbx | the rifle jump: take-off, in the air, landing | "jump up", "jump loop", "jump down" |
 | RifleFire.fbx, RifleCrouchFire.fbx, RifleReload.fbx | firing standing / crouched (else the aim clips), the reload | "Firing Rifle", "Crouch Rifle Fire", "Rifle Reload" |
@@ -34,8 +36,8 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | Throw.fbx | grenade (left hand: packed mirrored as "Throw") and blast lance (right hand: unmirrored as "ThrowRight") | "Throw" |
 
 Everything except **RifleIdle** and **RifleWalk** is optional: a missing direction uses its neighbour, a missing tier the one below (sprint -> run -> walk),
-a missing back clip the forward one reversed; what is missing of the uppers falls back to the rifle clips' own hands. Nothing is mirrored any more
-(a mirrored strafe put the gun in the other hand). The first-person arms keep the game's own reload/shot animations.
+a missing back clip the forward one reversed; what is missing of the uppers falls back to the rifle clips' own hands. Only the relaxed legs-only clips (WalkStrafeLeft, LeftTurn) are mirrored:
+the mod takes just their legs, the hands come from its upper rig, so the swapped hands don't matter. The first-person arms keep the game's own reload/shot animations.
 
 ## Build
 Menu **Apocaplayer → Build animation bundle**. It sets every FBX to Humanoid / in place / looping (one-shots: Reload, Melee, Throw, Kick, jumps, turns),
