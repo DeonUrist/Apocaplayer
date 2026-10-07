@@ -48,20 +48,24 @@ namespace Apocaplayer
         {
             if (_file == null) return;
             var sb = new StringBuilder();
-            sb.AppendLine("# Apocaplayer aim lift: weapon|aim clip = lift (cm), head down (degrees), forward (cm). Edited live with WeaponAdjustment on:");
+            sb.AppendLine("# Apocaplayer aim lift: weapon|aim clip[@crouch] = lift (cm), head down (degrees), forward (cm). Edited live with WeaponAdjustment on:");
             sb.AppendLine("# Page Up / Page Down = lift, Home / End = head, Insert / Delete = forward (while she aims, or the aim clip picked with numpad 9/3).");
             var keys = new List<string>(_v.Keys); keys.Sort(StringComparer.Ordinal);
             foreach (var k in keys) sb.AppendLine(k + " = " + string.Join(", ", Array.ConvertAll(_v[k], x => x.ToString("0.#", CultureInfo.InvariantCulture))));
             File.WriteAllText(_file, sb.ToString());
         }
-        public static float[] Get(string weapon, string clip)
+        // (2.1.8) standing and crouched have their own values: the key is the clip + "@crouch" when crouched; a crouched aim without its own entry
+        // starts from the standing one (so a tuned weapon doesn't jump back to the default)
+        public static string Key(string clip, bool crouched) { return crouched ? clip + "@crouch" : clip; }
+        public static float[] Get(string weapon, string clip, bool crouched)
         {
             float[] v;
-            if (_v.TryGetValue(weapon + "|" + clip, out v)) return v;
+            if (_v.TryGetValue(weapon + "|" + Key(clip, crouched), out v)) return v;
+            if (crouched && _v.TryGetValue(weapon + "|" + clip, out v)) return v;
             return Default(clip);
         }
-        public static bool Own(string weapon, string clip) { return _v.ContainsKey(weapon + "|" + clip); }
-        public static void Set(string weapon, string clip, float[] v) { _v[weapon + "|" + clip] = v; }
+        public static bool Own(string weapon, string clip, bool crouched) { return _v.ContainsKey(weapon + "|" + Key(clip, crouched)); }
+        public static void Set(string weapon, string clip, bool crouched, float[] v) { _v[weapon + "|" + Key(clip, crouched)] = v; }
 
         // ---- two-bone IK: the new elbow position so the hand reaches t, the arm bending in the plane it bends in now
         //   s, e, h = shoulder, elbow, hand positions; returns the elbow (the caller turns the upper arm onto it, then the forearm onto t)

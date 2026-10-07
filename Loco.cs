@@ -152,7 +152,7 @@ namespace Apocaplayer
         }
 
         // the upper source's clip: a new clip starts at once, the old pose fades out under it (as SetUpper)
-        private float _rigSpeed = 1f;
+        private float _rigSpeed = 1f, _rigManual = -1f;     // _rigManual >= 0: the upper clip held at that share of it (per-round reloads)
         private void RigSet(string clip, bool hold, bool sync, float start = 0f, float speed = 1f)
         {
             if (!_rigGraph.IsValid()) return;
@@ -226,7 +226,8 @@ namespace Apocaplayer
             float eff = _rigW * w;
             if (eff < 0.001f) return;
             var cc = _rigCur.GetAnimationClip();
-            if (_rigHold) { _rigCur.SetSpeed(0); _rigCur.SetTime(0); }
+            if (_rigManual >= 0f && cc != null) { _rigCur.SetSpeed(0); _rigCur.SetTime(_rigManual * cc.length); }
+            else if (_rigHold) { _rigCur.SetSpeed(0); _rigCur.SetTime(0); }
             else
             {
                 _rigCur.SetSpeed(_rigSpeed);
@@ -267,15 +268,16 @@ namespace Apocaplayer
         // ---- (2.1.7) aim lift (AimLift.cs): both hands raised / pushed forward by a two-bone arm IK and the head tilted onto the stock while an aim /
         // fire clip moves her hands, per weapon and clip; live keys with WeaponAdjustment on
         private float _aimLiftW; private string _aimLiftClip; private bool _aimDirty;
+        private bool _aimCrouched;
         private void ApplyAimLift(string weapon, Props.Kind kind, float dt)
         {
             string clip = _rigClip;
             bool on = !string.IsNullOrEmpty(weapon) && (kind == Props.Kind.Rifle || kind == Props.Kind.Pistol) && AimLift.IsAimClip(clip) && _rigEff > 0.01f && !_reloading;
             _aimLiftW = _snap ? (on ? 1f : 0f) : Mathf.MoveTowards(_aimLiftW, on ? 1f : 0f, dt * 6f);
-            if (on) _aimLiftClip = clip;
+            if (on) { _aimLiftClip = clip; _aimCrouched = clip.Contains("Crouch") || (_previewName == null && _crouch > 0.5f); }
             AimKeys(weapon, on ? clip : null, dt);
             if (_aimLiftW < 0.001f || _aimLiftClip == null || string.IsNullOrEmpty(weapon)) return;
-            var v = AimLift.Get(weapon, _aimLiftClip);
+            var v = AimLift.Get(weapon, _aimLiftClip, _aimCrouched);
             float w = _aimLiftW;
             var d = (_anim.up * v[0] + _anim.forward * v[2]) * (0.01f * w);
             if (d.sqrMagnitude > 1e-8f)
@@ -310,13 +312,13 @@ namespace Apocaplayer
             float lift = (Input.GetKey(KeyCode.PageUp) ? 1f : 0f) - (Input.GetKey(KeyCode.PageDown) ? 1f : 0f);
             float head = (Input.GetKey(KeyCode.End) ? 1f : 0f) - (Input.GetKey(KeyCode.Home) ? 1f : 0f);
             float fwd = (Input.GetKey(KeyCode.Insert) ? 1f : 0f) - (Input.GetKey(KeyCode.Delete) ? 1f : 0f);
-            var v = (float[])AimLift.Get(weapon, clip).Clone();
+            var v = (float[])AimLift.Get(weapon, clip, _aimCrouched).Clone();
             if (lift != 0f || head != 0f || fwd != 0f)
             {
                 v[0] = Mathf.Clamp(v[0] + lift * 5f * dt, -20f, 45f);
                 v[1] = Mathf.Clamp(v[1] + head * 15f * dt, -30f, 40f);
                 v[2] = Mathf.Clamp(v[2] + fwd * 5f * dt, -20f, 30f);
-                AimLift.Set(weapon, clip, v); _aimDirty = true;
+                AimLift.Set(weapon, clip, _aimCrouched, v); _aimDirty = true;
             }
             else if (_aimDirty) { AimLift.Save(); _aimDirty = false; }
             // how far the top of the gun is under the shots' start (the camera = her eyes), along her up axis
@@ -331,8 +333,8 @@ namespace Apocaplayer
                     gap = "  -  the top of the gun is " + g.ToString("0") + " cm " + (g >= 0f ? "below" : "above") + " where the shots start (her eyes)";
                 }
             }
-            GunPose.AimLine = "AIM LIFT " + weapon + " | " + clip + ": lift " + v[0].ToString("0.0") + " cm, head down " + v[1].ToString("0") + "°, forward " + v[2].ToString("0.0") + " cm"
-                + (AimLift.Own(weapon, clip) ? "" : " (default)") + gap + "\nPage Up/Down = lift, Home/End = head, Insert/Delete = forward. Saved in config/Apocaplayer/aim-lift.txt";
+            GunPose.AimLine = "AIM LIFT " + weapon + " | " + clip + (_aimCrouched ? " CROUCHED" : " STANDING") + ": lift " + v[0].ToString("0.0") + " cm, head down " + v[1].ToString("0") + "°, forward " + v[2].ToString("0.0") + " cm"
+                + (AimLift.Own(weapon, clip, _aimCrouched) ? "" : _aimCrouched && AimLift.Own(weapon, clip, false) ? " (from standing)" : " (default)") + gap + "\nPage Up/Down = lift, Home/End = head, Insert/Delete = forward. Saved in config/Apocaplayer/aim-lift.txt";
         }
         private float _pumpUntil; private bool _cocking, _pumpStart;
         private int _locoKind;
@@ -696,6 +698,24 @@ namespace Apocaplayer
                 _pumpStart = false;
             }
             else if (up != null) RigSet(up, hold, sync);
+            // (2.1.8) one round at a time (revolver, shotguns, bolt rifle, double barrel): the reload clip's fetch-and-insert part follows the
+            // first-person arms - once per round, in step with them; while the gun is opened / closed the hands wait on it
+            _rigManual = -1f;
+            if (_reloading && (up == "RifleReload" || up == "PistolReload") && Game.ReloadsPerRound(weapon))
+            {
+                int ph; float nt;
+                bool armsKnown;
+                Game.ArmsReloading(weapon, out armsKnown);
+                if (Game.ArmsReloadPhase(weapon, out ph, out nt)) _rigManual = LocoPlan.RoundTime(up, ph, nt);
+                else if (armsKnown) _rigManual = LocoPlan.RoundTime(up, 1, 0f);          // between two rounds: the hands wait on the gun
+                else
+                {   // no arms to follow: the round part over and over at the clip's speed
+                    float a, b; LocoPlan.RoundSegment(up, out a, out b);
+                    var rc = Anims.Get(up);
+                    float len = rc != null ? rc.length * (b - a) : 1f;
+                    _rigManual = a + Mathf.Repeat(Time.time - _reloadStart, len) / Mathf.Max(0.1f, len) * (b - a);
+                }
+            }
             _rigWant = up != null ? 1f : 0f;
             // relaxed running: the legs face the way she runs (hips about up); the chest is put back toward the camera by the rig (rifle, pistol,
             // bare hands all have one), else by a counter-turn of the spine

@@ -195,6 +195,24 @@ namespace Apocaplayer
         // ---- (2.1.6) cocking: the [Attack] FSM states in which the game cocks a gun (slamberg_500 pump shotgun: "pump", 0.25 s; redmark_m11 bolt
         // rifle: "bolt action", until its arms' bolt animation ends). Seen only when the gun really cocks - with the hammer already up the FSM
         // passes those states within the frame. ShotgunPump.fbx: its rack is 0.15 .. 0.93 of the clip (both hands at the shoulder before / after).
+        // (2.1.8) one round of a one-round-at-a-time reload: the part of the reload clip where the left hand fetches a round and puts it in, and
+        // comes back to where it started (measured on the FBX, tools/locotest: RifleReload's left hand goes to the pouch 0.28..0.40, to the gun
+        // 0.48..0.69, the ends 0.00 / 0.78 differ by 3 cm; PistolReload's goes low 0.17..0.29, back at the gun 0.51, ends 0.05 / 0.57 differ by 5.5 cm)
+        public static bool RoundSegment(string clip, out float from, out float to)
+        {
+            if (clip == "RifleReload") { from = 0.00f; to = 0.78f; return true; }
+            if (clip == "PistolReload") { from = 0.05f; to = 0.57f; return true; }
+            from = 0f; to = 1f; return false;
+        }
+        // the reload clip's time for the arms' phase (1 opening / 2 loading a round / 3 closing) and how far through it they are
+        public static float RoundTime(string clip, int phase, float norm)
+        {
+            float a, b;
+            if (!RoundSegment(clip, out a, out b)) return -1f;
+            if (phase == 2) return a + Clamp01(norm) * (b - a);
+            return a;                                                   // opening / closing the gun: the hands on it, ready
+        }
+
         public static bool IsCocking(string attackState) { return attackState == "pump" || attackState == "bolt action"; }
         public const float PumpFrom = 0.15f, PumpTo = 0.93f;
 

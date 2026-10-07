@@ -1123,7 +1123,7 @@ namespace Apocaplayer
             bool arms = Game.ArmsReloading(weapon, out known);
             bool fsm = Game.IsReloading(weapon);
             if (fsm && arms && _armsShowReload.Add(weapon)) Plugin.Verbose("Reload: " + weapon + " - following its first-person arms' reload animation");
-            if (known && _armsShowReload.Contains(weapon)) return arms;
+            if (known && _armsShowReload.Contains(weapon)) return arms || (fsm && Game.ReloadsPerRound(weapon));   // (2.1.8) one round at a time: the arms rest between rounds
             if (!fsm) { _reloadFresh = true; _fsmReloadSince = 0f; return false; }
             if (!_reloadFresh) return false;                           // already "reloading" when drawn: stale
             if (_fsmReloadSince <= 0f) _fsmReloadSince = Time.time;

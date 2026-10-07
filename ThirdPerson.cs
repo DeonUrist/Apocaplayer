@@ -45,12 +45,23 @@ namespace Apocaplayer
             return true;
         }
 
+        // (2.1.8) aiming down a scoped gun's sights: the game's own first-person scope view (its camera = where the shots start, FOV 25, overlay),
+        // no camera behind her - as with the binoculars
+        private static bool ScopedAds()
+        {
+            if (Game.Paused) return false;
+            string w = Game.DrawnWeapon;
+            if (string.IsNullOrEmpty(w) || w.IndexOf("scope", System.StringComparison.OrdinalIgnoreCase) < 0) return false;
+            var k = Props.KindOf(w);
+            return (k == Props.Kind.Rifle || k == Props.Kind.Pistol) && Game.AimDownSights;
+        }
+
         private static void UpdateZoom()
         {
             string w = Game.DrawnWeapon;
             var k = Props.KindOf(w);
             bool gun = k == Props.Kind.Rifle || k == Props.Kind.Pistol;
-            AimZoom = On && !Peek && !Game.Paused && !Game.Dead && gun && w.IndexOf("scoped", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
+            AimZoom = On && !Peek && !Game.Paused && !Game.Dead && gun && w.IndexOf("scope", System.StringComparison.OrdinalIgnoreCase) < 0 && Game.AimDownSights;
             _zoomK = Mathf.MoveTowards(_zoomK, AimZoom ? 1f : 0f, Time.unscaledDeltaTime * 6f);
             if (!On) _zoomK = 0f;
             if (AimZoom && _crosshair != null && !_crosshair.activeSelf) _crosshair.SetActive(true);
@@ -103,7 +114,7 @@ namespace Apocaplayer
                 Plugin.Verbose("Third person: " + (On ? "on" : "off"));
             }
             if (!allowed && On) On = false;
-            bool peek = On && !Game.Dead && Game.Binoculars;
+            bool peek = On && !Game.Dead && (Game.Binoculars || ScopedAds());
             if (Peek && !peek) { _dist = 0.3f; _nextScan = 0f; }   // binoculars down: the camera comes back out from behind her head, first-person renderers hidden again at once
             Peek = peek;
             // the observing key (RebindObserving, LeftAlt) - and the middle mouse button only with EnableMMB, the game rotates held items with it -

@@ -208,6 +208,9 @@ while she is in the air and goes to its touch-down when the game's [Jump] FSM la
 hands both hands are lifted (and pushed forward) by an arm IK and her head tilts onto the stock, per weapon and clip (default rifles: 15 cm,
 10°). With WeaponAdjustment on, while aiming (or with an aim clip picked by numpad 9/3): Page Up/Down = lift, Home/End = head, Insert/Delete =
 forward; the hint shows how far the top of the gun is under the eyes. Saved to `config/Apocaplayer/aim-lift.txt` (weapon-poses.txt untouched).
+Standing and crouched have their own values (2.1.8; a crouched aim without its own entry starts from the standing one).
+Guns that load one round at a time (revolver, shotguns, the bolt rifle, the double barrel) play the reload clip's fetch-and-insert part once
+per round, in step with the first-person arms; aiming down a scoped gun's sights shows the game's own first-person scope view.
 Reloads play `RifleReload` / `PistolReload` on the upper body; cocking the pump shotgun or the bolt rifle (their [Attack] FSM in "pump" /
 "bolt action") plays `ShotgunPump`'s rack. Every moving clip is played at the same point of the stride: each clip's phase (where its left foot is highest) is measured once on her
 skeleton, so clips from different downloads and the mirrored strafe step together.

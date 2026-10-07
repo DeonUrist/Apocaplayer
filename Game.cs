@@ -17,7 +17,7 @@ namespace Apocaplayer
         public static PlayMakerFSM GrenadeFsm;      // PlayerCamera/QuickItems/grenade [Attack]: on -> (Throw Grenade) -> checkGrenade -> fire 0.4 s -> wait 0.35 s -> throw      // PlayerCamera/WeaponsArm/Parent: one child per first-person weapon, the drawn one active
         private static float _nextFind;
 
-        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _arms.Clear(); _attackFsms.Clear(); _adsFsm = null; GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
+        public static void Reset() { _jumpFsm = _kickFsm = null; _reloadFsms.Clear(); _perRound.Clear(); _arms.Clear(); _attackFsms.Clear(); _adsFsm = null; GrenadeFsm = null; Player = null; InCarFsm = MovementFsm = null; CameraHolder = PlayerCamera = WeaponsParent = null; Cam = null; _nextFind = 0f; }
 
         public static bool Ready
         {
@@ -255,7 +255,54 @@ namespace Apocaplayer
             catch (Exception) { }
             return false;
         }
-        private static bool IsReload(AnimatorStateInfo s) { return s.IsName("reload") || s.IsName("Reload") || s.IsName("Base Layer.reload") || s.IsName("Base Layer.Reload"); }
+        private static bool IsReload(AnimatorStateInfo s) { return ReloadPhaseOf(s) != 0; }
+        // (2.1.8) the arms' reload states: "reload" (one magazine / one round), and for the break-action / bolt guns (rochester_m24, redmark_m11)
+        // "reload 1" (open), "reload 2" (one round, again per round), "reload 3" / "reload 4" (close). 1 = opening, 2 = loading, 3 = closing
+        private static int ReloadPhaseOf(AnimatorStateInfo s)
+        {
+            if (s.IsName("reload") || s.IsName("Reload") || s.IsName("Base Layer.reload") || s.IsName("Base Layer.Reload") || s.IsName("reload 2") || s.IsName("Base Layer.reload 2")) return 2;
+            if (s.IsName("reload 1") || s.IsName("Base Layer.reload 1")) return 1;
+            if (s.IsName("reload 3") || s.IsName("Base Layer.reload 3") || s.IsName("reload 4") || s.IsName("Base Layer.reload 4")) return 3;
+            return 0;
+        }
+        // the drawn weapon's arms in a reload state: which phase, and how far through it (0..1)
+        public static bool ArmsReloadPhase(string weapon, out int phase, out float norm)
+        {
+            phase = 0; norm = 0f;
+            bool known;
+            ArmsReloading(weapon, out known);
+            Animator an;
+            if (!known || !_arms.TryGetValue(weapon, out an) || an == null) return false;
+            try
+            {
+                var s = an.GetCurrentAnimatorStateInfo(0);
+                phase = ReloadPhaseOf(s);
+                if (phase == 0 && an.IsInTransition(0)) { s = an.GetNextAnimatorStateInfo(0); phase = ReloadPhaseOf(s); }
+                norm = Mathf.Clamp01(s.normalizedTime);
+                return phase != 0;
+            }
+            catch (Exception) { return false; }
+        }
+        // the gun reloads one round at a time: its [Reload] FSM loops reload -> checkAmmoInStore -> the arms' round animation (revolvers,
+        // shotguns, the bolt rifle, the double barrel); magazines don't have that loop
+        private static readonly Dictionary<string, bool> _perRound = new Dictionary<string, bool>();
+        public static bool ReloadsPerRound(string weapon)
+        {
+            if (string.IsNullOrEmpty(weapon)) return false;
+            bool r;
+            if (_perRound.TryGetValue(weapon, out r)) return r;
+            IsReloading(weapon);
+            PlayMakerFSM[] f;
+            r = false;
+            try
+            {
+                if (_reloadFsms.TryGetValue(weapon, out f) && f[1] != null)
+                    foreach (var st in f[1].FsmStates) if (st.Name == "checkAmmoInStore") { r = true; break; }
+            }
+            catch (Exception) { }
+            if (WeaponsParent != null && WeaponsParent.Find(weapon) != null) _perRound[weapon] = r;
+            return r;
+        }
 
         // right mouse button (the game's "Aim Down Sights"): PlayerCamera [AimDownSIghts_Hold] sits in "ads" while it is held (it sends
         // AimDownSights_ON to the drawn weapon: the first-person gun slides to the sights and MouseCrosshair is switched off; scoped
