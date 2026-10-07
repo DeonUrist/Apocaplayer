@@ -422,13 +422,26 @@ namespace Apocaplayer
         // ---- strikes (Mixamo mode): a segment of a clip - From (wind-up) .. Hit (the blow lands) .. To (back on guard), clip seconds, read off the
         // clips' arm-muscle speed (peak = the blow). The game's hit comes the moment the swing starts (its [Attack] FSM SphereCasts in "fire"),
         // so the wind-up is played in StrikeWindup s and the rest stretched over the swing's cycle (0.35 s hands, 0.4 s machete ...).
-        private sealed class Strike { public string Clip; public float From, Hit, To; public Strike(string c, float a, float h, float e) { Clip = c; From = a; Hit = h; To = e; } }
+        private sealed class Strike
+        {
+            public string Clip, Hand; public float From, Hit, To;
+            public Strike(string c, float a, float h, float e, string hand = null) { Clip = c; From = a; Hit = h; To = e; Hand = hand; }
+            public string Key { get { return Clip + "@" + Hit.ToString("0.00"); } }   // per blow (one clip can hold several)
+        }
+        // Punch.fbx (1.7.3): one clip with eight blows, left/right - read off its forearm-stretch curves (Punch.anim): peaks at
+        // L .47, L .80, R 1.17, R 1.47, L 1.87, R 2.07, L 2.33, R 2.53 s. A fresh punch starts at the first; chained ones go on in order.
+        private const string LH = "mixamorig:LeftHand", RH = "mixamorig:RightHand";
+        private static readonly Strike[] PunchSeq = {
+            new Strike("Punch", 0.30f, 0.47f, 0.65f, LH), new Strike("Punch", 0.65f, 0.80f, 1.00f, LH),
+            new Strike("Punch", 0.97f, 1.17f, 1.32f, RH), new Strike("Punch", 1.30f, 1.47f, 1.65f, RH),
+            new Strike("Punch", 1.70f, 1.87f, 2.05f, LH), new Strike("Punch", 1.93f, 2.07f, 2.22f, RH),
+            new Strike("Punch", 2.17f, 2.33f, 2.47f, LH), new Strike("Punch", 2.40f, 2.53f, 2.85f, RH) };
         private static readonly Strike[] Punches = { new Strike("Punch1", 0.75f, 1.0f, 1.5f), new Strike("Punch2", 0.3f, 0.5f, 0.95f) };   // right cross, left jab
         private static readonly Strike[] Combo = { new Strike("MeleeCombo", 1.5f, 1.73f, 2.3f), new Strike("MeleeCombo", 0.8f, 1.07f, 1.5f) };   // 2nd blow, 1st blow
         private Strike _strike;
         private bool _striking;
         private float _strikeAt, _strikeCycle = 0.4f, _strikeEnd = -10f, _strikeW, _atkTime;
-        private int _punchN, _chainN;
+        private int _punchN, _chainN, _seqN;
         private string _atkFor = "", _atkState = "";
 
         // the clip of a strike: "Melee1"/"Melee2" are taken as Punch1/Punch2 too; a missing one = a generic share of whatever clip there is
@@ -457,8 +470,9 @@ namespace Apocaplayer
             Strike s = null;
             if (kind == Props.Kind.None)
             {
-                // bare hands: Punch1 / Punch2 by turns
-                for (int k = 0; k < 2 && s == null; k++) { int i = (_punchN + k) % 2; s = Resolve(Punches[i], i == 0 ? "Melee1" : "Melee2"); if (s != null) _punchN = i + 1; }
+                // bare hands: the Punch clip's blows in order (a fresh punch = the first), else Punch1 / Punch2 by turns
+                if (Anims.Get("Punch") != null) { _seqN = chained ? (_seqN + 1) % PunchSeq.Length : 0; s = PunchSeq[_seqN]; }
+                else for (int k = 0; k < 2 && s == null; k++) { int i = (_punchN + k) % 2; s = Resolve(Punches[i], i == 0 ? "Melee1" : "Melee2"); if (s != null) _punchN = i + 1; }
             }
             else
             {
@@ -470,7 +484,7 @@ namespace Apocaplayer
                 _meleeStart = 0f;
             }
             if (s == null) return;
-            _strikeHand = kind == Props.Kind.None ? (s.Clip == "Punch1" || s.Clip == "Melee1" ? "mixamorig:RightHand" : "mixamorig:LeftHand") : null;
+            _strikeHand = kind == Props.Kind.None ? (s.Hand ?? (s.Clip == "Punch1" || s.Clip == "Melee1" ? RH : LH)) : null;
             _aimMeasured = false;
             _strike = s; _striking = true; _strikeAt = Time.time; _strikeCycle = cycle; _strikeW = 1f;
             Plugin.Verbose("Strike: " + s.Clip + " " + s.From.ToString("0.00") + "-" + s.Hit.ToString("0.00") + "-" + s.To.ToString("0.00") + " in " + cycle.ToString("0.00") + " s" + (chained ? " (chained)" : ""));
@@ -520,7 +534,7 @@ namespace Apocaplayer
             float el = Time.time - _strikeAt, w = Mathf.Min(Plugin.StrikeWindup.Value, _strikeCycle * 0.4f), back = (_strikeCycle - w) * 0.5f;
             float k = el < w ? el / Mathf.Max(0.001f, w) : el < w + back ? 1f : Mathf.Clamp01(1f - (el - w - back) / Mathf.Max(0.01f, back));
             float aim;
-            _aimYaw.TryGetValue(_strike.Clip, out aim);
+            _aimYaw.TryGetValue(_strike.Key, out aim);
             float d = aim * k;
             if (Mathf.Abs(d) > 0.01f)
             {
@@ -535,8 +549,8 @@ namespace Apocaplayer
             var v = _anim.InverseTransformPoint(hand.position) - _anim.InverseTransformPoint(chest.position);
             if (v.z < 0.1f) return;
             float off = Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg;   // + = right of the middle
-            _aimYaw[_strike.Clip] = Mathf.Clamp(aim - off * (k > 0.99f ? 1f : 0.5f), -45f, 45f);
-            Plugin.Verbose("Punch aim: " + _strike.Clip + " landed " + off.ToString("0.0") + " deg off the middle -> spine turn " + _aimYaw[_strike.Clip].ToString("0.0"));
+            _aimYaw[_strike.Key] = Mathf.Clamp(aim - off * (k > 0.99f ? 1f : 0.5f), -45f, 45f);
+            Plugin.Verbose("Punch aim: " + _strike.Key + " landed " + off.ToString("0.0") + " deg off the middle -> spine turn " + _aimYaw[_strike.Key].ToString("0.0"));
         }
 
         private void PlayStrike(float dt)
@@ -1268,6 +1282,26 @@ namespace Apocaplayer
                         s0.rotation = step * s0.rotation;
                         s1.rotation = step * s1.rotation;
                         s2.rotation = step * s2.rotation;
+                    }
+                    // the arms: PistolFire's arms were made for its own (upright, slightly back) chest - on the crouch they point down.
+                    // Raise both upper arms about the shoulder line so shoulders->hands is level (the aim pitch is added after this),
+                    // and the head with them (its PistolFire nod looked along the lowered sights)
+                    Transform la2, ra2, lh2, rh2, nk;
+                    if (Bones.TryGetValue("mixamorig:LeftArm", out la2) && Bones.TryGetValue("mixamorig:RightArm", out ra2)
+                        && Bones.TryGetValue("mixamorig:LeftHand", out lh2) && Bones.TryGetValue("mixamorig:RightHand", out rh2))
+                    {
+                        Vector3 sh = (la2.position + ra2.position) * 0.5f, hd = (lh2.position + rh2.position) * 0.5f - sh;
+                        float down = Mathf.Atan2(-Vector3.Dot(hd, up), Mathf.Max(0.05f, Vector3.Dot(hd, fwd))) * Mathf.Rad2Deg;   // + = hands below the shoulders
+                        float raise = Mathf.Clamp((down - Plugin.CrouchPistolArms.Value) * _cuPistolK, -30f, 75f);
+                        if (Mathf.Abs(raise) > 0.2f)
+                        {
+                            var up2 = Quaternion.AngleAxis(-raise, right);
+                            la2.rotation = up2 * la2.rotation;
+                            ra2.rotation = up2 * ra2.rotation;
+                            if (Bones.TryGetValue("mixamorig:Neck", out nk)) nk.rotation = Quaternion.AngleAxis(-raise * 0.7f, right) * nk.rotation;
+                        }
+                        if (Plugin.VerboseLog.Value && Time.time > _leanLogAt)
+                            Plugin.Verbose("Pistol crouch: arms " + down.ToString("F1") + " deg below level -> raised " + raise.ToString("F1"));
                     }
                     if (Plugin.VerboseLog.Value && Time.time > _leanLogAt)
                     {

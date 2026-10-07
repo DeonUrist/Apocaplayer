@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.7.2";
+        public const string VERSION = "1.7.3";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -50,7 +50,7 @@ namespace Apocaplayer
         public static string BodyModelFile { get { return Female ? ModelFile.Value : IsMax ? "Models/Player_max.glb" : "Models/Player_male.glb"; } }
         public static string BodyTextureFile { get { return Female ? TextureFile.Value : IsMax ? "Models/Player_max.png" : "Models/Player_male.png"; } }
         internal static ConfigEntry<bool> CrouchRemap;
-        internal static ConfigEntry<float> CrouchArmsRest, CrouchArmsPhase, CrouchPistolLean;
+        internal static ConfigEntry<float> CrouchArmsRest, CrouchArmsPhase, CrouchPistolLean, CrouchPistolArms;
         internal static ConfigEntry<bool> DynamicCrosshair;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
@@ -151,6 +151,7 @@ namespace Apocaplayer
             CrouchArmsRest = H("Animation", "CrouchArmsRestFrame", 0.25f, "Unarmed crouch standing still: the CrouchWalk frame (0..1 of the clip) whose arms are held.");
             CrouchArmsPhase = H("Animation", "CrouchArmsPhase", 0f, "Unarmed crouch walking: CrouchWalk arms' phase against the rifle crouch legs (0..1; 0.5 = the other step).");
             CrouchPistolLean = H("Animation", "CrouchPistolLean", 3f, "Crouched with a pistol: how far (degrees) the torso (hips to head) leans forward; the rifle crouch's deeper lean is straightened to this.");
+            CrouchPistolArms = H("Animation", "CrouchPistolArms", 0f, "Crouched with a pistol: the arms (shoulders to hands) are raised to this many degrees below level before the aim pitch is added.");
             CrouchDrop = H("Animation", "CrouchDrop", 0.42f, "How far the hips go down when crouched, m.");
             AimPitchShare = H("Animation", "AimPitch", 0.9f, "Share of the camera pitch the spine follows (aiming up/down).");
 
