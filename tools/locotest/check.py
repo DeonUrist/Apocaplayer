@@ -54,7 +54,28 @@ def pose(case, u, use_phase=True):
             anc = i
             while anc >= 0 and anc != sp: anc = sk.par[anc]
             if anc == sp and i != sp: Q[i] = rq[i]
+    if case.get("follow", 0) > 0.01: Q = twist(Q, H, case["follow"])
     return fk(Q, H)
+
+def face(P, a, b):
+    """facing of the line a->b (pointing to her right) about up, + = right (as Loco.YawIn)"""
+    v = P[B[b]] - P[B[a]]; v[1] = 0
+    f = np.cross([0, 1, 0], v)                      # canonical x = her left: up x right = forward
+    return -np.degrees(np.arctan2(f[0], f[2]))
+def turn(Q, H, bone, deg):
+    """Body.Turn(bone, up, deg): the bone (and everything under it) turned about her up axis, + = to her right"""
+    D, _ = fk(Q, H); i = B[bone]; p = sk.par[i]; R = roty(-deg)
+    Q = Q.copy(); Q[i] = q_from_m(D[p].T @ R @ D[p] @ m_from_q(Q[i])); return Q
+def twist(Q, H, follow):
+    """Loco.TwistSpine with LocoPlan.Twist (ported; check_actions.py compares it with the C#)"""
+    _, P = fk(Q, H)
+    pel, ch = face(P, "LeftUpLeg", "RightUpLeg"), face(P, "LeftArm", "RightArm")
+    s0, s1, s2, nk = twist_angles(pel, ch, follow)
+    for b, d in (("Spine", s0), ("Spine1", s1), ("Spine2", s2), ("Neck", nk)): Q = turn(Q, H, b, d)
+    return Q
+def twist_angles(pel, ch, follow, head_back=0.6):
+    target = follow * pel; delta = target - ch; t = target - pel
+    return delta - 2 * t / 3, t / 3, t / 3, -head_back * delta
 
 def measure(case, N=24, use_phase=True):
     """over one stride: stance-foot slide vs the way she moves, foot yaw vs her forward, anti-phase of the feet, feet crossing, hips height"""

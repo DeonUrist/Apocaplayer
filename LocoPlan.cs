@@ -88,7 +88,8 @@ namespace Apocaplayer
 
         // the base layer's weights. m = moving 0..1, r = running 0..1, sprint 0..1, (lx, lz) = her velocity in her own frame (x right, z forward),
         // crouch 0..1, relax 0..1 (smoothed Relaxed). hipTurn = degrees the hips turn toward the way she runs (relaxed running only)
-        public static void Weights(float m, float r, float sprint, float lx, float lz, float crouch, float relax, float legsTurnMax, float[] w, out float hipTurn)
+        //   crouchMirror: crouched strafe left = the mirrored strafe right (2.1.3: bare hands only - pistol / rifle keep the pack's aiming strafes)
+        public static void Weights(float m, float r, float sprint, float lx, float lz, float crouch, float relax, bool crouchMirror, float legsTurnMax, float[] w, out float hipTurn)
         {
             hipTurn = 0f;
             for (int i = 0; i < BN; i++) w[i] = 0f;
@@ -109,7 +110,7 @@ namespace Apocaplayer
             w[B_SPRINT + i0] += spr * (1f - f); w[B_SPRINT + i1] += spr * f;
             w[B_CWALK + i0] += cw * (1f - f); w[B_CWALK + i1] += cw * f;
             // relaxed and crouched: the strafe left is the mirrored strafe right (the same on both sides)
-            float cl = w[B_CWALK + 6] * relax; w[B_CWALK + 6] -= cl; w[B_RCLEFT] = cl;
+            float cl = crouchMirror ? w[B_CWALK + 6] * relax : 0f; w[B_CWALK + 6] -= cl; w[B_RCLEFT] = cl;
             // the relaxed set: walking = the four real directions blended, all clips at the same point of the stride (see Phase), so a diagonal
             // is a diagonal step - and the same on both sides (the right strafe is the left one mirrored)
             float rwalk = m * (1f - r) * relS, rrun = m * r * relS;
@@ -191,6 +192,26 @@ namespace Apocaplayer
             if (ph < 0) ph += 1.0;
             return (float)ph;
         }
+        // which kinds crouch-strafe left on the mirrored strafe right
+        public static bool CrouchMirror(int kind) { return kind == K_NONE; }
+
+        // ---- (2.1.3) bare hands, crouched and moving: the crouched strafes turn the pelvis ~75° toward the step while the upper rig (CrouchIdle)
+        // keeps the chest to the front - all of that twist sat in the one joint above the hips. Now the chest follows the pelvis by ChestFollow, the twist is shared by Spine / Spine1 / Spine2 (a third each), and the neck turns the head
+        // back toward the front by HeadBack of the chest's turn. Angles: degrees about her up axis, + = to her right, relative to her facing.
+        public const float ChestFollow = 0.5f, HeadBack = 0.6f;
+        public static float ChestFollowOf(int kind, float crouch, float m) { return kind == K_NONE ? ChestFollow * Clamp01((crouch - 0.5f) * 2f) * Clamp01(m) : 0f; }
+        // turns to apply (each about her up axis, in this order: Spine, Spine1, Spine2, Neck) for the measured pelvis / chest facing
+        public static void Twist(float pelvisYaw, float chestYaw, float follow, out float spine, out float spine1, out float spine2, out float neck)
+        {
+            spine = spine1 = spine2 = neck = 0f;
+            if (follow <= 0f) return;
+            float target = follow * pelvisYaw;                            // the chest turned part of the way from her facing toward the pelvis (the same both sides)
+            float delta = target - chestYaw;                              // turning the Spine turns everything above it
+            float t = target - pelvisYaw;                                 // the twist left between pelvis and chest
+            spine = delta - 2f * t / 3f; spine1 = t / 3f; spine2 = t / 3f;
+            neck = -HeadBack * delta;
+        }
+
         // ---- jumps: where in each jump clip the feet leave the ground (lift), are highest (apex) and touch down again (touch), as shares of the clip
         // (-1 = not in the clip). Measured on the FBX with the real ground (tools/locotest/check_actions.py re-measures and compares) - in the
         // game the clips' height goes to the root, so the pose alone can't tell a crouch before the jump from the feet tucked up in the air.

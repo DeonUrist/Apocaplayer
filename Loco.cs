@@ -259,6 +259,25 @@ namespace Apocaplayer
         // the base layer: idle / 8 directions × walk, run, sprint / crouch idle / 8 crouched walks, by the body's direction and speed
         // relaxed: how much of the standing locomotion comes from the relaxed set (not aiming / striking), and the legs' turn toward the way she moves
         private float _relaxW, _hipTurn;
+        private int _locoKind;
+        private float YawIn(Transform a, Transform b)   // facing of the line a->b (pointing to her right) about her up axis, + = right
+        {
+            var s = _anim.InverseTransformDirection(b.position - a.position); s.y = 0f;
+            var f = Vector3.Cross(s, Vector3.up);
+            return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
+        }
+        private void TwistSpine(float follow)
+        {
+            Transform lh, rh, la, ra;
+            if (!Bones.TryGetValue("mixamorig:LeftUpLeg", out lh) || !Bones.TryGetValue("mixamorig:RightUpLeg", out rh)
+                || !Bones.TryGetValue("mixamorig:LeftArm", out la) || !Bones.TryGetValue("mixamorig:RightArm", out ra)) return;
+            float s0, s1, s2, nk;
+            LocoPlan.Twist(YawIn(lh, rh), YawIn(la, ra), follow, out s0, out s1, out s2, out nk);
+            Turn("mixamorig:Spine", Vector3.up, s0);
+            Turn("mixamorig:Spine1", Vector3.up, s1);
+            Turn("mixamorig:Spine2", Vector3.up, s2);
+            Turn("mixamorig:Neck", Vector3.up, nk);
+        }
         private float _actionFade = 6f;                          // how fast an action fades out (1/s)
         // a jump clip's take-off / apex / touch-down (x, y, z as shares of the clip; -1 = none)
         private static Vector3 JumpMarksOf(string clip)
@@ -271,7 +290,7 @@ namespace Apocaplayer
             var w = _bw;
             hipTurn = 0f;
             if (previewSlot >= 0) { for (int i = 0; i < BN; i++) w[i] = 0f; w[previewSlot] = 1f; }
-            else LocoPlan.Weights(m, r, sprint, local.x, local.z, crouch, relax, Plugin.RunLegsTurn.Value, w, out hipTurn);
+            else LocoPlan.Weights(m, r, sprint, local.x, local.z, crouch, relax, LocoPlan.CrouchMirror(_locoKind), Plugin.RunLegsTurn.Value, w, out hipTurn);
             // one stride for all moving clips: every moving slot is put at its own phase (left foot highest) + the shared stride each frame
             // (a blend tree's "sync"); the stride advances at the weighted rate of the clips in use
             _baseDom = -1; float best = 0.05f, rate = 0f, rateW = 0f;
@@ -426,6 +445,7 @@ namespace Apocaplayer
             int lk = kind == Props.Kind.Rifle ? LocoPlan.K_RIFLE : kind == Props.Kind.Pistol ? LocoPlan.K_PISTOL : kind == Props.Kind.Melee ? LocoPlan.K_MELEE
                    : kind == Props.Kind.Throw ? LocoPlan.K_THROW : LocoPlan.K_NONE;
             bool relaxed = LocoPlan.Relaxed(lk, aiming, shooting && gunKind) && _previewName == null;
+            _locoKind = lk;
             if (_previewName != null) relaxed = previewSlot >= B_RIDLE;
             _relaxW = _snap ? (relaxed ? 1f : 0f) : Mathf.MoveTowards(_relaxW, relaxed ? 1f : 0f, dt * 5f);
             float hipWant;
@@ -549,6 +569,9 @@ namespace Apocaplayer
             // full-body actions (kick, jumps) take the upper body with them; a turn in place keeps the hands
             float rigScale = (1f - _upperW) * (_actionIsTurn ? 1f : 1f - _actionW);
             RigApply(dt, rigScale);
+            // bare hands crouch-walking: the chest follows the pelvis half-way and the twist is shared by the three spine bones (LocoPlan.Twist)
+            float follow = LocoPlan.ChestFollowOf(lk, crouch, m) * _rigEff * (1f - _actionW);
+            if (follow > 0.01f) TwistSpine(follow);
             UpdateProp(weapon); ShowProp(view == View.ThirdPerson);
 
             // keep her over the player: a clip whose forward motion was baked into the pose walks the hips away from the root - pin them

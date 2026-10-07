@@ -22,6 +22,16 @@ static class LocoTest
             }
             return;
         }
+        if (a[0] == "twist")
+        {   // lines "pelvis chest follow" -> spine spine1 spine2 neck
+            foreach (var line in File.ReadAllLines(a[1]))
+            {
+                var p = line.Split(' '); var ci = System.Globalization.CultureInfo.InvariantCulture;
+                float s0, s1, s2, nk; LocoPlan.Twist(float.Parse(p[0], ci), float.Parse(p[1], ci), float.Parse(p[2], ci), out s0, out s1, out s2, out nk);
+                Console.WriteLine(s0.ToString("R", ci) + " " + s1.ToString("R", ci) + " " + s2.ToString("R", ci) + " " + nk.ToString("R", ci));
+            }
+            return;
+        }
         if (a[0] == "stop")
         {   // RifleWalkToStop's start for 48 strides (-1 = no stop clip)
             for (int k = 0; k < 48; k++) Console.WriteLine((k / 48.0).ToString("R") + " " + LocoPlan.StopStart(k / 48.0).ToString("R"));
@@ -62,7 +72,8 @@ static class LocoTest
                 if (d != -1) { double ang = deg * Math.PI / 180.0; lx = (float)Math.Sin(ang); lz = (float)Math.Cos(ang); } else deg = -1;
                 bool relaxed = LocoPlan.Relaxed(k, aim, shoot);
                 float hip;
-                LocoPlan.Weights(m, r, sp, lx, lz, cr, relaxed ? 1f : 0f, 75f, w, out hip);
+                LocoPlan.Weights(m, r, sp, lx, lz, cr, relaxed ? 1f : 0f, LocoPlan.CrouchMirror(k), 75f, w, out hip);
+                float follow = LocoPlan.ChestFollowOf(k, cr, m);
                 bool hold, sync;
                 string up = LocoPlan.Upper(k, relaxed, aim, shoot, false, cr, m, r, lz, w[LocoPlan.B_RCLEFT], Has, out hold, out sync);
                 var parts = new List<string>();
@@ -73,8 +84,8 @@ static class LocoTest
                     parts.Add(string.Format("{{\"slot\":{0},\"clip\":\"{1}\",\"w\":{2},\"rev\":{3},\"moving\":{4}}}", i, n, w[i].ToString("R"), rev ? "true" : "false", LocoPlan.Moving(i) ? "true" : "false"));
                 }
                 if (!first) sb.Append(",\n"); first = false;
-                sb.AppendFormat("{{\"kind\":\"{0}\",\"case\":\"{1}\",\"relaxed\":{2},\"crouch\":{3},\"hipTurn\":{4},\"dir\":{5},\"upper\":{6},\"hold\":{7},\"sync\":{8},\"base\":[{9}]}}",
-                    kinds[k], label, relaxed ? "true" : "false", cr.ToString("R"), hip.ToString("R"), deg, up == null ? "null" : "\"" + up + "\"", hold ? "true" : "false", sync ? "true" : "false", string.Join(",", parts.ToArray()));
+                sb.AppendFormat("{{\"kind\":\"{0}\",\"case\":\"{1}\",\"relaxed\":{2},\"crouch\":{3},\"hipTurn\":{4},\"follow\":{10},\"dir\":{5},\"upper\":{6},\"hold\":{7},\"sync\":{8},\"base\":[{9}]}}",
+                    kinds[k], label, relaxed ? "true" : "false", cr.ToString("R"), hip.ToString("R"), deg, up == null ? "null" : "\"" + up + "\"", hold ? "true" : "false", sync ? "true" : "false", string.Join(",", parts.ToArray()), follow.ToString("R"));
             }
         }
         sb.Append("\n]");
