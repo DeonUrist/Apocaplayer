@@ -23,7 +23,7 @@ namespace Apocaplayer
         // binoculars raised in third person: the picture is the game's own first-person binocular view (eye, FOV 20, its overlay) -
         // no camera behind her, her body drawn as in first person, the first-person renderers (binocular effect) not hidden
         public static bool Peek;
-        private static float _zoomK, _fovBase;
+        private static float _zoomK;
         private static bool _deathView;
         private static Quaternion _deathRotation;
         private static bool _fovSet;
@@ -198,19 +198,16 @@ namespace Apocaplayer
             return z > 0f ? z : (car ? Plugin.ThirdCarDistance.Value : Plugin.ThirdDistance.Value);
         }
 
-        private static void PreCull(Camera cam)
+        // the third-person view of this frame: position, rotation, field of view (the game's own FOV, read before we change it, x the aim zoom)
+        private static int _viewFrame = -1;
+        private static Vector3 _vPos; private static Quaternion _vRot = Quaternion.identity; private static float _vFov = 60f, _gameFov = 60f;
+        private static Transform _vCar; private static bool _vCutaway;
+        private static void ComputeView(Camera cam)
         {
-            if (cam == null || cam != Game.Cam) return;
+            if (_viewFrame == Time.frameCount) return;
+            _viewFrame = Time.frameCount;
             var t = cam.transform;
-            if (Peek) { HasView = false; cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }   // binoculars: the game's own view
-            if (!On)
-            {
-                if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }
-                // driving, first person: the eye a few cm forward along her (the seat's) facing, so her own head/chest don't fill the view
-                Vector3 p = CarShiftEye(t);
-                cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(p, t.rotation, Vector3.one).inverse;
-                return;
-            }
+            if (!_fovSet) _gameFov = cam.fieldOfView;
             bool dead = Game.Dead;
             if (dead && !_deathView) _deathRotation = HasView ? ViewRot : Quaternion.Euler(10f, t.eulerAngles.y, 0f);
             _deathView = dead;
@@ -224,8 +221,7 @@ namespace Apocaplayer
             Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
             if (dead && Runner.RagdollVisible) pivot = Runner.DeathFocus + Vector3.up * 0.35f;
             float zk = ZoomEase;
-            if (zk > 0.001f) { _fovBase = cam.fieldOfView; cam.fieldOfView = _fovBase * Mathf.Lerp(1f, ZoomFov, zk); _fovSet = true; }
-            ViewFov = cam.fieldOfView;
+            _vFov = _gameFov * Mathf.Lerp(1f, ZoomFov, zk);
             Vector3 want = pivot - fwd * (Distance(car != null) * Mathf.Lerp(1f, ZoomDistance, zk)) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
             Vector3 d = want - pivot;
             float max = d.magnitude;
@@ -255,6 +251,28 @@ namespace Apocaplayer
                 Vector3 look = aim - pos;
                 if (look.sqrMagnitude > 1e-4f) viewRot = Quaternion.Slerp(viewRot, Quaternion.LookRotation(look.normalized, Vector3.up), conv);
             }
+            _vPos = pos; _vRot = viewRot; _vCar = car; _vCutaway = cutaway;
+        }
+
+        private static void PreCull(Camera cam)
+        {
+            if (cam == null || cam != Game.Cam) return;
+            var t = cam.transform;
+            if (Peek) { HasView = false; cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }   // binoculars: the game's own view
+            if (!On)
+            {
+                if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }
+                // driving, first person: the eye a few cm forward along her (the seat's) facing, so her own head/chest don't fill the view
+                Vector3 p = CarShiftEye(t);
+                cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(p, t.rotation, Vector3.one).inverse;
+                return;
+            }
+            // (2.1.9) the view is worked out ONCE per frame (ComputeView, also used by the dynamic crosshair in LateUpdate), so the crosshair is
+            // projected with exactly the view and field of view drawn - before, the zoomed FOV could be applied on top of an already zoomed one
+            ComputeView(cam);
+            if (Mathf.Abs(cam.fieldOfView - _vFov) > 1e-4f) { cam.fieldOfView = _vFov; _fovSet = true; }
+            ViewFov = _vFov;
+            Vector3 pos = _vPos; var viewRot = _vRot; Transform car = _vCar; bool cutaway = _vCutaway;
             ViewPos = pos; ViewRot = viewRot; HasView = true;
             var view = Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
@@ -281,19 +299,9 @@ namespace Apocaplayer
             var cam = Game.Cam;
             if (!Plugin.DynamicCrosshair.Value || !On || Peek || cam == null || Game.Dead || Game.Paused) { RestoreCrosshair(); return; }
             var t = cam.transform;
-            // the third-person view as PreCull will draw it this frame (no convergence with the dynamic crosshair)
-            var e = t.rotation.eulerAngles;
-            float pitch = Mathf.Clamp(Mathf.DeltaAngle(0f, e.x) + _orbitPitch, -80f, 85f);
-            var viewRot = Quaternion.Euler(pitch, e.y + _orbitYaw, 0f);
-            Vector3 fwd = viewRot * Vector3.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
-            Transform car = Game.InCar ? Game.CarRoot : null;
-            Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
-            float zk = ZoomEase;
-            Vector3 want = pivot - fwd * (Distance(car != null) * Mathf.Lerp(1f, ZoomDistance, zk)) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
-            Vector3 d = want - pivot; float max = d.magnitude;
-            Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * Mathf.Min(_dist > 0f ? _dist : max, max);
-            float fov = cam.fieldOfView * Mathf.Lerp(1f, ZoomFov, zk);
+            // the third-person view exactly as PreCull will draw it this frame
+            ComputeView(cam);
+            Vector3 pos = _vPos; var viewRot = _vRot; float fov = _vFov;
 
             // where the eye ray lands
             Vector3 hitPoint = t.position + t.forward * 1000f;
@@ -382,7 +390,7 @@ namespace Apocaplayer
         public static void EndOfFrame()
         {
             if (_hooked && Game.Cam != null) { Game.Cam.ResetWorldToCameraMatrix(); Game.Cam.ResetCullingMatrix(); }
-            if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }   // the game's own FOV back for the next frame
+            if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _gameFov; _fovSet = false; }   // the game's own FOV back for the next frame
         }
 
         private static void HideViewModel()
@@ -412,7 +420,7 @@ namespace Apocaplayer
             OcclusionCutaway.Stop();
             On = false; Peek = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
             _deathView = false;
-            if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _fovBase; _fovSet = false; }
+            if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _gameFov; _fovSet = false; }
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; if (Game.Cam != null) Game.Cam.ResetCullingMatrix(); }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();

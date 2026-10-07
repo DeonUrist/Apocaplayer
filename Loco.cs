@@ -92,11 +92,12 @@ namespace Apocaplayer
             _layers = AnimationLayerMixerPlayable.Create(_graph, 3);
             _graph.Connect(_base, 0, _layers, 0);
             _layers.SetInputWeight(0, 1f);
-            MakeUpper(_fallback);                                   // layer 1: strikes, punches, throws (upper-body mask)
-            _layers.SetLayerMaskFromAvatarMask(1, UpperMask());
-            _action = AnimationClipPlayable.Create(_graph, _fallback);   // layer 2: whole-body one-shots (Kick, jumps, turns)
-            _graph.Connect(_action, 0, _layers, 2);
-            _layers.SetInputWeight(2, 0f);
+            _lUpper = 2; _lAction = 1;                              // (2.1.9) strikes / throws on top of the whole-body actions
+            MakeUpper(_fallback);                                   // layer 2: strikes, punches, throws (upper-body mask)
+            _layers.SetLayerMaskFromAvatarMask((uint)_lUpper, UpperMask());
+            _action = AnimationClipPlayable.Create(_graph, _fallback);   // whole-body one-shots (Kick, jumps, turns)
+            _graph.Connect(_action, 0, _layers, _lAction);       // layer 1: whole-body one-shots
+            _layers.SetInputWeight(_lAction, 0f);
             output.SetSourcePlayable(_layers);
             _graph.Play();
             Plugin.Log.LogInfo("Animations from the bundle (rifle pack legs for every weapon): " + (BN - missing.Count) + "/" + BN + " locomotion clips"
@@ -439,8 +440,8 @@ namespace Apocaplayer
             float wBase = (1f - wAct) * (1f - wUp) * (1f - wRig);
             if (wBase > 0.001f) for (int i = 0; i < BN; i++) if (_bw[i] > 0.001f) Add(_bname[i], _bw[i] * wBase);
             if (wRig > 0.001f && !string.IsNullOrEmpty(_rigClip)) Add(_rigClip, wRig * (1f - wAct) * (1f - wUp));
-            if (wUp > 0.001f && !string.IsNullOrEmpty(_upperClip)) Add(_upperClip, wUp * (1f - wAct));
-            if (wAct > 0.001f && !string.IsNullOrEmpty(_actionClip)) Add(_actionClip, wAct);
+            if (wUp > 0.001f && !string.IsNullOrEmpty(_upperClip)) Add(_upperClip, wUp);                       // (2.1.9) above the actions
+            if (wAct > 0.001f && !string.IsNullOrEmpty(_actionClip)) Add(_actionClip, wAct * (1f - wUp));
         }
         private void Add(string n, float w) { float v; _poseWn.TryGetValue(n, out v); _poseWn[n] = v + w; }
         private string DominantPose()

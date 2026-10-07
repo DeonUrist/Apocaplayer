@@ -26,6 +26,42 @@ namespace Apocaplayer
         }
 
         private static readonly Dictionary<string, float[]> _v = new Dictionary<string, float[]>();
+        // (2.1.9) Denis's tuned values, hard-coded (aim-lift.txt overrides them; the same "weapon|clip[@crouch]=lift, head, forward")
+        private static readonly string[] BuiltinData =
+        {
+            "22_pipe_revolver|PistolFire=-6.5, 0, 0",
+            "borz_smg|PistolFire=-0.6, 0, 0",
+            "crossbow|RifleAim=6.5, -11.4, 0",
+            "crossbow|RifleCrouchAim@crouch=-1.7, -5.2, 0",
+            "folk_17|PistolFire=4.8, 0, 0",
+            "redmark_m11_scoped|RifleAim=15, 5.6, 0",
+            "redmark_m11|RifleAim=10.1, 9, 0",
+            "rochester_m24_chopped|RifleAim=7, -1.4, 0",
+            "rochester_m24|RifleAim=8, -4.4, 0",
+            "rochester_m24|RifleCrouchAim@crouch=5.9, -3.4, 0",
+            "slamberg_500_chopped|RifleAim=8.2, 6.4, 0",
+            "slamberg_500|RifleAim=7.5, 10, 0",
+            "slamfire_shotgun|RifleAim=7, -11, 0",
+            "slamfire_shotgun|RifleCrouchAim@crouch=9, -9.4, 0"
+        };
+        private static Dictionary<string, float[]> _builtin;
+        private static float[] Builtin(string key)
+        {
+            if (_builtin == null)
+            {
+                _builtin = new Dictionary<string, float[]>();
+                foreach (var line in BuiltinData)
+                {
+                    int eq = line.IndexOf('='); if (eq <= 0) continue;
+                    var p = line.Substring(eq + 1).Split(',');
+                    if (p.Length < 3) continue;
+                    var v = new float[3]; bool ok = true;
+                    for (int i = 0; i < 3; i++) ok &= float.TryParse(p[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v[i]);
+                    if (ok) _builtin[line.Substring(0, eq).Trim()] = v;
+                }
+            }
+            float[] r; return _builtin.TryGetValue(key, out r) ? r : null;
+        }
         private static string _file;
         public static void Load(string dir)
         {
@@ -60,11 +96,14 @@ namespace Apocaplayer
         public static float[] Get(string weapon, string clip, bool crouched)
         {
             float[] v;
-            if (_v.TryGetValue(weapon + "|" + Key(clip, crouched), out v)) return v;
-            if (crouched && _v.TryGetValue(weapon + "|" + clip, out v)) return v;
+            string k = weapon + "|" + Key(clip, crouched), k0 = weapon + "|" + clip;
+            if (_v.TryGetValue(k, out v)) return v;
+            if ((v = Builtin(k)) != null) return v;
+            if (crouched && _v.TryGetValue(k0, out v)) return v;
+            if (crouched && (v = Builtin(k0)) != null) return v;
             return Default(clip);
         }
-        public static bool Own(string weapon, string clip, bool crouched) { return _v.ContainsKey(weapon + "|" + Key(clip, crouched)); }
+        public static bool Own(string weapon, string clip, bool crouched) { string k = weapon + "|" + Key(clip, crouched); return _v.ContainsKey(k) || Builtin(k) != null; }
         public static void Set(string weapon, string clip, bool crouched, float[] v) { _v[weapon + "|" + Key(clip, crouched)] = v; }
 
         // ---- two-bone IK: the new elbow position so the hand reaches t, the arm bending in the plane it bends in now

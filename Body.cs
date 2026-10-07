@@ -80,6 +80,9 @@ namespace Apocaplayer
         private AnimationClipPlayable _upperOld;
         private float _upperX = 1f, _upperW, _upperWTarget;
         private const float UpperIn = 0.08f, UpperOut = 0.15f, UpperCross = 0.12f;
+        // the layer mixer's inputs: 0 the base, then the upper-body layer (strikes / throws, masked) and the whole-body actions (kick, jumps,
+        // turns). (2.1.9) In Mixamo mode the upper layer is ABOVE the actions (index 2): a grenade thrown or a punch mid-jump shows on top
+        private int _lUpper = 1, _lAction = 2;
 
         private void MakeUpper(AnimationClip c)
         {
@@ -87,8 +90,8 @@ namespace Apocaplayer
             _upper = AnimationClipPlayable.Create(_graph, c);
             _graph.Connect(_upper, 0, _upperMix, 0);
             _upperMix.SetInputWeight(0, 1f); _upperMix.SetInputWeight(1, 0f);
-            _graph.Connect(_upperMix, 0, _layers, 1);
-            _layers.SetInputWeight(1, 0f);
+            _graph.Connect(_upperMix, 0, _layers, _lUpper);
+            _layers.SetInputWeight(_lUpper, 0f);
             _upperW = _upperWTarget = 0f; _upperX = 1f;
         }
 
@@ -98,7 +101,7 @@ namespace Apocaplayer
             if (!_layers.IsValid() || !_upperMix.IsValid()) return;
             if (_snap) _upperW = _upperWTarget;
             else _upperW = Mathf.MoveTowards(_upperW, _upperWTarget, dt / (_upperWTarget > _upperW ? UpperIn : UpperOut));
-            _layers.SetInputWeight(1, _upperW);
+            _layers.SetInputWeight(_lUpper, _upperW);
             if (_upperOld.IsValid())
             {
                 _upperX = _snap ? 1f : Mathf.MoveTowards(_upperX, 1f, dt / UpperCross);
@@ -125,11 +128,11 @@ namespace Apocaplayer
             if (_actionClip != name)
             {
                 _actionClip = name;
-                _graph.Disconnect(_layers, 2);
+                _graph.Disconnect(_layers, _lAction);
                 _action.Destroy();
                 _action = AnimationClipPlayable.Create(_graph, c);
                 _action.SetApplyFootIK(false);   // jumps / turns / kick: no foot IK (2.0.2)
-                _graph.Connect(_action, 0, _layers, 2);
+                _graph.Connect(_action, 0, _layers, _lAction);
             }
             float t0 = Mathf.Clamp01(startFraction) * c.length;   // jumps: skip the clip's crouch before take-off, the game pushes her up at once
             _action.SetTime(t0); _action.SetSpeed(1);
@@ -142,7 +145,7 @@ namespace Apocaplayer
             bool on = Time.time < _actionUntil - 0.15f;
             _actionW = Mathf.MoveTowards(_actionW, on ? 1f : 0f, dt * (on ? 10f : _actionFade));
             if (!on && _actionW <= 0f) _actionFade = 6f;
-            _layers.SetInputWeight(2, _actionW);
+            _layers.SetInputWeight(_lAction, _actionW);
         }
         private string _grenadeState = "";
 
@@ -371,7 +374,7 @@ namespace Apocaplayer
                           || part == AvatarMaskBodyPart.LeftFingers || part == AvatarMaskBodyPart.RightFingers || part == AvatarMaskBodyPart.LeftHandIK || part == AvatarMaskBodyPart.RightHandIK;
                 mask.SetHumanoidBodyPartActive(part, upper);
             }
-            _layers.SetLayerMaskFromAvatarMask(1, mask);
+            _layers.SetLayerMaskFromAvatarMask((uint)_lUpper, mask);
             output.SetSourcePlayable(_layers);
             _graph.Play();
             Plugin.Verbose("Animation graph: idle " + (idle != null ? idle.name : "-") + ", run " + (run != null ? run.name : "-"));
@@ -1000,7 +1003,7 @@ namespace Apocaplayer
             CarBase(gun && !throwing ? kind : Props.Kind.None, turned);
             if (turned) _carTurnedReady = true;
             if (!_animator.enabled) _animator.enabled = true;
-            if (_action.IsValid()) { _actionW = 0f; _layers.SetInputWeight(2, 0f); }
+            if (_action.IsValid()) { _actionW = 0f; _layers.SetInputWeight(_lAction, 0f); }
             bool reload = false, fire = false;
             if (throwing) PlayThrow();   // on its own clock: a weapon change mid-throw doesn't start it over
             else
