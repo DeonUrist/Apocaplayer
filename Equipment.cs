@@ -129,6 +129,7 @@ namespace Apocaplayer
                 : Quaternion.LookRotation(Vector3.forward, Vector3.up) * Quaternion.Inverse(Quaternion.LookRotation(Vector3.left, Vector3.up));
             mount.Visual.transform.localRotation = rotation;
             mount.Visual.transform.localPosition = Vector3.zero;
+            if (!_flashPolice) mount.Visual.transform.localScale *= .8f;   // the chest lights at 80 % (Denis)
             var b = LocalBounds(mount.Visual);
             mount.Visual.transform.localPosition = -b.center;
             mount.Bounds = b; mount.Depth = b.size.z;
@@ -165,7 +166,7 @@ namespace Apocaplayer
             float left = mirror ? 1f : -1f;   // the character's left
             Vector3 offset = _flashPolice
                 ? new Vector3(left * .19f, -.06f, .05f)                                          // on the left of the belt, along the hip
-                : new Vector3(left * .09f, .07f, .10f + mount.Bounds.size.z * .5f);         // left chest, against the jacket
+                : new Vector3(left * .09f, .04f, .12f + mount.Bounds.size.z * .5f);         // left chest, against the jacket (1.6.2: 3 cm lower, 2 cm forward)
             float[] bind = Bindposes.Human["mixamorig:" + bone];
             var matrix = Matrix4x4.identity;
             for (int row = 0; row < 3; row++) for (int col = 0; col < 4; col++) matrix[row, col] = bind[row * 4 + col];
