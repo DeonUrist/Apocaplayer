@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.7.0";
+        public const string VERSION = "1.7.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -50,7 +50,8 @@ namespace Apocaplayer
         public static string BodyModelFile { get { return Female ? ModelFile.Value : IsMax ? "Models/Player_max.glb" : "Models/Player_male.glb"; } }
         public static string BodyTextureFile { get { return Female ? TextureFile.Value : IsMax ? "Models/Player_max.png" : "Models/Player_male.png"; } }
         internal static ConfigEntry<bool> CrouchRemap;
-        internal static ConfigEntry<float> CrouchArmsRest, CrouchArmsPhase;
+        internal static ConfigEntry<float> CrouchArmsRest, CrouchArmsPhase, CrouchPistolLean;
+        internal static ConfigEntry<bool> DynamicCrosshair;
         internal static ConfigEntry<float> OrbitSpeed, HipsDrift, ClipWalkSpeed, ClipRunSpeed, ClipCrouchSpeed, ThighSwing, KneeBend, ArmSwing, HipBob, CrouchDrop;
 
         private static ConfigFile _hidden;
@@ -89,6 +90,7 @@ namespace Apocaplayer
             OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on). Off: in a vehicle the camera moves in front of what blocks it instead.");
             EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
             ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");
+            DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from her head): at the centre for far targets, moving left toward her as the target gets closer, on her head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
@@ -148,6 +150,7 @@ namespace Apocaplayer
             CrouchRemap = H("Animation", "CrouchRifleLegs", true, "Bundle clips, crouched unarmed / with a pistol: the legs (and hips/spine) from the Rifle crouch clips, the arms and head from CrouchWalk (unarmed) or PistolFire (pistol).");
             CrouchArmsRest = H("Animation", "CrouchArmsRestFrame", 0.25f, "Unarmed crouch standing still: the CrouchWalk frame (0..1 of the clip) whose arms are held.");
             CrouchArmsPhase = H("Animation", "CrouchArmsPhase", 0f, "Unarmed crouch walking: CrouchWalk arms' phase against the rifle crouch legs (0..1; 0.5 = the other step).");
+            CrouchPistolLean = H("Animation", "CrouchPistolLean", 8f, "Crouched with a pistol: how far (degrees) the chest leans forward; the rifle crouch's deeper lean is straightened to this.");
             CrouchDrop = H("Animation", "CrouchDrop", 0.42f, "How far the hips go down when crouched, m.");
             AimPitchShare = H("Animation", "AimPitch", 0.9f, "Share of the camera pitch the spine follows (aiming up/down).");
 

@@ -232,7 +232,7 @@ namespace Apocaplayer
             // converge on the aim point: the camera sits over her shoulder, so looking parallel to her eye line would put the crosshair
             // ThirdShoulder metres beside where shots / picks really go. Find what the eye ray hits (the game casts from the eye) and turn the
             // view so the screen centre looks exactly at it; she stays where she is on screen. Not while orbiting (that view isn't for aiming).
-            float conv = 1f - Mathf.Clamp01((Mathf.Abs(_orbitYaw) + Mathf.Abs(_orbitPitch)) / 10f);
+            float conv = Plugin.DynamicCrosshair.Value ? 0f : 1f - Mathf.Clamp01((Mathf.Abs(_orbitYaw) + Mathf.Abs(_orbitPitch)) / 10f);
             if (conv > 0.001f && !dead)
             {
                 RaycastHit ah;
@@ -249,6 +249,97 @@ namespace Apocaplayer
             cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * view;
             cam.cullingMatrix = cam.projectionMatrix * cam.worldToCameraMatrix;
             if (cutaway) OcclusionCutaway.Prepare(cam, pos, viewRot, car);
+        }
+
+        // ------------------------------------------------------------ dynamic crosshair (1.7.1)
+        // The game shoots, swings and picks along the eye ray (from her head, PlayerCamera.forward). Drawn from behind her shoulder that ray is
+        // not the screen centre: far away it is, close up it runs left toward her, straight down it ends under her head. Every LateUpdate the
+        // eye ray is cast (the game's gun layers, triggers as the game sees them, not her / what she carries) and the game's MouseCrosshair is
+        // moved to where that point is in the third-person picture. Off in first person / binoculars (back to its own place).
+        public static bool HasCrosshair;
+        public static Vector2 CrosshairScreen;
+        private static RectTransform _xhair;
+        private static Vector3 _xhairHome;
+        private static bool _xhairMoved;
+        private static float _xhairFind;
+        private static readonly RaycastHit[] _eyeHits = new RaycastHit[32];
+        private const int GunMask = (1 << 0) | (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11) | (1 << 13) | (1 << 14);   // the player guns' Raycast mask
+
+        public static void LateCrosshair()
+        {
+            HasCrosshair = false;
+            var cam = Game.Cam;
+            if (!Plugin.DynamicCrosshair.Value || !On || Peek || cam == null || Game.Dead || Game.Paused) { RestoreCrosshair(); return; }
+            var t = cam.transform;
+            // the third-person view as PreCull will draw it this frame (no convergence with the dynamic crosshair)
+            var e = t.rotation.eulerAngles;
+            float pitch = Mathf.Clamp(Mathf.DeltaAngle(0f, e.x) + _orbitPitch, -80f, 85f);
+            var viewRot = Quaternion.Euler(pitch, e.y + _orbitYaw, 0f);
+            Vector3 fwd = viewRot * Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, fwd); if (right.sqrMagnitude < 1e-4f) right = viewRot * Vector3.right; right.Normalize();
+            Transform car = Game.InCar ? Game.CarRoot : null;
+            Vector3 pivot = t.position + Vector3.up * (car != null ? Plugin.ThirdCarHeight.Value : Plugin.ThirdHeight.Value);
+            float zk = ZoomEase;
+            Vector3 want = pivot - fwd * (Distance(car != null) * Mathf.Lerp(1f, ZoomDistance, zk)) + right * (car != null ? 0f : Plugin.ThirdShoulder.Value);
+            Vector3 d = want - pivot; float max = d.magnitude;
+            Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * Mathf.Min(_dist > 0f ? _dist : max, max);
+            float fov = cam.fieldOfView * Mathf.Lerp(1f, ZoomFov, zk);
+
+            // where the eye ray lands
+            Vector3 hitPoint = t.position + t.forward * 1000f;
+            int n = Physics.RaycastNonAlloc(t.position, t.forward, _eyeHits, 150f, GunMask, QueryTriggerInteraction.UseGlobal);
+            float best = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                var c = _eyeHits[i].collider;
+                if (c == null || _eyeHits[i].distance >= best || Mine(c.transform)) continue;
+                best = _eyeHits[i].distance; hitPoint = _eyeHits[i].point;
+            }
+            var vp = Matrix4x4.Perspective(fov, cam.aspect, cam.nearClipPlane, cam.farClipPlane) * Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
+            Vector4 clip = vp * new Vector4(hitPoint.x, hitPoint.y, hitPoint.z, 1f);
+            if (clip.w <= 0.01f) { RestoreCrosshair(); return; }
+            CrosshairScreen = new Vector2((clip.x / clip.w * 0.5f + 0.5f) * Screen.width, (clip.y / clip.w * 0.5f + 0.5f) * Screen.height);
+            HasCrosshair = true;
+            MoveCrosshair(CrosshairScreen);
+        }
+
+        private static bool Mine(Transform t)
+        {
+            return Game.Player != null && t.IsChildOf(Game.Player.transform) || Game.PlayerCamera != null && t.IsChildOf(Game.PlayerCamera)
+                || Game.CameraHolder != null && t.IsChildOf(Game.CameraHolder)
+                || Game.InCar && Game.CarRoot != null && t.IsChildOf(Game.CarRoot);   // the gun mod / game ignore their own car too
+        }
+
+        private static void MoveCrosshair(Vector2 screen)
+        {
+            if (_xhair == null)
+            {
+                if (Time.unscaledTime < _xhairFind) return;
+                _xhairFind = Time.unscaledTime + 1f;
+                var go = _crosshair != null ? _crosshair : GameObject.Find("MouseCrosshair");
+                if (go == null) return;
+                _crosshair = go;
+                _xhair = go.GetComponent<RectTransform>();
+                if (_xhair == null) return;
+                _xhairHome = _xhair.localPosition; _xhairMoved = false;
+                Plugin.Verbose("Crosshair: found " + go.name + " (dynamic crosshair on)");
+            }
+            var parent = _xhair.parent as RectTransform;
+            var canvas = _xhair.GetComponentInParent<Canvas>();
+            if (parent == null || canvas == null) return;
+            var root = canvas.rootCanvas;
+            Camera uiCam = root.renderMode == RenderMode.ScreenSpaceOverlay ? null : root.worldCamera;
+            Vector2 lc, lt;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f), uiCam, out lc)) return;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, screen, uiCam, out lt)) return;
+            if (!_xhairMoved) { _xhairHome = _xhair.localPosition; _xhairMoved = true; }
+            _xhair.localPosition = _xhairHome + (Vector3)(lt - lc);
+        }
+
+        private static void RestoreCrosshair()
+        {
+            if (_xhair != null && _xhairMoved) _xhair.localPosition = _xhairHome;
+            _xhairMoved = false;
         }
 
         // driving in first person with her body shown: the picture is drawn from a few cm in front of the game's eye (along the seat's facing)
@@ -291,6 +382,7 @@ namespace Apocaplayer
 
         public static void Off()
         {
+            RestoreCrosshair(); HasCrosshair = false;
             OcclusionCutaway.Stop();
             On = false; Peek = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
             _deathView = false;

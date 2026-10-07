@@ -88,7 +88,7 @@ namespace Apocaplayer
             var cam = Game.Cam;
             Vector3 eye = cam.transform.position;
             // the cursor ray of the third-person picture
-            Vector3 mouse = Input.mousePosition;
+            Vector3 mouse = ThirdPerson.HasCrosshair ? (Vector3)ThirdPerson.CrosshairScreen : Input.mousePosition;   // the dynamic crosshair
             float W = Screen.width, H = Screen.height;
             float nx = mouse.x / W * 2f - 1f, ny = mouse.y / H * 2f - 1f;
             float tan = Mathf.Tan(ThirdPerson.ViewFov * 0.5f * Mathf.Deg2Rad);

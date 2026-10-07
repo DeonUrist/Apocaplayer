@@ -90,6 +90,7 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | Debug | FirstPersonDrivingCameraX / Y / Z | 0 | The same in the driver's seat (seat's right / up / forward), on top of the built-in seat offset (-0.03, 0.02, 0.02) |
 | General | 3rd person camera culling | true | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius. Off restores camera collision movement |
 | General | 3rd person camera culling in vehicles | false | Use the camera culling while driving too (off: in a vehicle the camera moves in front of what blocks it). The ground is never cut away |
+| CAMERA | DynamicCrosshair | true | Third person: the crosshair sits where shots, melee hits and pickups really land (the ray from her head) - centre for far targets, moving left toward her for close ones, on her head when looking straight down. Off = the camera turns toward the aim point instead |
 | CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
 | CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |

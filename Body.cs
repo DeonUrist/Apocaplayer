@@ -1247,9 +1247,30 @@ namespace Apocaplayer
                 if (d.sqrMagnitude > 1e-4f) aHands = Vector3.SignedAngle(d, fwd, up);
             }
             float a = Mathf.Clamp(Mathf.Lerp(aShoulders, aHands, pistol), -60f, 60f) * _cuW;
-            if (Mathf.Abs(a) < 0.2f) return;
-            s1.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s1.rotation;
-            s2.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s2.rotation;
+            if (Mathf.Abs(a) >= 0.2f)
+            {
+                s1.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s1.rotation;
+                s2.rotation = Quaternion.AngleAxis(a * 0.5f, up) * s2.rotation;
+            }
+            // pistol: the rifle crouch hunches over the rifle; sit up to CrouchPistolLean (spine, spine1, spine2 a third each)
+            Transform s0, neck;
+            if (_cuPistolK > 0.01f && Bones.TryGetValue("mixamorig:Spine", out s0) && Bones.TryGetValue("mixamorig:Neck", out neck))
+            {
+                Vector3 right = Vector3.Cross(up, fwd).normalized;
+                Vector3 back = Vector3.ProjectOnPlane(neck.position - s0.position, right);
+                if (back.sqrMagnitude > 1e-4f)
+                {
+                    float lean = Mathf.Atan2(Vector3.Dot(back, fwd), Vector3.Dot(back, up)) * Mathf.Rad2Deg;   // + = leaning forward
+                    float sitUp = Mathf.Clamp((lean - Plugin.CrouchPistolLean.Value) * _cuPistolK, -30f, 60f);
+                    if (Mathf.Abs(sitUp) > 0.2f)
+                    {
+                        var step = Quaternion.AngleAxis(-sitUp / 3f, right);   // AngleAxis(+, right) tips up toward forward
+                        s0.rotation = step * s0.rotation;
+                        s1.rotation = step * s1.rotation;
+                        s2.rotation = step * s2.rotation;
+                    }
+                }
+            }
         }
 
         private static AvatarMask UpperMask()

@@ -86,6 +86,7 @@ namespace Apocaplayer
             try
             {
                 if (!Plugin.Enabled.Value || !Game.Ready) return;
+                ThirdPerson.LateCrosshair();
                 if (!Game.Dead && _body != null && _body.IsRagdoll) DestroyBody();
                 if (_body == null || !_body.Alive)
                 {
