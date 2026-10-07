@@ -21,6 +21,7 @@ namespace Apocaplayer
         // her picture, or Max's; the game man (Male) keeps the game's own
         private static string PictureFile { get { return Plugin.IsMax ? "Models/player_character_2_UI_max.png" : "Models/player_character_2_UI.png"; } }
         private static Texture2D _game, _backup, _mine;
+        private static readonly System.Collections.Generic.List<RawImage> _switched = new System.Collections.Generic.List<RawImage>();   // last-resort path: the UI elements we pointed at our picture
         private static bool _applied, _loadFailed, _hooked;
         private static float _nextTry;
         private static int _tries;
@@ -54,7 +55,7 @@ namespace Apocaplayer
             // last resort, once: the UI elements that show it
             int n = 0;
             foreach (var r in Resources.FindObjectsOfTypeAll<RawImage>())
-                if (r != null && r.gameObject.scene.IsValid() && r.texture == _game) { r.texture = mine; n++; }
+                if (r != null && r.gameObject.scene.IsValid() && r.texture == _game) { r.texture = mine; _switched.Add(r); n++; }
             _applied = true;
             Plugin.Log.LogInfo("TAB screen picture: " + n + " UI element(s) switched to her picture (the game's texture can't be overwritten: " + _game.format + ")");
         }
@@ -115,6 +116,10 @@ namespace Apocaplayer
         public static void Off()
         {
             if (_applied && _game != null && _backup != null) { CopyInto(_backup, _game); Plugin.Verbose("TAB screen picture: the game's picture back"); }
+            // last-resort path (texture not overwritable, e.g. DXT1 without CopyTexture): point the UI elements back at the game's texture,
+            // so a character switch finds them again (before 1.5.3 they kept the old picture, which was then destroyed -> blank)
+            foreach (var r in _switched) if (r != null && _game != null) r.texture = _game;
+            _switched.Clear();
             _applied = false; _tries = 0;
         }
 
@@ -129,6 +134,7 @@ namespace Apocaplayer
         // new scene: the texture may be a new instance - find it again and overwrite it once more
         public static void Reset()
         {
+            _switched.Clear();
             if (_game == null) { _backup = null; }
             _applied = false; _tries = 0; _nextTry = 0f;
         }
