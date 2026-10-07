@@ -10,7 +10,9 @@ namespace Apocaplayer
     {
         public const int K_NONE = 0, K_MELEE = 1, K_PISTOL = 2, K_RIFLE = 3, K_THROW = 4;
         // base slots: 0..33 the pack's aiming set, 34..40 the relaxed set (idle, walk F / R / B / L, run, sprint)
-        public const int B_IDLE = 0, B_WALK = 1, B_RUN = 9, B_SPRINT = 17, B_CIDLE = 25, B_CWALK = 26, B_RIDLE = 34, B_RWALK = 35, B_RRUN = 39, B_RSPRINT = 40, BN = 41;
+        // 41 (2.1.2): the relaxed crouched strafe left = the pack's crouched strafe RIGHT mirrored (the pack's own left one crosses over like aiming)
+        public const int B_IDLE = 0, B_WALK = 1, B_RUN = 9, B_SPRINT = 17, B_CIDLE = 25, B_CWALK = 26, B_RIDLE = 34, B_RWALK = 35, B_RRUN = 39, B_RSPRINT = 40, B_RCLEFT = 41, BN = 42;
+        public const string CrouchLeftMirror = "CrouchStrafeLeft";
         public static readonly string[] RelaxedNames = { "Idle", "RifleWalkLow", "WalkStrafeRight", "WalkBack", "WalkStrafeLeft", "RifleRunLow", "RifleSprint" };
         static readonly string[] DirWord = { "", "ForwardRight", "Right", "BackRight", "Back", "BackLeft", "Left", "ForwardLeft" };   // 0 = forward, clockwise
 
@@ -20,6 +22,7 @@ namespace Apocaplayer
         {
             if (i == B_IDLE) return "RifleIdle";
             if (i == B_CIDLE) return "RifleCrouchIdle";
+            if (i == B_RCLEFT) return CrouchLeftMirror;
             if (i >= B_RIDLE) return RelaxedNames[i - B_RIDLE];
             if (i < B_RUN) return "Rifle" + DirName("Walk", "Strafe", i - B_WALK);
             if (i < B_SPRINT) return "Rifle" + DirName("Run", "RunStrafe", i - B_RUN);
@@ -37,6 +40,7 @@ namespace Apocaplayer
             if (has(n)) return n;
             if (i == B_IDLE) return Pick(has, "RifleIdle", "Idle");
             if (i == B_CIDLE) return Pick(has, "RifleCrouchIdle", "CrouchIdle", "RifleIdle");
+            if (i == B_RCLEFT) return Pick(has, CrouchLeftMirror, "RifleCrouchStrafeLeft", "RifleCrouchWalk");
             if (i >= B_RIDLE)
             {
                 switch (i - B_RIDLE)
@@ -104,6 +108,8 @@ namespace Apocaplayer
             w[B_RUN + i0] += run * (1f - f); w[B_RUN + i1] += run * f;
             w[B_SPRINT + i0] += spr * (1f - f); w[B_SPRINT + i1] += spr * f;
             w[B_CWALK + i0] += cw * (1f - f); w[B_CWALK + i1] += cw * f;
+            // relaxed and crouched: the strafe left is the mirrored strafe right (the same on both sides)
+            float cl = w[B_CWALK + 6] * relax; w[B_CWALK + 6] -= cl; w[B_RCLEFT] = cl;
             // the relaxed set: walking = the four real directions blended, all clips at the same point of the stride (see Phase), so a diagonal
             // is a diagonal step - and the same on both sides (the right strafe is the left one mirrored)
             float rwalk = m * (1f - r) * relS, rrun = m * r * relS;
@@ -123,7 +129,8 @@ namespace Apocaplayer
 
         // the upper source (UpperRig) - which clip moves the hands; null = the legs' own clip moves them too
         //   hold = its first frame, frozen (aiming without firing); sync = walks / runs in step with the legs
-        public static string Upper(int kind, bool relaxed, bool aiming, bool shooting, bool reloading, float crouch, float m, float runW, float lz, Func<string, bool> has, out bool hold, out bool sync)
+        //   crouchMirror = weight of the mirrored crouch strafe (its arms are mirrored too: a rifle needs the unmirrored clip's hands)
+        public static string Upper(int kind, bool relaxed, bool aiming, bool shooting, bool reloading, float crouch, float m, float runW, float lz, float crouchMirror, Func<string, bool> has, out bool hold, out bool sync)
         {
             hold = false; sync = false;
             bool moving = m > 0.5f, running = runW > 0.5f, crouched = crouch > 0.5f;
@@ -139,8 +146,12 @@ namespace Apocaplayer
                     if (fire != null) { hold = true; return fire; }
                     return null;
                 }
-                // crouched: the pack's crouch clips carry the rifle themselves (crouched arms)
-                if (crouched) return null;
+                // crouched: the pack's crouch clips carry the rifle themselves (crouched arms) - but the mirrored strafe's hands are swapped
+                if (crouched)
+                {
+                    if (crouchMirror > 0.3f && has(CrouchLeftMirror) && has("RifleCrouchStrafeRight")) { sync = true; return "RifleCrouchStrafeRight"; }
+                    return null;
+                }
                 // standing relaxed: the low-ready rifle hands over whatever legs (unarmed strafes / walk back / idle)
                 if (moving && running) { sync = true; return Pick(has, "RifleRunLow", "RifleRun"); }
                 if (moving) { sync = true; return Pick(has, "RifleWalkLow", "RifleWalk"); }
@@ -180,6 +191,38 @@ namespace Apocaplayer
             if (ph < 0) ph += 1.0;
             return (float)ph;
         }
+        // ---- jumps: where in each jump clip the feet leave the ground (lift), are highest (apex) and touch down again (touch), as shares of the clip
+        // (-1 = not in the clip). Measured on the FBX with the real ground (tools/locotest/check_actions.py re-measures and compares) - in the
+        // game the clips' height goes to the root, so the pose alone can't tell a crouch before the jump from the feet tucked up in the air.
+        public static bool JumpMarks(string clip, out float lift, out float apex, out float touch)
+        {
+            switch (clip)
+            {
+                case "Jump": lift = 0.298f; apex = 0.421f; touch = 0.579f; return true;
+                case "PistolJump": lift = 0.083f; apex = 0.333f; touch = 0.667f; return true;
+                case "RifleJumpUp": lift = 0.75f; apex = 1f; touch = -1f; return true;
+                case "RifleJumpDown": lift = -1f; apex = 0f; touch = 0.45f; return true;
+            }
+            lift = apex = touch = -1f; return false;
+        }
+
+        // ---- RifleWalkToStop: its walk cycle matches RifleWalkLow's. At stride s (0 = left foot highest) the stop clip shows the same feet at
+        // StopTable[(s - 0.5) / 0.025], for s in 0.5 .. 1.1 (best match measured on the X Bot, tools/locotest/check_actions.py checks it: < 10 cm);
+        // the other half of the stride (the right foot swinging) has no match before its last step - then no stop clip. It ends settled at StopTo.
+        public const float StopTo = 0.66f;
+        static readonly float[] StopTable = { 0.169f, 0.178f, 0.187f, 0.196f, 0.205f, 0.214f, 0.223f, 0.233f, 0.241f, 0.248f, 0.254f, 0.265f, 0.279f,
+                                              0.291f, 0.303f, 0.316f, 0.328f, 0.339f, 0.350f, 0.361f, 0.373f, 0.384f, 0.398f };
+        public static float StopStart(double stride)
+        {
+            double s = stride - Math.Floor(stride);
+            if (s < 0.05) s += 1.0;
+            if (s < 0.5) return -1f;
+            double x = (s - 0.5) / 0.025; int i = (int)Math.Floor(x);
+            if (i >= StopTable.Length - 1) return StopTable[StopTable.Length - 1];
+            double f = x - i;
+            return (float)(StopTable[i] * (1 - f) + StopTable[i + 1] * f);
+        }
+
         // the normalized time of a clip with phase offset off at the shared stride (off < 0: unknown -> the stride itself)
         public static double Time01(double stride, float off, bool reverse)
         {

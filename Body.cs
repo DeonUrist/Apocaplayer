@@ -140,7 +140,8 @@ namespace Apocaplayer
         {
             if (!_action.IsValid()) return;
             bool on = Time.time < _actionUntil - 0.15f;
-            _actionW = Mathf.MoveTowards(_actionW, on ? 1f : 0f, dt * (on ? 10f : 6f));
+            _actionW = Mathf.MoveTowards(_actionW, on ? 1f : 0f, dt * (on ? 10f : _actionFade));
+            if (!on && _actionW <= 0f) _actionFade = 6f;
             _layers.SetInputWeight(2, _actionW);
         }
         private string _grenadeState = "";

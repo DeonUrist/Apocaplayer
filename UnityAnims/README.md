@@ -36,7 +36,7 @@ same `mixamorig` skeleton she has, and as Humanoid clips they fit her through th
 | Throw.fbx | grenade (left hand: packed mirrored as "Throw") and blast lance (right hand: unmirrored as "ThrowRight") | "Throw" |
 
 Everything except **RifleIdle** and **RifleWalk** is optional: a missing direction uses its neighbour, a missing tier the one below (sprint -> run -> walk),
-a missing back clip the forward one reversed; what is missing of the uppers falls back to the rifle clips' own hands. Only the relaxed legs-only clips (WalkStrafeLeft, LeftTurn) are mirrored:
+a missing back clip the forward one reversed; what is missing of the uppers falls back to the rifle clips' own hands. Only the relaxed legs-only clips (WalkStrafeLeft, LeftTurn, and since 2.1.2 RifleCrouchStrafeRight -> CrouchStrafeLeft, the relaxed crouched strafe left) are mirrored:
 the mod takes just their legs, the hands come from its upper rig, so the swapped hands don't matter. The first-person arms keep the game's own reload/shot animations.
 
 ## Build

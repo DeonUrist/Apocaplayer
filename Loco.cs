@@ -181,24 +181,30 @@ namespace Apocaplayer
         // samples the clip on the skeleton copy (its own source for a moment) and takes the first harmonic of left-minus-right foot height
         private float MeasurePhase(AnimationClip c)
         {
-            if (c == null || !_rigGraph.IsValid() || !_rigOut.IsOutputValid() || _rigLFoot == null || _rigRFoot == null || _rigAnim == null) return -1f;
+            var d = SampleFeet(c, 24, false);
+            return d == null ? -1f : LocoPlan.PhaseFromHeights(d);
+        }
+        // n samples over the clip on the skeleton copy: left minus right foot height
+        private float[] SampleFeet(AnimationClip c, int n, bool lower)
+        {
+            if (c == null || !_rigGraph.IsValid() || !_rigOut.IsOutputValid() || _rigLFoot == null || _rigRFoot == null || _rigAnim == null) return null;
             AnimationClipPlayable tmp = default(AnimationClipPlayable);
             try
             {
                 tmp = AnimationClipPlayable.Create(_rigGraph, c);
                 tmp.SetApplyFootIK(false); tmp.SetSpeed(0);
                 _rigOut.SetSourcePlayable(tmp);
-                const int N = 24;
-                var d = new float[N];
-                for (int k = 0; k < N; k++)
+                var d = new float[n];
+                for (int k = 0; k < n; k++)
                 {
-                    tmp.SetTime(k * c.length / N);
+                    tmp.SetTime(k * c.length / n);
                     _rigGraph.Evaluate(0f);
-                    d[k] = _rigAnim.InverseTransformPoint(_rigLFoot.position).y - _rigAnim.InverseTransformPoint(_rigRFoot.position).y;
+                    float l = _rigAnim.InverseTransformPoint(_rigLFoot.position).y, r = _rigAnim.InverseTransformPoint(_rigRFoot.position).y;
+                    d[k] = lower ? Mathf.Min(l, r) : l - r;
                 }
-                return LocoPlan.PhaseFromHeights(d);
+                return d;
             }
-            catch (Exception e) { Plugin.Log.LogWarning("Stride phase of " + c.name + ": " + e.Message); return -1f; }
+            catch (Exception e) { Plugin.Log.LogWarning("Sampling " + c.name + ": " + e.Message); return null; }
             finally
             {
                 if (_rigOut.IsOutputValid()) _rigOut.SetSourcePlayable(_rigMix);
@@ -253,7 +259,13 @@ namespace Apocaplayer
         // the base layer: idle / 8 directions × walk, run, sprint / crouch idle / 8 crouched walks, by the body's direction and speed
         // relaxed: how much of the standing locomotion comes from the relaxed set (not aiming / striking), and the legs' turn toward the way she moves
         private float _relaxW, _hipTurn;
-        private const float StopFrom = 0.30f, StopTo = 0.66f;     // RifleWalkToStop: its last step + settle (measured offline, tools/locotest)
+        private float _actionFade = 6f;                          // how fast an action fades out (1/s)
+        // a jump clip's take-off / apex / touch-down (x, y, z as shares of the clip; -1 = none)
+        private static Vector3 JumpMarksOf(string clip)
+        {
+            float l, a, t;
+            return LocoPlan.JumpMarks(clip, out l, out a, out t) ? new Vector3(l, a, t) : new Vector3(-1f, -1f, -1f);
+        }
         private void DriveBase(float m, float r, float sprint, Vector3 local, float crouch, float speed, int previewSlot, float relax, out float hipTurn)
         {
             var w = _bw;
@@ -270,7 +282,7 @@ namespace Apocaplayer
                 if (w[i] > best) { best = w[i]; _baseDom = i; }
                 float native = i == LocoPlan.B_RSPRINT || (i >= LocoPlan.B_SPRINT && i < B_CIDLE) ? Plugin.ClipSprintSpeed.Value
                              : i == LocoPlan.B_RRUN || (i >= LocoPlan.B_RUN && i < LocoPlan.B_SPRINT) ? Plugin.ClipRunSpeed.Value
-                             : i >= LocoPlan.B_CWALK && i < B_RIDLE ? Plugin.ClipCrouchSpeed.Value : Plugin.ClipWalkSpeed.Value;
+                             : (i >= LocoPlan.B_CWALK && i < B_RIDLE) || i == LocoPlan.B_RCLEFT ? Plugin.ClipCrouchSpeed.Value : Plugin.ClipWalkSpeed.Value;
                 float sp = previewSlot >= 0 ? 1f : ClipSpeed(speed, Native(_bp[i], native));
                 var c = _bp[i].GetAnimationClip();
                 float len = c != null && c.length > 0.05f ? c.length : 1f;
@@ -434,43 +446,77 @@ namespace Apocaplayer
             string ks = Game.KickState;
             if (ks == "fire" && _kickState != "fire") { StartAction("Kick"); _actionIsTurn = false; }
             _kickState = ks;
+            // (2.1.2) the game's [Jump] FSM: Idle -> Jump (button) -> Idle on landing; Falling only when walking off an edge. Each jump clip's take-off,
+            // apex and touch-down are measured once (JumpMarks); the clip starts just before its take-off, holds its apex while she is in the air,
+            // and on landing goes to its touch-down - standing still it shows ~0.25 s of the landing, moving it fades straight back to the legs.
             string js = Game.JumpState;
+            bool air = js == "Jump" || js == "Falling";
             bool jumpPress = live && js == "Idle" && Input.GetButtonDown("Jump");
             bool launched = js == "Falling" && _jumpState == "Idle" && Game.Velocity.y > 2f && Time.time > _jumpAt + 0.5f;
             if (jumpPress || launched)
             {
                 _jumpAt = Time.time;
                 string jc = JumpClip(kind);
-                StartAction(jc, jc == "RifleJumpUp" ? 0f : Plugin.JumpClipStart.Value);
-                _actionIsTurn = false;
-                _jumpPhase = jc == "RifleJumpUp" ? "up" : "";
+                var jm = JumpMarksOf(jc);
+                var jcl = Anims.Get(jc);
+                float from = jm.x > 0f && jcl != null ? Mathf.Max(0f, jm.x - 0.1f / jcl.length) : jc == "RifleJumpUp" ? 0f : Plugin.JumpClipStart.Value;
+                StartAction(jc, from);
+                if (jc == "RifleJumpUp") _actionUntil = Time.time + 10f;     // held on until the loop / the landing takes over
+                _actionIsTurn = false; _actionFade = 10f;
+                _jumpPhase = jc == "RifleJumpUp" ? "up" : "single";
             }
-            // the rifle jump in three clips: up, then the loop while in the air, down when the ground is back
-            if (_jumpPhase == "up" && Time.time >= _actionUntil - 0.1f && js == "Falling" && Has("RifleJumpLoop")) { StartAction("RifleJumpLoop"); _actionUntil = Time.time + 10f; _jumpPhase = "loop"; }
-            if (_jumpPhase != "" && _jumpState == "Falling" && js == "Idle" && Time.time - _jumpAt > 0.25f)
+            if (_jumpPhase != "" && _action.IsValid())
             {
-                if (Has("RifleJumpDown")) StartAction("RifleJumpDown"); else _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.3f);
-                _jumpPhase = "";
+                var ac = _action.GetAnimationClip();
+                if (_jumpPhase == "up" && ac != null && _action.GetTime() >= ac.length - 0.05f && air && Has("RifleJumpLoop"))
+                { StartAction("RifleJumpLoop"); _actionUntil = Time.time + 10f; _jumpPhase = "loop"; }
+                else if (_jumpPhase == "single" && air && ac != null)
+                {   // in the air: hold the clip's apex (the game's jump can be longer than the clip's)
+                    var jm = JumpMarksOf(_actionClip);
+                    if (jm.y > 0f && _action.GetTime() >= jm.y * ac.length) { _action.SetSpeed(0); _actionUntil = Mathf.Max(_actionUntil, Time.time + 0.5f); }
+                }
+                bool landed = (_jumpState == "Jump" || _jumpState == "Falling") && js == "Idle" && Time.time - _jumpAt > 0.2f;
+                if (landed)
+                {
+                    bool still = m < 0.5f;
+                    string land = _jumpPhase == "single" ? _actionClip : Has("RifleJumpDown") ? "RifleJumpDown" : null;
+                    var lm = JumpMarksOf(land);
+                    if (land != null && still)
+                    {
+                        float t = lm.z > 0f ? lm.z : 0f;
+                        StartAction(land, t);
+                        var lc = Anims.Get(land);
+                        if (lc != null) _actionUntil = Time.time + Mathf.Min(0.25f, (1f - t) * lc.length) + 0.15f;
+                    }
+                    else _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.15f);   // moving: back to the legs at once
+                    _actionFade = 10f;
+                    _jumpPhase = "";
+                }
+                else if (!air && Time.time - _jumpAt > 0.5f && _jumpPhase != "") { _jumpPhase = ""; _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.15f); }
             }
-            else if (_jumpPhase == "" && _jumpState == "Falling" && js == "Idle" && _actionClip != null && _actionClip.EndsWith("Jump") && Time.time - _jumpAt > 0.25f && Time.time < _actionUntil)
-                _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.3f);
             _jumpState = js;
             if (_previewName != null && (_previewName.Contains("Jump") || _previewName == "Kick" || _previewName.Contains("Turn")) && Time.time > _actionUntil - 0.2f)
             { StartAction(_previewName); _actionIsTurn = _previewName.Contains("Turn"); }
             if (_previewName == null) TurnInPlace(yaw.eulerAngles.y, m, crouch, relaxed);
-            // walking relaxed and coming to a stop: the walk-to-stop clip settles the feet (the hands stay the rig's)
-            // (2.1.1) only its last step and settle (0.30..0.66 of the clip - before that it walks two metres), standing, after walking forward
-            bool walkingNow = relaxed && crouch < 0.5f && m > 0.6f && _runW < 0.5f && local.z > 0.5f * local.magnitude;
+            // walking relaxed (straight forward) and letting go of the keys: RifleWalkToStop's last step settles the feet (the hands stay the rig's).
+            // (2.1.2) it starts the moment her speed drops, at the point of its own walk cycle that matches her legs (LocoPlan.StopStart) -
+            // starting it at a fixed point once she had nearly stopped popped a leg back by up to a metre. No match (right foot swinging): no clip.
+            bool walkingNow = relaxed && crouch < 0.5f && m > 0.6f && _runW < 0.5f && local.z > 0.9f * local.magnitude;
             if (walkingNow) _walkedAt = Time.time;
-            if (Plugin.WalkToStop.Value && _previewName == null && relaxed && crouch < 0.5f && m < 0.25f && Time.time - _walkedAt < 0.35f && Time.time > _actionUntil && Has("RifleWalkToStop") && _stopAt < _walkedAt)
+            if (Plugin.WalkToStop.Value && _previewName == null && relaxed && crouch < 0.5f && speed < 0.25f && m > 0.3f && Time.time - _walkedAt < 0.3f
+                && Time.time > _actionUntil && Has("RifleWalkToStop") && _stopAt < _walkedAt && _bw[LocoPlan.B_RWALK] > 0.3f)
             {
                 _stopAt = Time.time;
-                StartAction("RifleWalkToStop", StopFrom);
+                float from = LocoPlan.StopStart(_stride);
                 var sc = Anims.Get("RifleWalkToStop");
-                if (sc != null) _actionUntil = Time.time + (StopTo - StopFrom) * sc.length + 0.15f;
-                _actionIsTurn = true;
+                if (from >= 0f && sc != null)
+                {
+                    StartAction("RifleWalkToStop", from);
+                    _actionUntil = Time.time + (LocoPlan.StopTo - from) * sc.length + 0.15f;
+                    _actionIsTurn = true; _actionFade = 6f;
+                }
             }
-            if (_actionClip == "RifleWalkToStop" && Time.time < _actionUntil && (m > 0.5f || crouch > 0.5f || !relaxed)) _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.15f);
+            if (_actionClip == "RifleWalkToStop" && Time.time < _actionUntil && (speed > 0.5f || crouch > 0.5f || !relaxed)) _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.15f);
             UpdateAction(dt);
 
             // melee weapons and bare hands: one strike per game swing; throws
@@ -490,7 +536,7 @@ namespace Apocaplayer
             string up = null; bool hold = false, sync = false;
             if (_previewName != null && previewSlot >= 0 && _bname[previewSlot] == _previewName) up = null;   // a base clip: its own upper body
             else if (_previewName != null && !_previewName.Contains("Jump") && _previewName != "Kick" && !_previewName.Contains("Turn")) { up = _previewName; hold = false; }
-            else up = LocoPlan.Upper(lk, relaxed, aiming, shooting, _reloading, crouch, m, _runW, local.z, Has, out hold, out sync);
+            else up = LocoPlan.Upper(lk, relaxed, aiming, shooting, _reloading, crouch, m, _runW, local.z, _bw[LocoPlan.B_RCLEFT], Has, out hold, out sync);
             if (up != null) RigSet(up, hold, sync);
             _rigWant = up != null ? 1f : 0f;
             // relaxed running: the legs face the way she runs (hips about up); the chest is put back toward the camera by the rig (rifle, pistol,

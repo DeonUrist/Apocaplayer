@@ -74,7 +74,7 @@ for kind in kinds:
     rows = [p for p in data["poses"] if p["kind"] == kind]
     RH = 300 + 40; Wd = 220 * 4 + 230
     sheet = Image.new("RGB", (Wd, 50 + RH * len(rows)), "white"); dr = ImageDraw.Draw(sheet)
-    dr.text((10, 12), "Apocaplayer 2.1.1 locomotion - %s   (4 moments of one stride, from her front-right; last: from above, grey = facing, green = moving)" % kind, fill="black", font=fontb)
+    dr.text((10, 12), "Apocaplayer locomotion - %s   (4 moments of one stride, from her front-right; last: from above, grey = facing, green = moving)" % kind, fill="black", font=fontb)
     for r, p in enumerate(rows):
         y0 = 50 + r * RH
         for k in range(4):

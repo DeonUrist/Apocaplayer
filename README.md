@@ -198,7 +198,11 @@ crossing on strafes): it carries a melee weapon always, and a pistol / rifle whi
 a lowered pistol or rifle) the standing legs are the **relaxed set**: `Idle` standing, the low-ready walk `RifleWalkLow` forward, the strafe walk
 `WalkStrafeLeft` (mirrored for the right side), `WalkBack`, diagonals blended from those two; running = `RifleRunLow` / `RifleSprint` with the hips
 turned toward the way she runs (`RunLegsTurn`), the pack's straight run back for backward; `RifleWalkToStop`'s last step settles a stop and
-`LeftTurn` / `RightTurn` (mirrored) turn her in place. **Crouched, every weapon uses the pack's crouch** (its own crouched arms with a rifle).
+`LeftTurn` / `RightTurn` (mirrored) turn her in place. **Crouched, every weapon uses the pack's crouch** (its own crouched arms with a rifle);
+not aiming, the crouched strafe left is the pack's strafe right mirrored (`CrouchStrafeLeft`, made by the builder - the pack's own left one
+crosses over like aiming). Letting go of the keys after walking forward plays `RifleWalkToStop`'s last step from the point of its walk cycle
+that matches her legs (no match, the right foot swinging: no clip). Jumps: each jump clip starts just before its take-off, holds its apex
+while she is in the air and goes to its touch-down when the game's [Jump] FSM lands her; moving, it fades straight back to the legs.
 Every moving clip is played at the same point of the stride: each clip's phase (where its left foot is highest) is measured once on her
 skeleton, so clips from different downloads and the mirrored strafe step together.
 With a rifle the low-ready hands show over the relaxed legs, and aiming (right mouse button), firing and

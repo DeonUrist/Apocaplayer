@@ -13,6 +13,20 @@ static class LocoTest
     static string[] Dir = { "F", "FR", "R", "BR", "B", "BL", "L", "FL" };
     static void Main(string[] a)
     {
+        if (a[0] == "marks")
+        {   // the jump clips' marks: name lift apex touch
+            foreach (var n in new[] { "Jump", "PistolJump", "RifleJumpUp", "RifleJumpDown" })
+            {
+                float l, ap, to; LocoPlan.JumpMarks(n, out l, out ap, out to);
+                Console.WriteLine(n + " " + l.ToString("R") + " " + ap.ToString("R") + " " + to.ToString("R"));
+            }
+            return;
+        }
+        if (a[0] == "stop")
+        {   // RifleWalkToStop's start for 48 strides (-1 = no stop clip)
+            for (int k = 0; k < 48; k++) Console.WriteLine((k / 48.0).ToString("R") + " " + LocoPlan.StopStart(k / 48.0).ToString("R"));
+            return;
+        }
         clips = new HashSet<string>(File.ReadAllLines(a[0]));
         var sb = new StringBuilder("[\n"); bool first = true;
         string[] kinds = { "None", "Melee", "Pistol", "Rifle" };
@@ -50,7 +64,7 @@ static class LocoTest
                 float hip;
                 LocoPlan.Weights(m, r, sp, lx, lz, cr, relaxed ? 1f : 0f, 75f, w, out hip);
                 bool hold, sync;
-                string up = LocoPlan.Upper(k, relaxed, aim, shoot, false, cr, m, r, lz, Has, out hold, out sync);
+                string up = LocoPlan.Upper(k, relaxed, aim, shoot, false, cr, m, r, lz, w[LocoPlan.B_RCLEFT], Has, out hold, out sync);
                 var parts = new List<string>();
                 for (int i = 0; i < LocoPlan.BN; i++)
                 {

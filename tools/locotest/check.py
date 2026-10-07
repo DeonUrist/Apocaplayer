@@ -11,7 +11,8 @@ sk = Skeleton(); B = {b: i for i, b in enumerate(sk.bones)}
 _clips = {}
 def clip(n):
     if n not in _clips:
-        if n in ("WalkStrafeRight", "RightTurn", "ThrowRight"): _clips[n] = Clip(n, mirror_of=n.replace("Right", "Left") if n != "ThrowRight" else "Throw")
+        if n in ("WalkStrafeRight", "RightTurn", "ThrowRight", "CrouchStrafeLeft"):
+            _clips[n] = Clip(n, mirror_of={"ThrowRight": "Throw", "CrouchStrafeLeft": "RifleCrouchStrafeRight"}.get(n, n.replace("Right", "Left")))
         else: _clips[n] = Clip(n)
     return _clips[n]
 def fk(q, h): return sk.fk(q, h)

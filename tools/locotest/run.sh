@@ -10,4 +10,5 @@ ls "$D/clips" | sed 's/.npz$//' > "$D/clips.txt"; printf "WalkStrafeRight\nRight
 mcs -out:"$D/locotest.exe" "$D/../../LocoPlan.cs" "$D/LocoTest.cs"
 mono "$D/locotest.exe" "$D/clips.txt" > "$D/plan.json"
 python3 "$D/check.py" "$D/plan.json" "$O"
+python3 "$D/check_actions.py" "$O"
 python3 "$D/render.py" "$O/poses.pkl" "$A/Avatar/XBot.fbx" "$O"

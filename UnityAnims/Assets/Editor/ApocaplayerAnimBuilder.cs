@@ -35,7 +35,7 @@ public static class ApocaplayerAnimBuilder
         var l = new List<string> { "RifleIdle", "RifleAim", "RifleFire", "RifleCrouchIdle", "RifleCrouchAim", "RifleCrouchFire", "RifleReload",
             "RifleTurnLeft", "RifleTurnRight", "RifleCrouchTurnLeft", "RifleCrouchTurnRight", "RifleJumpUp", "RifleJumpLoop", "RifleJumpDown", "RifleJump",
             "RifleDeathFront", "RifleDeathBack", "RifleDeathRight", "RifleDeathHeadFront", "RifleDeathHeadBack", "RifleCrouchDeathHeadFront",
-            "RifleIdleLow", "RifleWalkLow", "RifleRunLow", "RifleWalkToStop", "WalkStrafeLeft", "WalkStrafeRight", "LeftTurn", "RightTurn",
+            "RifleIdleLow", "RifleWalkLow", "RifleRunLow", "RifleWalkToStop", "WalkStrafeLeft", "WalkStrafeRight", "LeftTurn", "RightTurn", "CrouchStrafeLeft",
             "PistolIdle", "PistolRun", "PistolFire", "PistolReload", "PistolJump",
             "Idle", "Walk", "WalkBack", "Run", "CrouchIdle", "Kick", "Jump", "Melee", "MeleeCombo", "Punch", "Punch1", "Punch2", "Melee1", "Melee2", "Throw", "ThrowRight" };
         foreach (var n in Loco("Walk", "Strafe")) l.Add("Rifle" + n);
@@ -114,7 +114,9 @@ public static class ApocaplayerAnimBuilder
             if (MirrorThrow && name == "Throw" && !have.Contains("ThrowRight")) list.Add(Setup(src[0], "ThrowRight"));
             // (2.0) nothing with a gun is mirrored (a mirrored clip swaps the hands). (2.1) the RELAXED legs-only clips are: the mod only takes
             // their legs (the hands come from its upper rig), so a mirrored WalkStrafeLeft / LeftTurn is the right side
-            string mirrorName = name == "WalkStrafeLeft" ? "WalkStrafeRight" : name == "LeftTurn" ? "RightTurn" : null;
+            // (2.1.2) the pack's crouched strafe right mirrored = the relaxed crouched strafe left (the pack's own left one crosses over like aiming);
+            // a rifle gets its hands from the unmirrored clip through the upper rig
+            string mirrorName = name == "WalkStrafeLeft" ? "WalkStrafeRight" : name == "LeftTurn" ? "RightTurn" : name == "RifleCrouchStrafeRight" ? "CrouchStrafeLeft" : null;
             if (mirrorName != null && !have.Contains(mirrorName))
             {
                 var m = Setup(src[0], mirrorName);
