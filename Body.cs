@@ -279,7 +279,7 @@ namespace Apocaplayer
             var im = new Material(b._mat) { name = "Apocaplayer inside" };
             if (im.HasProperty("_Color")) im.color = im.color * 0.45f;
             if (im.HasProperty("_Glossiness")) im.SetFloat("_Glossiness", 0f);
-            b._inner.sharedMaterial = im;
+            b._inner.sharedMaterials = new[] { im, CapMaterial(b._mat) };
             b._inner.updateWhenOffscreen = true;
             b._inner.localBounds = new Bounds(Vector3.zero, Vector3.one * 2.5f);
             b._inner.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -620,6 +620,31 @@ namespace Apocaplayer
             if (_shadow.enabled != shadow) _shadow.enabled = shadow;
             bool inner = body && _innerOn && _inner != null && _inner.sharedMesh != null;
             if (_inner != null && _inner.enabled != inner) _inner.enabled = inner;
+        }
+
+        // the caps closing the first-person cut openings: pure black, no lighting (Unlit/Color if the game ships it, else a black
+        // Standard copy without texture, specular or reflections)
+        private static Material _capMat;
+        private static Material CapMaterial(Material body)
+        {
+            if (_capMat != null) return _capMat;
+            var sh = Shader.Find("Unlit/Color");
+            Material m;
+            if (sh != null) m = new Material(sh);
+            else
+            {
+                m = new Material(body) { mainTexture = null };
+                if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", 0f);
+                if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+                if (m.HasProperty("_SpecularHighlights")) { m.SetFloat("_SpecularHighlights", 0f); m.EnableKeyword("_SPECULARHIGHLIGHTS_OFF"); }
+                if (m.HasProperty("_GlossyReflections")) { m.SetFloat("_GlossyReflections", 0f); m.EnableKeyword("_GLOSSYREFLECTIONS_OFF"); }
+                if (m.HasProperty("_EmissionColor")) m.SetColor("_EmissionColor", Color.black);
+            }
+            m.name = "Apocaplayer cut cap";
+            m.color = Color.black;
+            m.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            _capMat = m;
+            return m;
         }
 
         // first person: [Debug] camera offsets (view right/up/forward in the given frame) - her body moves the opposite way under the camera

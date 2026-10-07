@@ -163,14 +163,17 @@ namespace Apocaplayer
             var t = m.triangles;
             for (int i = 0; i + 2 < t.Length; i += 3) { int a = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = a; }
             var tris = new List<int>(t);
+            var capTris = new List<int>();   // submesh 1: the caps, drawn plain black (no texture to stretch)
             int caps = 0;
-            if (Full != null && m != Full) caps = Caps(m, Full, verts, uvs, nrms, bws, tris);
+            if (Full != null && m != Full) caps = Caps(m, Full, verts, uvs, nrms, bws, capTris);
             r = new Mesh { name = m.name + "_inside" };
             if (verts.Count > 65535) r.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             r.SetVertices(verts);
             r.SetUVs(0, uvs);
             r.SetNormals(nrms);
+            r.subMeshCount = 2;
             r.SetTriangles(tris, 0);
+            r.SetTriangles(capTris, 1);
             r.boneWeights = bws.ToArray();
             r.bindposes = m.bindposes;
             r.RecalculateBounds();
@@ -283,8 +286,8 @@ namespace Apocaplayer
             {
                 var nn = side == 0 ? normal : -normal;
                 int b0 = verts.Count;
-                for (int i = 0; i < n; i++) { int v = rep[loop[i]]; verts.Add(pos[v]); uvs.Add(uv[v]); nrms.Add(nn); bws.Add(bw[v]); }
-                int ci = verts.Count; verts.Add(c); uvs.Add(uv[rep[loop[0]]]); nrms.Add(nn); bws.Add(cw);
+                for (int i = 0; i < n; i++) { int v = rep[loop[i]]; verts.Add(pos[v]); uvs.Add(Vector2.zero); nrms.Add(nn); bws.Add(bw[v]); }
+                int ci = verts.Count; verts.Add(c); uvs.Add(Vector2.zero); nrms.Add(nn); bws.Add(cw);
                 for (int i = 0; i < n; i++)
                 {
                     int a = b0 + i, b = b0 + (i + 1) % n;
