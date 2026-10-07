@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.1.4";
+        public const string VERSION = "2.1.5";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -51,7 +51,7 @@ namespace Apocaplayer
         public static string BodyTextureFile { get { return Female ? TextureFile.Value : IsMax ? "Models/Player_max.png" : "Models/Player_male.png"; } }
         internal static ConfigEntry<bool> CrouchRemap;
         internal static ConfigEntry<float> CrouchArmsRest, CrouchArmsPhase, CrouchPistolLean, CrouchPistolArms;   // (1.7.x, unused since 2.0)
-        internal static ConfigEntry<float> UpperPhase, ClipSprintSpeed, SprintFrom, TurnClipAngle, TurnClipSpeedMin, TurnClipSpeedMax;
+        internal static ConfigEntry<float> UpperPhase, ClipSprintSpeed, SprintFrom, TurnClipAngle, TurnStartRate, DirBlendSpeed;
         internal static ConfigEntry<bool> FootIK, WalkToStop;
         internal static ConfigEntry<float> RunLegsIn, RunLegsTurn;
         internal static ConfigEntry<bool> DynamicCrosshair;
@@ -158,9 +158,9 @@ namespace Apocaplayer
             UpperPhase = H("Animation", "UpperPhase", 0f, "2.0: walking / running upper-body clips (Walk, Run, PistolRun) play in step with the rifle legs; this shifts them (0..1 of a stride, 0.5 = the other foot).");
             ClipSprintSpeed = H("Animation", "BundleSprintSpeed", 5.5f, "Ground speed (m/s) at which the rifle pack's sprint clips play at normal speed (when the clip has no root motion of its own).");
             SprintFrom = H("Animation", "SprintFrom", 4.3f, "Ground speed (m/s) above which the rifle pack's sprint clips replace its run clips (the game runs at 5).");
-            TurnClipAngle = H("Animation", "TurnClipAngle", 70f, "Standing still and turned this many degrees: a turn-in-place clip (RifleTurnLeft/Right, crouched RifleCrouchTurnLeft/Right) plays. 0 = never.");
-            TurnClipSpeedMin = H("Animation", "TurnClipSpeedMin", 2f, "Turn-in-place clips play at least this fast (x normal); faster when she turns faster.");
-            TurnClipSpeedMax = H("Animation", "TurnClipSpeedMax", 3.5f, "Turn-in-place clips play at most this fast (x normal).");
+            TurnClipAngle = H("Animation", "TurnClipAngle", 70f, "0 = no turn-in-place clips. (2.1.5: any other value = on; the clips start with the first degree, see TurnStartRate.)");
+            TurnStartRate = H("Animation", "TurnStartRate", 8f, "Standing still: turning faster than this (degrees per second) steps her feet with the turn-in-place clips, driven by the turn itself.");
+            DirBlendSpeed = H("Animation", "DirBlendSpeed", 360f, "How fast (degrees per second) the legs' walking direction turns when the movement keys change (strafe left -> forward passes the diagonal).");
             FootIK = H("Animation", "FootIK", true, "Unity's humanoid foot IK on the bundle's idle and walking clips (standing and crouched). Never on the run / sprint / jump clips: their foot goals were made on another skeleton and the solver twisted the shins.");
             RunLegsIn = Config.Bind("Animation", "RunLegsIn", 6f, new ConfigDescription("Running (bundle animations): each thigh turned this many degrees toward the middle, the feet kept flat - the rifle pack's run and sprint cycles stand wide on her hips. 0 = the clips as they are.", new AcceptableValueRange<float>(-10f, 20f)));
             WalkToStop = H("Animation", "WalkToStop", true, "Relaxed walking forward and stopping: the RifleWalkToStop clip's last step settles her feet.");

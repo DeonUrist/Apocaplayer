@@ -37,3 +37,40 @@ for n, (l, a, t) in marks.items():
     ok = all(abs(x - y) < 0.03 for x, y in zip(meas, (l, a, t)))
     lines.append("%s jump  %-14s plan lift %.2f apex %.2f touch %.2f | measured %.2f %.2f %.2f (%.2f s clip)" % ("PASS" if ok else "FAIL", n, l, a, t, meas[0], meas[1], meas[2], c.length))
 open(os.path.join(out, "report_actions.txt"), "w").write("\n".join(lines) + "\n"); print("\n".join(lines))
+
+# ---- (2.1.5) direction changes: 60 frames (60 fps) after the keys change, legs blended by LocoTest "sweep" (LocoPlan.SlewAngle + Weights);
+# the feet's largest move between two frames compared with steady walking. Instant (2.1.4) vs slewed (2.1.5).
+_c = {}
+def clipc(n):
+    if n not in _c: _c[n] = Clip(n, mirror_of={"WalkStrafeRight": "WalkStrafeLeft", "CrouchStrafeLeft": "RifleCrouchStrafeRight"}.get(n))
+    return _c[n]
+_ph = {}
+def phc(n):
+    if n not in _ph: _ph[n] = phase(clipc(n))
+    return _ph[n]
+from pose import blend
+def sweep(kind, a0, a1, slew, run=0):
+    run_ = lambda x0, x1, sl: subprocess.run(["mono", os.path.join(D, "locotest.exe"), "sweep", os.path.join(D, "clips.txt"), str(kind), str(x0), str(x1), str(sl), str(run)], capture_output=True, text=True).stdout.strip().split("\n")
+    rows = run_(a0, a0, 0)[:1] + run_(a0, a1, slew)          # one frame still walking the old way, then the keys change
+    cyc = 0.73 if run else 1.3; prev = None; worst = 0; steady = 0; stride = 0.0
+    for k, row in enumerate(rows):
+        ang, hip, rest = row.split(" ", 2)
+        parts = rest.strip("| ").split()
+        smp = []
+        for j in range(0, len(parts), 3):
+            n, w, d = parts[j], float(parts[j + 1]), parts[j + 2]
+            t = ((phc(n) - stride) if d == "rev" else (phc(n) + stride)) % 1
+            q, h = clipc(n).sample(t); smp.append((w, q, h))
+        Q, H = blend(smp); p = sk.fk(Q, H)[1]; f = feet(p)
+        if prev is not None:
+            mv = np.max(np.abs(f - prev)) * 100
+            if k > 40: steady = max(steady, mv)
+            worst = max(worst, mv)
+        prev = f; stride += (1 / 60) / cyc
+    return worst, steady
+for kind, kn in ((0, "None"), (1, "Melee")):
+    for a0, a1, run in ((-90, 0, 0), (90, 0, 0), (-90, 90, 0), (0, 180, 0), (-90, 0, 1)):
+        wi, st = sweep(kind, a0, a1, 0, run); ws, _ = sweep(kind, a0, a1, 360, run)
+        ok = ws <= max(st * 1.6, st + 1.5)
+        lines.append("%s dir   %-5s %s %4d -> %4d deg: feet move per frame - instant %.1f cm, turned at 360°/s %.1f cm, steady %.1f cm" % ("PASS" if ok else "FAIL", kn, "run " if run else "walk", a0, a1, wi, ws, st))
+open(os.path.join(out, "report_actions.txt"), "w").write("\n".join(lines) + "\n"); print("\n".join(lines[-10:]))

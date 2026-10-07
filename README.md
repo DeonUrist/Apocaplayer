@@ -198,7 +198,7 @@ crossing on strafes): it carries a melee weapon always, and a pistol / rifle whi
 a lowered pistol or rifle) the standing legs are the **relaxed set**: `Idle` standing, the low-ready walk `RifleWalkLow` forward, the strafe walk
 `WalkStrafeLeft` (mirrored for the right side), `WalkBack`, diagonals blended from those two; running = `RifleRunLow` / `RifleSprint` with the hips
 turned toward the way she runs (`RunLegsTurn`), the pack's straight run back for backward; `RifleWalkToStop`'s last step settles a stop and
-`LeftTurn` / `RightTurn` (mirrored) turn her in place, played 2-3.5x as fast as she turns (hidden TurnClipSpeedMin / Max). **Crouched, every weapon uses the pack's crouch** (its own crouched arms with a rifle);
+`LeftTurn` / `RightTurn` (mirrored) turn her in place - their feet are driven by the turn itself from the first degree (each degree she turns advances the clip by the part of it that turns one degree), so they never slide; the legs' walking direction turns smoothly when the keys change (DirBlendSpeed, 360°/s). **Crouched, every weapon uses the pack's crouch** (its own crouched arms with a rifle);
 with bare hands the crouched strafe left is the pack's strafe right mirrored (`CrouchStrafeLeft`, made by the builder - the pack's own left
 one crosses over like aiming; pistol and rifle keep it), and crouch-walking with bare hands the chest follows the pelvis half-way, the twist
 shared by the three spine bones. Letting go of the keys after walking forward plays `RifleWalkToStop`'s last step from the point of its walk cycle

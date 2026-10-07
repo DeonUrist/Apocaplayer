@@ -96,9 +96,7 @@ namespace Apocaplayer
             float sang = (lx * lx + lz * lz) > 1e-8f ? (float)(Math.Atan2(lx, lz) * 180.0 / Math.PI) : 0f;   // + = to her right
             float ang = sang < 0f ? sang + 360f : sang;
             float bin = ang / 45f; int i0 = (int)Math.Floor(bin) % 8, i1 = (i0 + 1) % 8; float f = bin - (float)Math.Floor(bin);
-            // the pack's neighbouring directions have different stances (a strafe crosses its feet, a diagonal doesn't): a half-and-half mix steps
-            // sideways to neither - so they only cross-fade in the middle 15° between two directions (the keys give the 8 directions exactly)
-            f = Clamp01((f - 0.5f) / 0.33f + 0.5f);
+            // (2.1.5) linear again: the direction now turns smoothly (SlewAngle), so neighbouring directions cross-fade on the way
             float st = 1f - crouch, aimS = st * (1f - relax), relS = st * relax;
             w[B_IDLE] = (1f - m) * aimS;
             w[B_RIDLE] = (1f - m) * relS;
@@ -212,12 +210,65 @@ namespace Apocaplayer
             neck = -HeadBack * delta;
         }
 
-        // ---- (2.1.4) turning in place: a turn clip covers ~90° in its length (0.9..1.3 s) - played at 1x it lagged far behind the camera. Its speed
-        // now follows how fast she turned: (degrees turned / seconds it took) / (90° / clip length), at least minSpeed, at most maxSpeed.
-        public static float TurnSpeed(float degrees, float seconds, float clipLength, float minSpeed, float maxSpeed)
+        // ---- (2.1.5) turning in place: the turn clip's feet are driven by her turn itself - each degree the camera turns advances the clip by
+        // the part of it that turns one degree (TurnCurve, measured on the FBX: the clips ease in and out), so the feet step exactly as fast as
+        // she turns, from the first degree, and never slide. Past the clip's end it starts over (another step).
+        public static bool TurnCurve(string clip, out float degrees, out float[] curve)
         {
-            float rate = Math.Abs(degrees) / Math.Max(0.05f, seconds), clipRate = 90f / Math.Max(0.1f, clipLength);
-            return Clamp(rate / clipRate, minSpeed, Math.Max(minSpeed, maxSpeed));
+            switch (clip)
+            {
+                case "LeftTurn": case "RightTurn":
+                    degrees = 123f; curve = new[] { 0f, 0.093f, 0.173f, 0.234f, 0.288f, 0.341f, 0.433f, 0.545f, 0.683f, 0.844f, 1f }; return true;
+                case "RifleTurnLeft":
+                    degrees = 90f; curve = new[] { 0f, 0.095f, 0.193f, 0.295f, 0.397f, 0.495f, 0.602f, 0.708f, 0.840f, 0.976f, 1f }; return true;
+                case "RifleTurnRight":
+                    degrees = 90f; curve = new[] { 0f, 0.029f, 0.208f, 0.439f, 0.615f, 0.732f, 0.805f, 0.852f, 0.889f, 0.933f, 1f }; return true;
+                case "RifleCrouchTurnLeft":
+                    degrees = 95f; curve = new[] { 0f, 0.231f, 0.465f, 0.595f, 0.697f, 0.752f, 0.852f, 0.956f, 0.985f, 1f, 1f }; return true;
+                case "RifleCrouchTurnRight":
+                    degrees = 90f; curve = new[] { 0f, 0.048f, 0.152f, 0.223f, 0.245f, 0.347f, 0.550f, 0.728f, 0.911f, 0.983f, 1f }; return true;
+            }
+            degrees = 90f; curve = new[] { 0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1f }; return false;
+        }
+        // the normalized clip time at which the clip has turned frac (0..1) of its degrees (the curve inverted)
+        public static float TurnTime(float[] curve, float frac)
+        {
+            int n = curve.Length - 1;
+            if (frac <= 0f) return 0f;
+            if (frac >= curve[n]) return 1f;
+            for (int i = 0; i < n; i++)
+                if (frac <= curve[i + 1])
+                {
+                    float span = curve[i + 1] - curve[i];
+                    float f = span > 1e-5f ? (frac - curve[i]) / span : 0f;
+                    return (i + f) / n;
+                }
+            return 1f;
+        }
+
+        // the share of its degrees the clip has turned at normalized time t (the curve itself)
+        public static float TurnFrac(float[] curve, float t)
+        {
+            int n = curve.Length - 1;
+            if (t <= 0f) return 0f;
+            if (t >= 1f) return curve[n];
+            float x = t * n; int i = (int)Math.Floor(x); float f = x - i;
+            return curve[i] * (1f - f) + curve[i + 1] * f;
+        }
+
+        // ---- (2.1.5) the direction the legs blend by turns toward the way she moves at degPerSec instead of jumping with the keys, so strafe left ->
+        // forward turns through the diagonal (the shorter way; a reversal goes through forward)
+        public static float SlewAngle(float current, float target, float maxStep)
+        {
+            float d = target - current;
+            while (d > 180f) d -= 360f;
+            while (d < -180f) d += 360f;
+            if (Math.Abs(Math.Abs(d) - 180f) < 1f) d = current > 0f ? -180f : 180f;      // a reversal: through forward
+            if (d > maxStep) d = maxStep; else if (d < -maxStep) d = -maxStep;
+            float r = current + d;
+            while (r > 180f) r -= 360f;
+            while (r < -180f) r += 360f;
+            return r;
         }
 
         // ---- jumps: where in each jump clip the feet leave the ground (lift), are highest (apex) and touch down again (touch), as shares of the clip

@@ -32,6 +32,30 @@ static class LocoTest
             }
             return;
         }
+        if (a[0] == "sweep")
+        {   // kind fromDeg toDeg slew(°/s, 0 = instant) run(0/1): 60 frames at 60 fps after the keys change -> per frame: angle | slot clip w ...
+            clips = new HashSet<string>(File.ReadAllLines(a[1]));
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            int kind = int.Parse(a[2]); float from = float.Parse(a[3], ci), to = float.Parse(a[4], ci), slew = float.Parse(a[5], ci), run = float.Parse(a[6], ci);
+            var w = new float[LocoPlan.BN]; float ang = from;
+            for (int f = 0; f < 60; f++)
+            {
+                ang = slew <= 0f ? to : LocoPlan.SlewAngle(ang, to, slew / 60f);
+                double r = ang * Math.PI / 180.0; float hip;
+                bool relaxed = LocoPlan.Relaxed(kind, false, false);
+                LocoPlan.Weights(1f, run, 0f, (float)Math.Sin(r), (float)Math.Cos(r), 0f, relaxed ? 1f : 0f, LocoPlan.CrouchMirror(kind), 75f, w, out hip);
+                var sb2 = new StringBuilder(ang.ToString("R", ci) + " " + hip.ToString("R", ci) + " |");
+                for (int i = 0; i < LocoPlan.BN; i++) if (w[i] > 0.001f) { bool rev; sb2.Append(" " + LocoPlan.Resolve(i, Has, out rev) + " " + w[i].ToString("R", ci) + (rev ? " rev" : " fwd")); }
+                Console.WriteLine(sb2.ToString());
+            }
+            return;
+        }
+        if (a[0] == "turn")
+        {   // clip -> its curve's round trip: frac -> time -> frac
+            float deg; float[] cur; LocoPlan.TurnCurve(a[1], out deg, out cur);
+            for (int k = 0; k <= 20; k++) { float fr = k / 20f, tt = LocoPlan.TurnTime(cur, fr); Console.WriteLine(fr + " " + tt + " " + LocoPlan.TurnFrac(cur, tt)); }
+            return;
+        }
         if (a[0] == "stop")
         {   // RifleWalkToStop's start for 48 strides (-1 = no stop clip)
             for (int k = 0; k < 48; k++) Console.WriteLine((k / 48.0).ToString("R") + " " + LocoPlan.StopStart(k / 48.0).ToString("R"));

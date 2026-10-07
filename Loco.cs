@@ -53,7 +53,10 @@ namespace Apocaplayer
 
         // ---- actions
         private bool _actionIsTurn;
-        private float _turnAcc, _turnLastYaw, _turnDecayAt, _turnFrom, _turnStarted, _turnDuration = 1f;
+        private float _turnLastYaw, _turnDeg, _turnTotal = 90f, _turnMovedAt, _moveAng;
+        private float[] _turnCurve;
+        private string _turnClip;
+        private bool _turnSettling;
         private bool _turnInit;
         private string _jumpPhase = "";
         private float _walkedAt = -10f, _stopAt = -10f;                       // rifle jump: "up" -> "loop" -> "down"
@@ -382,32 +385,62 @@ namespace Apocaplayer
         }
 
         // standing still and turned a lot: a turn-in-place clip (the rifle pack's, full body; the upper source stays on it for pistols / bare hands)
-        private void TurnInPlace(float yawDeg, float m, float crouch, bool relaxed)
+        // (2.1.5) standing still and turning: from the first degree the turn clip's feet are driven by the turn itself (LocoPlan.TurnCurve:
+        // each degree she turns advances the clip by the share of it that turns one degree), so the feet step exactly as fast as the camera
+        // turns and never slide; past the clip's end it starts over. When she stops turning the step in progress is finished (past its middle)
+        // or faded out.
+        private void TurnInPlace(float yawDeg, float m, float crouch, bool relaxed, float dt)
         {
             if (!_turnInit) { _turnInit = true; _turnLastYaw = yawDeg; }
             float d = Mathf.DeltaAngle(_turnLastYaw, yawDeg);
             _turnLastYaw = yawDeg;
-            if (Plugin.TurnClipAngle.Value <= 0f) return;
-            // (2.1.4) a running turn clip doesn't block the next one: past 60 % of it, a further TurnClipAngle starts the next turn
-            bool turning = _actionIsTurn && _actionClip != null && _actionClip.Contains("Turn") && Time.time < _actionUntil;
-            if (m > 0.15f || (Time.time < _actionUntil && !turning)) { _turnAcc = 0f; return; }
-            if (Mathf.Abs(d) > 0.05f) { if (Mathf.Abs(_turnAcc) < 0.01f) _turnFrom = Time.time; _turnAcc += d; _turnDecayAt = Time.time + 0.4f; }
-            else if (Time.time > _turnDecayAt) _turnAcc = Mathf.MoveTowards(_turnAcc, 0f, Time.deltaTime * 120f);
-            if (Mathf.Abs(_turnAcc) < Plugin.TurnClipAngle.Value) return;
-            if (turning && Time.time < _turnStarted + 0.6f * _turnDuration) return;
-            bool left = _turnAcc < 0f;
-            string clip = crouch > 0.5f ? (left ? "RifleCrouchTurnLeft" : "RifleCrouchTurnRight") : relaxed && Has(left ? "LeftTurn" : "RightTurn") ? (left ? "LeftTurn" : "RightTurn") : (left ? "RifleTurnLeft" : "RifleTurnRight");
-            if (!Has(clip)) clip = left ? "RifleTurnLeft" : "RifleTurnRight";
-            float acc = _turnAcc, took = Time.time - _turnFrom;
-            _turnAcc = 0f;
-            var c = Anims.Get(clip);
-            if (c == null) return;
-            float sp = LocoPlan.TurnSpeed(acc, took, c.length, Plugin.TurnClipSpeedMin.Value, Plugin.TurnClipSpeedMax.Value);
-            StartAction(clip);
-            _action.SetSpeed(sp);
-            _turnDuration = c.length / sp; _turnStarted = Time.time;
-            _actionUntil = Time.time + _turnDuration + 0.1f;
-            _actionIsTurn = true; _actionFade = 10f;
+            bool mine = _turnClip != null && _actionClip == _turnClip && Time.time < _actionUntil;
+            if (Plugin.TurnClipAngle.Value <= 0f || m > 0.15f || (Time.time < _actionUntil && !mine)) { EndTurn(mine && m <= 0.15f); return; }
+            if (Mathf.Abs(d) > Plugin.TurnStartRate.Value * Mathf.Max(dt, 1e-3f))
+            {
+                bool left = d < 0f;
+                string clip = crouch > 0.5f ? (left ? "RifleCrouchTurnLeft" : "RifleCrouchTurnRight") : relaxed && Has(left ? "LeftTurn" : "RightTurn") ? (left ? "LeftTurn" : "RightTurn") : (left ? "RifleTurnLeft" : "RifleTurnRight");
+                if (!Has(clip)) clip = left ? "RifleTurnLeft" : "RifleTurnRight";
+                if (!Has(clip)) return;
+                if (mine && _turnClip == clip && _turnSettling)
+                {   // turning again while the last step settles: carry on from where the clip is
+                    var sc = Anims.Get(clip);
+                    _turnDeg = LocoPlan.TurnFrac(_turnCurve, Mathf.Clamp01((float)_action.GetTime() / sc.length)) * _turnTotal;
+                }
+                else if (!mine || _turnClip != clip)
+                {
+                    StartAction(clip);
+                    _turnClip = clip; _turnDeg = 0f;
+                    LocoPlan.TurnCurve(clip, out _turnTotal, out _turnCurve);
+                }
+                _turnDeg += Mathf.Abs(d);
+                while (_turnDeg >= _turnTotal) _turnDeg -= _turnTotal;
+                var c = Anims.Get(clip);
+                _action.SetSpeed(0);
+                _action.SetTime(LocoPlan.TurnTime(_turnCurve, _turnDeg / _turnTotal) * c.length);
+                _actionUntil = Time.time + 0.4f;
+                _actionIsTurn = true; _actionFade = 10f;
+                _turnMovedAt = Time.time; _turnSettling = false;
+            }
+            else if (mine && !_turnSettling && Time.time - _turnMovedAt > 0.12f) EndTurn(true);
+        }
+        private void EndTurn(bool settle)
+        {
+            if (_turnClip == null) return;
+            if (_actionClip == _turnClip && Time.time < _actionUntil && _action.IsValid())
+            {
+                var c = Anims.Get(_turnClip);
+                float frac = _turnTotal > 0f ? _turnDeg / _turnTotal : 0f;
+                if (settle && c != null && frac > 0.5f)
+                {   // finish the step: the rest of the clip at its own speed
+                    _action.SetSpeed(1);
+                    _actionUntil = Time.time + Mathf.Max(0.05f, c.length - (float)_action.GetTime()) + 0.1f;
+                }
+                else _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.15f);
+                _actionFade = 10f;
+            }
+            _turnSettling = true;
+            if (!settle) _turnClip = null;
         }
 
         private void LateMixamo(View view, float dt, Quaternion yaw, float camPitch)
@@ -458,7 +491,11 @@ namespace Apocaplayer
             if (_previewName != null) relaxed = previewSlot >= B_RIDLE;
             _relaxW = _snap ? (relaxed ? 1f : 0f) : Mathf.MoveTowards(_relaxW, relaxed ? 1f : 0f, dt * 5f);
             float hipWant;
-            DriveBase(m, _runW, _sprintW, local, crouch, _speedSmooth, previewSlot, _relaxW, out hipWant);
+            // (2.1.5) the legs' direction turns toward the way she moves at DirBlendSpeed °/s (strafe left -> forward passes the diagonal)
+            float wantAng = local.sqrMagnitude > 1e-4f ? Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg : _moveAng;
+            _moveAng = (_snap || _speedSmooth < 0.15f) ? wantAng : LocoPlan.SlewAngle(_moveAng, wantAng, Plugin.DirBlendSpeed.Value * dt);
+            var legDir = new Vector3(Mathf.Sin(_moveAng * Mathf.Deg2Rad), 0f, Mathf.Cos(_moveAng * Mathf.Deg2Rad)) * local.magnitude;
+            DriveBase(m, _runW, _sprintW, legDir, crouch, _speedSmooth, previewSlot, _relaxW, out hipWant);
             _hipTurn = Mathf.Lerp(_hipTurn, hipWant, 1f - Mathf.Exp(-dt * 8f));
             bool click = live && Input.GetMouseButtonDown(0);
             bool reloadingNow = gunKind && ReloadNow(weapon);
@@ -526,7 +563,7 @@ namespace Apocaplayer
             _jumpState = js;
             if (_previewName != null && (_previewName.Contains("Jump") || _previewName == "Kick" || _previewName.Contains("Turn")) && Time.time > _actionUntil - 0.2f)
             { StartAction(_previewName); _actionIsTurn = _previewName.Contains("Turn"); }
-            if (_previewName == null) TurnInPlace(yaw.eulerAngles.y, m, crouch, relaxed);
+            if (_previewName == null) TurnInPlace(yaw.eulerAngles.y, m, crouch, relaxed, dt);
             // walking relaxed (straight forward) and letting go of the keys: RifleWalkToStop's last step settles the feet (the hands stay the rig's).
             // (2.1.2) it starts the moment her speed drops, at the point of its own walk cycle that matches her legs (LocoPlan.StopStart) -
             // starting it at a fixed point once she had nearly stopped popped a leg back by up to a metre. No match (right foot swinging): no clip.
@@ -565,7 +602,7 @@ namespace Apocaplayer
             string up = null; bool hold = false, sync = false;
             if (_previewName != null && previewSlot >= 0 && _bname[previewSlot] == _previewName) up = null;   // a base clip: its own upper body
             else if (_previewName != null && !_previewName.Contains("Jump") && _previewName != "Kick" && !_previewName.Contains("Turn")) { up = _previewName; hold = false; }
-            else up = LocoPlan.Upper(lk, relaxed, aiming, shooting, _reloading, crouch, m, _runW, local.z, _bw[LocoPlan.B_RCLEFT], Has, out hold, out sync);
+            else up = LocoPlan.Upper(lk, relaxed, aiming, shooting, _reloading, crouch, m, _runW, legDir.z, _bw[LocoPlan.B_RCLEFT], Has, out hold, out sync);
             if (up != null) RigSet(up, hold, sync);
             _rigWant = up != null ? 1f : 0f;
             // relaxed running: the legs face the way she runs (hips about up); the chest is put back toward the camera by the rig (rifle, pistol,
