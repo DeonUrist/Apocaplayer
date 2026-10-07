@@ -202,6 +202,8 @@ namespace Apocaplayer
         private static int _viewFrame = -1;
         private static Vector3 _vPos; private static Quaternion _vRot = Quaternion.identity; private static float _vFov = 60f, _gameFov = 60f;
         private static Transform _vCar; private static bool _vCutaway;
+        private static bool _projSet; private static int _zoomLogs; private static string _xhairWhat = ""; private static float _xhairDist;
+        public static Matrix4x4 Projection(Camera cam, float fov) { return Matrix4x4.Perspective(fov, cam.aspect, cam.nearClipPlane, cam.farClipPlane); }
         private static void ComputeView(Camera cam)
         {
             if (_viewFrame == Time.frameCount) return;
@@ -270,7 +272,14 @@ namespace Apocaplayer
             // (2.1.9) the view is worked out ONCE per frame (ComputeView, also used by the dynamic crosshair in LateUpdate), so the crosshair is
             // projected with exactly the view and field of view drawn - before, the zoomed FOV could be applied on top of an already zoomed one
             ComputeView(cam);
-            if (Mathf.Abs(cam.fieldOfView - _vFov) > 1e-4f) { cam.fieldOfView = _vFov; _fovSet = true; }
+            // (2.1.10) the zoom goes in as our own projection matrix - the very one the dynamic crosshair projects with - not through the
+            // camera's field of view (the right-click zoom's FOV didn't reach the picture, the crosshair assumed it did and drifted toward her)
+            if (Mathf.Abs(_vFov - _gameFov) > 1e-3f)
+            {
+                cam.projectionMatrix = Projection(cam, _vFov); _projSet = true;
+                if (_zoomLogs < 3 && AimZoom && _zoomK >= 1f) { _zoomLogs++; Plugin.Log.LogInfo("Aim zoom check: game FOV " + _gameFov.ToString("0.0") + " -> view FOV " + _vFov.ToString("0.0") + ", camera FOV now " + cam.fieldOfView.ToString("0.0") + ", physical camera " + cam.usePhysicalProperties + ", crosshair on " + _xhairWhat + " at " + _xhairDist.ToString("0.0") + " m, screen " + CrosshairScreen.ToString("F0")); }
+            }
+            else if (_projSet) { cam.ResetProjectionMatrix(); _projSet = false; }
             ViewFov = _vFov;
             Vector3 pos = _vPos; var viewRot = _vRot; Transform car = _vCar; bool cutaway = _vCutaway;
             ViewPos = pos; ViewRot = viewRot; HasView = true;
@@ -313,7 +322,10 @@ namespace Apocaplayer
                 if (c == null || _eyeHits[i].distance >= best || Mine(c.transform)) continue;
                 best = _eyeHits[i].distance; hitPoint = _eyeHits[i].point;
             }
-            var vp = Matrix4x4.Perspective(fov, cam.aspect, cam.nearClipPlane, cam.farClipPlane) * Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
+            _xhairDist = best < float.MaxValue ? best : -1f;
+            _xhairWhat = "nothing";
+            for (int i = 0; i < n; i++) if (_eyeHits[i].collider != null && _eyeHits[i].distance == best) { _xhairWhat = _eyeHits[i].collider.name + " (layer " + _eyeHits[i].collider.gameObject.layer + ")"; break; }
+            var vp = Projection(cam, fov) * Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(pos, viewRot, Vector3.one).inverse;
             Vector4 clip = vp * new Vector4(hitPoint.x, hitPoint.y, hitPoint.z, 1f);
             if (clip.w <= 0.01f) { RestoreCrosshair(); return; }
             CrosshairScreen = new Vector2((clip.x / clip.w * 0.5f + 0.5f) * Screen.width, (clip.y / clip.w * 0.5f + 0.5f) * Screen.height);
@@ -391,6 +403,7 @@ namespace Apocaplayer
         {
             if (_hooked && Game.Cam != null) { Game.Cam.ResetWorldToCameraMatrix(); Game.Cam.ResetCullingMatrix(); }
             if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _gameFov; _fovSet = false; }   // the game's own FOV back for the next frame
+            if (_projSet && Game.Cam != null) { Game.Cam.ResetProjectionMatrix(); _projSet = false; }
         }
 
         private static void HideViewModel()
@@ -421,6 +434,7 @@ namespace Apocaplayer
             On = false; Peek = false; Orbiting = false; _orbitOn = false; CarShift = false; HasView = false; AimZoom = false; _zoomK = 0f;
             _deathView = false;
             if (_fovSet && Game.Cam != null) { Game.Cam.fieldOfView = _gameFov; _fovSet = false; }
+            if (_projSet && Game.Cam != null) { Game.Cam.ResetProjectionMatrix(); _projSet = false; }
             ShowViewModel();
             if (_hooked) { Camera.onPreCull -= PreCull; _hooked = false; if (Game.Cam != null) Game.Cam.ResetCullingMatrix(); }
             if (Game.Cam != null) Game.Cam.ResetWorldToCameraMatrix();
