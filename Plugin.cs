@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "1.5.1";
+        public const string VERSION = "1.5.2";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -77,6 +77,7 @@ namespace Apocaplayer
             CassetteKey = Config.Bind("VEHICLE", "CassetteKey", KeyCode.Z, "Start / stop the cassette player. Starting at zero volume sets 0.5; a nonzero volume is kept. None = no hotkey.");
             VolumeDownKey = Config.Bind("VEHICLE", "VolumeDownKey", KeyCode.Minus, "Reduce cassette volume by 0.1. None = no hotkey.");
             VolumeUpKey = Config.Bind("VEHICLE", "VolumeUpKey", KeyCode.Equals, "Increase cassette volume by 0.1 (+ on the main keyboard). None = no hotkey.");
+            EmptyHandArms = Config.Bind("General", "FirstPersonArms", false, "First person with nothing in hand: show the body's own arms (idle/walk swing, hands on the wheel in a car). Off = no body arms in first person (they can get in the way when crouching or driving); the game's weapon and item arms always show.");
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat). Off = only the first-person arms.");
             AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
             OcclusionPrototype = BindCameraCulling(Config);
@@ -87,7 +88,6 @@ namespace Apocaplayer
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: off = hold the observing key / middle mouse button to orbit around her (back on release); on = a press turns orbiting on / off.");
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Detailed log lines.");
-            EmptyHandArms = H("General", "EmptyHandArms", true, "First person with nothing in hand (no first-person arms from the game): show the body's own arms with its normal animation (idle, walk/run swing; on the wheel in a car).");
             FemaleArms = H("General", "FemaleArms", true, "Her bare arms and black gloves on the first-person animations (and the kick leg).");
             ReplaceDriver = H("General", "ReplaceDriver", true, "She replaces the game's man in the driver's seat and on the TAB screen.");
             ThirdPersonOnFoot = H("General", "ThirdPersonOnFoot", true, "The Change Camera key switches to a camera behind her, on foot and in cars.");

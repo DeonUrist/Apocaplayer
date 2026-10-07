@@ -979,7 +979,7 @@ namespace Apocaplayer
 
         public void SetMesh(bool firstPerson, bool inCar, bool gameArms = false)
         {
-            var want = !firstPerson ? Model.Full : inCar && !gameArms ? Model.NoHead : Model.NoArms;
+            var want = !firstPerson ? Model.Full : inCar && !gameArms && Plugin.EmptyHandArms.Value ? Model.NoHead : Model.NoArms;   // arms on the wheel only with FirstPersonArms
             if (_smr.sharedMesh != want) _smr.sharedMesh = want;
             var mode = firstPerson ? UnityEngine.Rendering.ShadowCastingMode.Off : UnityEngine.Rendering.ShadowCastingMode.On;
             if (_smr.shadowCastingMode != mode) _smr.shadowCastingMode = mode;

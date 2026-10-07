@@ -17,7 +17,7 @@ and a choice of **Female** (her own model), **Male** (the game's own player man)
 - **Cars** – she sits in the driver's seat instead of the game's seated man (car third-person camera), and in first
   person you see her legs and arms on the wheel.
 
-First person with nothing in hand, the game draws no arms; her own arms are shown instead (hidden `General / EmptyHandArms`, default on), moving with the body's normal idle/walk/run animation and on the wheel in a car.
+First person with nothing in hand, the game draws no arms; with `General / FirstPersonArms` (default off) her own arms are shown instead, moving with the body's normal idle/walk/run animation and on the wheel in a car.
 
 The Max model (`Models/Player_max.glb`) is Denis's low-poly Max (made from the game man's mesh) with his own UV layout on `Models/Player_max.png`; `Models/player_character_2_UI_max.png` is Max's TAB-screen picture (rendered in the game picture's pose, framing and warm light).
 
@@ -81,6 +81,7 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Max: the road warrior (body like Male, the game's arms; his own TAB picture). Animations, weapon poses and everything else are the same |
+| General | FirstPersonArms | false | First person with nothing in hand: the body's own arms (walk swing, hands on the wheel). Off = no body arms in first person; the game's weapon/item arms always show |
 | General | 3rd person camera culling | true | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius. Off restores camera collision movement |
 | CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
 | CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
