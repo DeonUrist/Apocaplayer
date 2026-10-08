@@ -153,7 +153,9 @@ namespace Apocaplayer
             }
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
             bool want = On || CarShift;
-            if (!On || Peek || !Plugin.OcclusionPrototype.Value || (Game.InCar && !Plugin.OcclusionInVehicle.Value)) OcclusionCutaway.Stop();
+            bool cullingWanted = On && !Peek && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value);
+            Darkness.Tick(cullingWanted);
+            if (!cullingWanted || Darkness.Dark) OcclusionCutaway.Stop();
             if (want && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
             if (On && !Peek) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
@@ -228,7 +230,7 @@ namespace Apocaplayer
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;
-            bool cutaway = Game.Ready && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value) && OcclusionCutaway.Available;   // (2.2.6) the same test as Tick's Stop   // driving: culling only with its own setting
+            bool cutaway = Game.Ready && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value) && !Darkness.Dark && OcclusionCutaway.Available;   // (2.2.9) not in the dark   // (2.2.6) the same test as Tick's Stop   // driving: culling only with its own setting
             if (!cutaway)
             {
                 int n = Physics.SphereCastNonAlloc(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), _hits, max, Mask, QueryTriggerInteraction.Ignore);   // (2.2.6) no array per frame
@@ -363,7 +365,8 @@ namespace Apocaplayer
             {
                 if (Time.unscaledTime < _xhairFind) return;
                 _xhairFind = Time.unscaledTime + 1f;
-                var go = _crosshair != null ? _crosshair : GameObject.Find("MouseCrosshair");
+                // (2.2.9) any of the cursor icons: with nothing drawn the crosshair is inactive (GameObject.Find skips it) and only the grab dot shows
+                var go = _crosshair != null ? _crosshair : FindCursor();
                 if (go == null) return;
                 _crosshair = go;
                 _xhair = go.GetComponent<RectTransform>();
@@ -393,6 +396,14 @@ namespace Apocaplayer
             }
             Vector3 delta = lt - lc;
             for (int i = 0; i < _cursors.Length; i++) if (_cursors[i] != null) _cursors[i].localPosition = _cursorHome[i] + delta;
+        }
+
+        private static GameObject FindCursor()
+        {
+            for (int i = 0; i < CursorNames.Length; i++) { var g = GameObject.Find(CursorNames[i]); if (g != null && g.transform.parent != null) return g; }
+            foreach (var r in Resources.FindObjectsOfTypeAll<RectTransform>())   // all inactive: once a second until found
+                if (r != null && r.gameObject.scene.IsValid() && r.parent != null && System.Array.IndexOf(CursorNames, r.name) >= 0) return r.gameObject;
+            return null;
         }
 
         private static void RestoreCrosshair()
