@@ -388,7 +388,7 @@ namespace Apocaplayer
                 _p.Lx = local.x; _p.Lz = local.z; _p.Yaw = yaw.eulerAngles.y;
                 _p.Crouch = Crouched; _p.Aim = Aiming; _p.Fire = Firing; _p.Airborne = Airborne;
                 _p.Step(now, dt);
-                if (Plugin.VerboseLog.Value && _p.Log != "") Plugin.Log.LogInfo("ModAPI " + _a.gameObject.name + ": " + _p.Log);
+                if (Plugin.VerboseModApi.Value && _p.Log != "") Plugin.Log.LogInfo("ModAPI " + _a.gameObject.name + ": " + _p.Log);
 
                 // ---- next frame's graph (the Animator evaluates it before the next LateUpdate)
                 for (int i = 0; i < LocoPlan.BN; i++)

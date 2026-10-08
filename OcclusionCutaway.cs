@@ -62,6 +62,7 @@ namespace Apocaplayer
             IdFront = Shader.PropertyToID("_FrontTex"), IdFrontDepth = Shader.PropertyToID("_FrontDepth");
         private static readonly int Mask = ~((1 << 6) | (1 << 2) | (1 << 5) | (1 << 9) | (1 << 22));
 
+        internal static int Renders, Blockers;            // (2.2.8) VerboseLog: extra views rendered, things cut away
         internal static bool Available
         {
             get
@@ -236,10 +237,15 @@ namespace Apocaplayer
                 _strength = Mathf.MoveTowards(_strength, _renderers.Count + _terrains.Count > 0 ? 1f : 0f, Time.unscaledDeltaTime * 8f);
                 _windowScale = Mathf.MoveTowards(_windowScale, Time.unscaledTime - _largeSeen <= .18f ? 3f : 1f, Time.unscaledDeltaTime * 16f);
             }
+            Blockers = _renderers.Count + _terrains.Count;
             if (_strength <= .001f || _renderers.Count + _terrains.Count == 0) { DepthOff(); enabled = false; return; }
             EnsureBuffers();
             DepthOn();
             _clearCamera.CopyFrom(_main); _clearCamera.enabled = false;
+            // (2.2.8) the right-click zoom is the main camera's own projection matrix, not its field of view: the extra views take the same
+            // field of view (and keep it when their near plane moves) - at the game's wider one the cut-out window showed a second, smaller her
+            _clearCamera.ResetProjectionMatrix(); _clearCamera.fieldOfView = ThirdPerson.ViewFov;
+            _clearCamera.projectionMatrix = Matrix4x4.Perspective(ThirdPerson.ViewFov, _main.aspect, _clearCamera.nearClipPlane, _clearCamera.farClipPlane);   // exactly the main view's matrix
             _clearCamera.transform.SetPositionAndRotation(pos, rotation);
             _clearCamera.ResetWorldToCameraMatrix(); _clearCamera.ResetCullingMatrix();
             _clearCamera.rect = new Rect(0, 0, 1, 1); _clearCamera.targetTexture = _clear;
@@ -264,7 +270,7 @@ namespace Apocaplayer
                 if (capShadows) QualitySettings.shadowDistance = capped;
                 _clearDepthReady = false;
                 _captureDepth = _depth;
-                _clearCamera.Render();
+                _clearCamera.Render(); Renders++;
                 if (!_clearDepthReady) return;
                 var a = _clearCamera.WorldToViewportPoint(head); var b = _clearCamera.WorldToViewportPoint(feet);
                 float focusDepth = Mathf.Max(a.z, b.z);
@@ -281,9 +287,9 @@ namespace Apocaplayer
                 Restore();
                 _clearCamera.targetTexture = _front;
                 _clearCamera.nearClipPlane = Mathf.Min(stopDepth, _clearCamera.farClipPlane - .1f);
-                _clearCamera.ResetProjectionMatrix(); _clearCamera.ResetCullingMatrix();
+                _clearCamera.projectionMatrix = Matrix4x4.Perspective(ThirdPerson.ViewFov, _main.aspect, _clearCamera.nearClipPlane, _clearCamera.farClipPlane); _clearCamera.ResetCullingMatrix();
                 _captureDepth = _frontDepth; _clearDepthReady = false;
-                _clearCamera.Render();
+                _clearCamera.Render(); Renders++;
                 if (!_clearDepthReady) return;
                 _composite.SetFloat(IdFocus, stopDepth);
                 _prepared = true;
@@ -369,6 +375,7 @@ namespace Apocaplayer
 
         internal static void Stop()
         {
+            Blockers = 0;
             if (_active == null) return;
             _active.Restore(); _active._prepared = false;
             Destroy(_active); _active = null;

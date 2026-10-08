@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.2.7";
+        public const string VERSION = "2.2.8";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -33,7 +33,7 @@ namespace Apocaplayer
         // the driver's-seat view offset Denis set in game (1.5.3: X -0.03, Y 0.02, Z 0.02) is the built-in base; the [Debug] values add to it
         internal static readonly Vector3 CarViewBase = new Vector3(-0.03f, 0.02f, 0.02f);
         internal static ConfigEntry<float> ThirdCarDistance, ThirdCarHeight;
-        internal static ConfigEntry<bool> ToggleMiddleMouse, EnableMMB, PerformanceLog;
+        internal static ConfigEntry<bool> ToggleMiddleMouse, EnableMMB, VerboseModApi;
         internal static ConfigEntry<float> JumpClipStart, StrikeWindup, PickAssistRadius, AdsTime, SeatDrop;
         internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey, HeadlightsKey, CassetteKey, VolumeDownKey, VolumeUpKey;
         internal static ConfigEntry<bool> VehicleHotkeyHint, VehicleStatusHint;
@@ -98,8 +98,9 @@ namespace Apocaplayer
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift her hands, Home/End tilt her head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: on = a press of the observing key (RebindObserving) / middle mouse button locks the camera orbiting around her (her rotation stays) until the next press - handy with WeaponAdjustment; off = hold it to orbit, back behind her on release.");
-            VerboseLog = H("Debug", "VerboseLog", false, "Detailed log lines.");
-            PerformanceLog = Config.Bind("Debug", "PerformanceLog", true, "A line in BepInEx\\LogOutput.log every 60 s on foot / 15 s driving: FPS and how many ms of each frame Apocaplayer itself takes (and which cameras render in the car). Cheap; off = no lines.");
+            // (2.2.8) visible again, for slow-machine reports: off = nothing measured and nothing extra logged
+            VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Diagnostics for performance reports, written to BepInEx\\LogOutput.log: the PC (GPU, VRAM, CPU, RAM, quality settings, other mods) once, then every 10 s the FPS, the slowest frame and the stutters, how many ms of each frame Apocaplayer takes (and where), garbage collections, the camera cutaway's work and which cameras render; plus what the mod finds and decides (weapons, cars, seats...). Off = none of it is measured or written.");
+            VerboseModApi = H("Debug", "VerboseModApi", false, "Every decision of every ModAPI character (very chatty).");
             // first-person view vs her body (with BodyFirstPerson), on foot and driving: the game's camera stays where it is (aiming, clicks, weapons
             // unchanged) - her body is moved the opposite way. (2.1.11) sliders in CAMERA, next to each other; the old [Debug] values move over
             FpCamX = CameraSlider("FirstPersonBodyX", "FirstPersonCameraX"); FpCamY = CameraSlider("FirstPersonBodyY", "FirstPersonCameraY"); FpCamZ = CameraSlider("FirstPersonBodyZ", "FirstPersonCameraZ");

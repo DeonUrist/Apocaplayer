@@ -106,7 +106,7 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | Animation | RunLegsIn | 6 | Running with the bundle animations: each thigh turned this many degrees toward the middle (feet kept flat) - the rifle pack's run cycles stand wide on her hips. 0 = the clips as they are |
 | Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the clip (every rifle / pistol clip), - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
 | Debug | ToggleMiddleMouse | false | Third person: off = hold the observing key / middle mouse button to orbit around her, back behind her on release; on = a press turns orbiting on / off |
-| Debug | VerboseLog | false | Detailed log |
+| Debug | VerboseLog | false | Diagnostics for performance reports (PC info once, then FPS, stutters and Apocaplayer's own ms per frame every 10 s, plus what the mod finds and decides). Off = nothing measured or written. |
 
 Throws from the driver's seat (blast lance, quick grenade) work like guns there: her chest turns to the aim (a learned per-clip
 correction puts her throwing hand on the aim line at the release), past 95° to a side she turns round and crouches; the throw clip and

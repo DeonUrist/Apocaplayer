@@ -199,6 +199,7 @@ namespace Apocaplayer
         private float _legThigh, _legShin;
         private bool _inCar, _snap;
         private View _lastView = View.FirstPerson;
+        private float _propRetry;
         private GameObject _prop; private string _propFor = ""; private Vector3 _propBarrel, _propPos; private Quaternion _propRot; private Transform _propHand; private float _propSince;
 
         public enum View { FirstPerson, ThirdPerson }
@@ -1288,8 +1289,8 @@ namespace Apocaplayer
 
         private void UpdateProp(string weapon)
         {
-            if (weapon == _propFor && (_prop != null || weapon == "")) return;
-            _propFor = weapon;
+            if (weapon == _propFor && (_prop != null || weapon == "" || Time.unscaledTime < _propRetry)) return;   // (2.2.8) no model: tried again every 2 s, not every frame
+            _propFor = weapon; _propRetry = Time.unscaledTime + 2f;
             if (_prop != null) { UnityEngine.Object.Destroy(_prop); _prop = null; }
             if (weapon == "" || Props.KindOf(weapon) == Props.Kind.None) return;   // bare hands ("hands"): no weapon model
             var p = Props.Find(weapon);
