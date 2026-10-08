@@ -154,8 +154,8 @@ namespace Apocaplayer
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
             bool want = On || CarShift;
             bool cullingWanted = On && !Peek && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value);
-            Darkness.Tick(cullingWanted);
-            if (!cullingWanted || Darkness.Dark) OcclusionCutaway.Stop();
+            Cave.Tick(cullingWanted);
+            if (!cullingWanted || Cave.Inside) OcclusionCutaway.Stop();
             if (want && !_hooked) { Camera.onPreCull += PreCull; _hooked = true; }
             if (On && !Peek) HideViewModel();
             else if (_hidden.Count > 0) ShowViewModel();
@@ -230,7 +230,7 @@ namespace Apocaplayer
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;
-            bool cutaway = Game.Ready && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value) && !Darkness.Dark && OcclusionCutaway.Available;   // (2.2.9) not in the dark   // (2.2.6) the same test as Tick's Stop   // driving: culling only with its own setting
+            bool cutaway = Game.Ready && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value) && !Cave.Inside && OcclusionCutaway.Available;   // (2.2.9) not in caves   // (2.2.6) the same test as Tick's Stop   // driving: culling only with its own setting
             if (!cutaway)
             {
                 int n = Physics.SphereCastNonAlloc(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), _hits, max, Mask, QueryTriggerInteraction.Ignore);   // (2.2.6) no array per frame

@@ -51,7 +51,7 @@ namespace Apocaplayer
               .Append(" ms, ").Append(_over33).Append(" frames >33 ms, ").Append(_over50).Append(" >50 ms | Apocaplayer ").Append((total / _frames).ToString("0.00")).Append(" ms/frame [");
             for (int i = 0; i < _ticks.Length; i++) sb.Append(i > 0 ? ", " : "").Append(Names[i]).Append(' ').Append((_ticks[i] * MsPerTick / _frames).ToString("0.00"));
             sb.Append("] | GC ").Append(GC.CollectionCount(0) - _gc0).Append(" (gen2 ").Append(GC.CollectionCount(2) - _gc2).Append("), heap ").Append((GC.GetTotalMemory(false) >> 20)).Append(" MB");
-            if (cut) sb.Append(" | picture brightness ").Append(Darkness.Level.ToString("0.000")).Append(Darkness.Dark ? " (dark: culling off)" : "");
+            if (cut && Cave.Inside) sb.Append(" | in a cave: culling off");
             if (cut) sb.Append(" | cutaway: ").Append(((OcclusionCutaway.Renders - _renders) / (float)_frames).ToString("0.00")).Append(" extra views/frame, ").Append(OcclusionCutaway.Blockers).Append(" blockers");
             sb.Append(" | shadows ").Append(QualitySettings.shadowDistance.ToString("0")).Append(" m | cameras:");
             foreach (var c in UnityEngine.Camera.allCameras)

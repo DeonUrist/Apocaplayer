@@ -38,7 +38,6 @@ namespace Apocaplayer
         internal static ConfigEntry<KeyCode> IgnitionKey, ObserveKey, HeadlightsKey, CassetteKey, VolumeDownKey, VolumeUpKey;
         internal static ConfigEntry<bool> VehicleHotkeyHint, VehicleStatusHint;
         internal static ConfigEntry<bool> OcclusionPrototype, OcclusionInVehicle;
-        internal static ConfigEntry<float> CullingDarkness;
         internal static ConfigEntry<bool> AutomaticStepUp;
         internal static ConfigEntry<float> OcclusionOpacity, OcclusionRadius;
         internal enum Gender { Female, Male, Max }
@@ -92,7 +91,6 @@ namespace Apocaplayer
             AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
             OcclusionPrototype = BindCameraCulling(Config);
             OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on). Off: in a vehicle the camera moves in front of what blocks it instead.");
-            CullingDarkness = Config.Bind("General", "3rd person camera culling darkness", .12f, new ConfigDescription("The camera culling switches itself off where the picture is darker than this (caves, unlit rooms, night: the cut-away views light those up in patches) and the camera moves in front of what blocks it instead. 0 = never; higher = it switches off sooner. VerboseLog shows the measured brightness.", new AcceptableValueRange<float>(0f, .5f)));
             EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
             ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");
             DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from her head): at the centre for far targets, moving left toward her as the target gets closer, on her head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
@@ -251,9 +249,9 @@ namespace Apocaplayer
             var property = typeof(ConfigFile).GetProperty("OrphanedEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
             var orphans = property != null ? property.GetValue(config, null) as System.Collections.IDictionary : null;
             bool alreadySaved = config.ContainsKey(definition) || orphans != null && orphans.Contains(definition);
-            var legacy = config.Bind("CAMERA", "OcclusionPrototype", true, "Legacy camera culling toggle.");
+            var legacy = config.Bind("CAMERA", "OcclusionPrototype", false, "Legacy camera culling toggle.");
             bool oldValue = legacy.Value; config.Remove(legacy.Definition);
-            var entry = config.Bind("General", "3rd person camera culling", true, "On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window. Off: restore collision-based camera movement.");
+            var entry = config.Bind("General", "3rd person camera culling", false, "On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window; not inside caves. Off (default): the camera moves in front of what blocks it.");   // (2.2.9) off by default
             if (!alreadySaved) entry.Value = oldValue;
             return entry;
         }

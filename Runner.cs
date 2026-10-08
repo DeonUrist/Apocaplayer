@@ -29,7 +29,7 @@ namespace Apocaplayer
             Game.Reset();
             Arms.OnSceneLoaded();
             Car.Reset();
-            Darkness.Reset();
+            Cave.Reset();
             InventoryModel.Reset();
             Props.OnSceneLoaded();
         }
