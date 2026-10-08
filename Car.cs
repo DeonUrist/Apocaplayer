@@ -26,7 +26,7 @@ namespace Apocaplayer
         private static PropertyInfo _isRunning;
         private static PlayMakerFSM _lightOn, _lightOff, _handbrake, _radioOnOff, _play, _stop, _volume;
         private static AudioSource _radioAudio;
-        private static float _nextControls;
+        private static float _nextControls, _startRetry;
         private static bool _running, _lightsOn, _brakeOn, _musicPlaying;
 
         private static readonly string[] RunningStates = { "Start", "wait", "off3", "over3" };
@@ -38,9 +38,11 @@ namespace Apocaplayer
             if (!Plugin.Enabled.Value || !Game.Ready || !Game.InCar || Game.Dead) { _phase = 0; return; }
             var car = Game.CarRoot;
             if (car == null) return;
-            if (_startCar != car || _start == null)
+            // (2.2.6) searched once per car (again every 5 s while nothing was found - parts can arrive late), not on every frame
+            if (_startCar != car || (_start == null && Time.unscaledTime >= _startRetry))
             {
-                _startCar = car; _start = null; _engine = null; _isRunning = null;
+                bool newCar = _startCar != car;
+                _startCar = car; _startRetry = Time.unscaledTime + 5f; _start = null; _engine = null; _isRunning = null;
                 _phase = 0; _nextControls = 0f;
                 _lightOn = _lightOff = _handbrake = _radioOnOff = _play = _stop = _volume = null;
                 _radioAudio = null;
@@ -49,10 +51,13 @@ namespace Apocaplayer
                 FindEngine(car);
                 if (_start != null) FindGameText();
                 if (_start != null) Plugin.Verbose("Ignition: " + Game.PathOf(_start.transform) + (_engine != null ? ", engine state from " + _engine.GetType().Name : ", engine state from the FSM only"));
+                if (newCar) Plugin.Log.LogInfo("Car: " + car.name + " - ignition " + (_start != null ? "found" : "not found (hotkey off)") + ", engine state " + (_engine != null ? "from the vehicle" : "from the FSM"));
             }
+            if (Pressed(Plugin.HeadlightsKey.Value) || Pressed(Plugin.CassetteKey.Value) || Pressed(Plugin.VolumeDownKey.Value) || Pressed(Plugin.VolumeUpKey.Value))
+                _nextControls = 0f;                           // a hotkey acts on the controls as they are now
             if (Time.unscaledTime >= _nextControls)
             {
-                _nextControls = Time.unscaledTime + 0.5f;
+                _nextControls = Time.unscaledTime + 2f;      // (2.2.6) was 0.5 s: three searches through the whole car
                 FindControls(car);
             }
             if (Game.Paused) return;
@@ -266,6 +271,7 @@ namespace Apocaplayer
             return h == null || h.childCount > 0;
         }
 
+        private static GUIStyle _hintStyle;
         public static void OnGUI()
         {
             if (!Plugin.Enabled.Value || !Game.Ready || !Game.InCar || Game.Dead || Game.Paused) return;
@@ -274,8 +280,9 @@ namespace Apocaplayer
             int size = Mathf.RoundToInt(Screen.height / 42f);
             if (_gameText != null && _gameText.canvas != null)
                 size = Mathf.Max(10, Mathf.RoundToInt(_gameText.fontSize * _gameText.canvas.scaleFactor));
-            var st = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.UpperLeft, wordWrap = false };
-            if (_font != null) { st.font = _font; if (_gameText != null) st.fontStyle = _gameText.fontStyle; }
+            if (_hintStyle == null) _hintStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.UpperLeft, wordWrap = false };   // (2.2.6) reused
+            var st = _hintStyle; st.fontSize = size;
+            st.font = _font; st.fontStyle = _font != null && _gameText != null ? _gameText.fontStyle : FontStyle.Normal;
             var r = new Rect(Screen.width * 0.025f, Screen.height * 0.62f, Screen.width * 0.5f, size * 8f);
             st.normal.textColor = new Color(0f, 0f, 0f, 0.8f); GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), _hint, st);
             st.normal.textColor = _gameText != null ? new Color(_gameText.color.r, _gameText.color.g, _gameText.color.b, 1f) : Color.white;

@@ -55,10 +55,14 @@ namespace Apocaplayer
             _lastCar = null;
         }
 
+        private void Awake() { useGUILayout = false; }      // (2.2.6) only GUI.* calls: no layout pass
+
         private void Update()
         {
+            long t0 = Perf.Now;
             try
             {
+                try { Perf.Frame(); } catch (Exception e) { Plugin.Warn("Perf: " + e.Message); }
                 bool on = Plugin.Enabled.Value;
                 if (!on)
                 {
@@ -79,10 +83,12 @@ namespace Apocaplayer
                 if (!ThirdPerson.On || Game.InCar) GunPose.Flush();
             }
             catch (Exception e) { Plugin.Log.LogError("Update: " + e); }
+            finally { Perf.Add(Perf.Update, t0); }
         }
 
         private void LateUpdate()
         {
+            long t0 = Perf.Now;
             try
             {
                 if (!Plugin.Enabled.Value || !Game.Ready) return;
@@ -110,7 +116,7 @@ namespace Apocaplayer
                 bool fpArms = false;
                 if (inCar)
                 {
-                    bool seated = CarSeat.Attach(Game.Player.transform);
+                    bool seated = Plugin.ReplaceDriver.Value && CarSeat.Attach(Game.Player.transform);   // (2.2.7) the game's driver: no seat search every frame
                     if (!seated || !Plugin.ReplaceDriver.Value)
                     {
                         // no seat to copy (or the player wants the game's driver): no body in the car
@@ -151,6 +157,7 @@ namespace Apocaplayer
                 InventoryModel.LateTick();
             }
             catch (Exception e) { Plugin.Log.LogError("LateUpdate: " + e); _nextBuild = Time.unscaledTime + 5f; }
+            finally { Perf.Add(Perf.Late, t0); }
         }
 
         private void Start() { StartCoroutine(EndOfFrameLoop()); }
@@ -161,11 +168,13 @@ namespace Apocaplayer
             while (true)
             {
                 yield return eof;
+                long t0 = Perf.Now;
                 try { ThirdPerson.EndOfFrame(); } catch (Exception) { }
+                Perf.Add(Perf.EndFrame, t0);
             }
         }
 
-        private void OnGUI() { try { GunPose.OnGUI(); Car.OnGUI(); } catch (Exception) { } }
+        private void OnGUI() { long t0 = Perf.Now; try { GunPose.OnGUI(); Car.OnGUI(); } catch (Exception) { } Perf.Add(Perf.Gui, t0); }
 
         private void FixedUpdate() { try { AutoStepUp.Tick(); } catch (Exception e) { Plugin.Warn("Step up: " + e.Message); } }
         private void OnDestroy() { AutoStepUp.Reset(); RustlinerDoors.Reset(); ThirdPerson.Off(); }

@@ -201,6 +201,6 @@ namespace Apocaplayer
     // runs the characters after the Animators (DontDestroyOnLoad, on Apocaplayer's runner object)
     internal sealed class ModApiRunner : MonoBehaviour
     {
-        private void LateUpdate() { ModAPI.LateTick(); }
+        private void LateUpdate() { long t0 = Perf.Now; try { ModAPI.LateTick(); } finally { Perf.Add(Perf.ModApi, t0); } }
     }
 }

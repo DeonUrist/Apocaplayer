@@ -873,6 +873,7 @@ namespace Apocaplayer
         // seated, her arms come from standing gun clips whose stance twists the whole body - without that twist the gun points off to a side
         // (≈45 degrees left). Per clip, an extra chest yaw is learned from where the barrel points against the aim (sideways only), every frame
         private readonly Dictionary<string, float> _carYawFix = new Dictionary<string, float>();
+        private readonly Dictionary<string, float> _carW = new Dictionary<string, float>();
         private void LearnCarYaw(Transform player, float aimYaw)
         {
             if (_prop == null || _propBarrel == Vector3.zero || string.IsNullOrEmpty(_upperClip)) return;
@@ -1022,7 +1023,7 @@ namespace Apocaplayer
             UpdateProp(gun || kind == Props.Kind.Throw ? weapon : "");
             if (_prop != null)
             {
-                var w = new Dictionary<string, float>();
+                var w = _carW; w.Clear();             // (2.2.6) reused, not one per frame
                 string pre = kind == Props.Kind.Pistol ? "Pistol" : "Rifle";
                 w[reload ? pre + "Reload" : fire && Anims.Get(pre + "Fire") != null ? pre + "Fire" : pre + "Idle"] = 1f;
                 Vector3 p; Quaternion r;

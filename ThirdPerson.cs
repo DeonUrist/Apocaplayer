@@ -230,11 +230,17 @@ namespace Apocaplayer
             float dist = max;
             bool cutaway = Game.Ready && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value) && OcclusionCutaway.Available;   // (2.2.6) the same test as Tick's Stop   // driving: culling only with its own setting
             if (!cutaway)
-                foreach (var h in Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore))
+            {
+                int n = Physics.SphereCastNonAlloc(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), _hits, max, Mask, QueryTriggerInteraction.Ignore);   // (2.2.6) no array per frame
+                var hits = _hits;
+                if (n == _hits.Length) { hits = Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore); n = hits.Length; }   // buffer full: all of them, as before
+                for (int k = 0; k < n; k++)
                 {
+                    var h = hits[k];
                     if (car != null && h.collider != null && h.collider.transform.IsChildOf(car)) continue;
                     if (h.distance > 0f && h.distance < dist) dist = Mathf.Max(0.2f, h.distance);
                 }
+            }
             // come out smoothly, snap in when something is in the way
             _dist = cutaway ? max : dist < _dist ? dist : Mathf.MoveTowards(_dist, dist, Time.unscaledDeltaTime * 4f);
             Vector3 pos = pivot + d / Mathf.Max(max, 1e-4f) * _dist;
@@ -256,7 +262,14 @@ namespace Apocaplayer
             _vPos = pos; _vRot = viewRot; _vCar = car; _vCutaway = cutaway;
         }
 
+        private static readonly RaycastHit[] _hits = new RaycastHit[128];
         private static void PreCull(Camera cam)
+        {
+            if (cam == null || cam != Game.Cam) return;
+            long t0 = Perf.Now;
+            try { PreCullInner(cam); } finally { Perf.Add(Perf.Camera, t0); }
+        }
+        private static void PreCullInner(Camera cam)
         {
             if (cam == null || cam != Game.Cam) return;
             var t = cam.transform;

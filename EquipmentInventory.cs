@@ -11,6 +11,13 @@ namespace Apocaplayer
     internal sealed class EquipmentInventory
     {
         public readonly GameObject[] Items = new GameObject[6];
+        // (2.2.6) read every frame: the names and the invoke argument made once
+        private static readonly string[] SlotNames = { "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5", "Slot 6" };
+        private static readonly string[] PocketNames = { "Apocapocket_ExtraSlots/Slot 1", "Apocapocket_ExtraSlots/Slot 2", "Apocapocket_ExtraSlots/Slot 3", "Apocapocket_ExtraSlots/Slot 4", "Apocapocket_ExtraSlots/Slot 5", "Apocapocket_ExtraSlots/Slot 6" };
+        private static readonly string[] InvNames = { "Apocainventory_ExtraSlots/Slot 1", "Apocainventory_ExtraSlots/Slot 2", "Apocainventory_ExtraSlots/Slot 3", "Apocainventory_ExtraSlots/Slot 4", "Apocainventory_ExtraSlots/Slot 5", "Apocainventory_ExtraSlots/Slot 6" };
+        private static readonly object[] _arg = new object[1];
+        private static readonly object[] _boxed = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+        private static object[] Arg(int i) { _arg[0] = i < _boxed.Length ? _boxed[i] : i; return _arg; }
         public int Drawn = -1;
         private Transform _camera, _weapons;
         private PlayMakerFSM _weaponFsm;
@@ -75,7 +82,7 @@ namespace Apocaplayer
                     {
                         var slot = slots.GetValue(i);
                         Items[i] = slot != null ? _content.GetValue(slot) as GameObject : null;
-                        if (_isDrawn != null && (bool)_isDrawn.Invoke(run, new object[] { i })) Drawn = i;
+                        if (_isDrawn != null && (bool)_isDrawn.Invoke(run, Arg(i))) Drawn = i;
                     }
                     if (_handOrigin != null && _handName != null && _camera != null)
                     {
@@ -90,11 +97,11 @@ namespace Apocaplayer
             Array.Clear(Items, 0, Items.Length); Drawn = -1;
             for (int i = 0; i < Items.Length; i++)
             {
-                var holder = _weapons != null ? _weapons.Find("Slot " + (i + 1)) : null;
+                var holder = _weapons != null ? _weapons.Find(SlotNames[i]) : null;
                 if (holder == null && i >= 3 && _camera != null)
-                    holder = _camera.Find("Apocapocket_ExtraSlots/Slot " + (i + 1)) ?? _camera.Find("Apocainventory_ExtraSlots/Slot " + (i + 1));
+                    holder = _camera.Find(PocketNames[i]) ?? _camera.Find(InvNames[i]);
                 Items[i] = FirstItem(holder);
-                if (_weaponFsm != null && _weaponFsm.ActiveStateName == "Slot " + (i + 1)) Drawn = i;
+                if (_weaponFsm != null && _weaponFsm.ActiveStateName == SlotNames[i]) Drawn = i;
             }
             return true;
         }

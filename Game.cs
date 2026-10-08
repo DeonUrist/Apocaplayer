@@ -403,13 +403,16 @@ namespace Apocaplayer
         }
 
         // the car she sits in (the ancestor of the Player with a DriveTrigger child)
+        private static int _carRootFrame = -1; private static Transform _carRoot; private static GameObject _carRootPlayer;
         public static Transform CarRoot
         {
             get
             {
                 if (Player == null) return null;
-                for (var t = Player.transform.parent; t != null; t = t.parent) if (t.Find("DriveTrigger") != null) return t;
-                return null;
+                if (_carRootFrame == Time.frameCount && _carRootPlayer == Player) return _carRoot;     // (2.2.6) asked many times a frame
+                _carRootFrame = Time.frameCount; _carRootPlayer = Player; _carRoot = null;
+                for (var t = Player.transform.parent; t != null; t = t.parent) if (t.Find("DriveTrigger") != null) { _carRoot = t; break; }
+                return _carRoot;
             }
         }
 

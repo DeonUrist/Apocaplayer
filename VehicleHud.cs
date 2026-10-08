@@ -21,6 +21,7 @@ namespace Apocaplayer
             return null;
         }
 
+        private static GUIStyle _label;
         public static void Draw(bool ignitionOff, bool handbrakeOn, bool playing, string volume)
         {
             if (!ignitionOff && !handbrakeOn && !playing) return;
@@ -33,8 +34,8 @@ namespace Apocaplayer
             float width = 48f * scale, gap = 8f * scale, y = 24f * scale;
             float x = Screen.width - 24f * scale;
             var previous = GUI.color;
-            var label = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(21f * scale), alignment = TextAnchor.MiddleCenter };
-            label.normal.textColor = new Color(0.85f, 0.9f, 0.81f);
+            if (_label == null) { _label = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter }; _label.normal.textColor = new Color(0.85f, 0.9f, 0.81f); }   // (2.2.6) one style, not one per OnGUI call
+            var label = _label; label.fontSize = Mathf.RoundToInt(21f * scale);
             // Build from the right so hidden conditions leave no gaps.
             if (playing)
             {

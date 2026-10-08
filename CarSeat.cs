@@ -45,6 +45,12 @@ namespace Apocaplayer
         private static readonly List<Renderer> _hidden = new List<Renderer>();
 
         public static Transform Seat { get { return _seat; } }
+        private static Transform _failedCar; private static float _failedRetry;
+        private static void Fail(Transform car, string why)
+        {
+            if (car != _failedCar) Plugin.Log.LogWarning("Car " + car.name + ": " + why);   // once per car, not every frame
+            _failedCar = car; _failedRetry = Time.unscaledTime + 5f;
+        }
 
         // finds the seated driver of the car the player is in (Player is a child of the car's sitPos while driving)
         public static bool Attach(Transform player)
@@ -53,15 +59,17 @@ namespace Apocaplayer
             var car = player.root;
             if (_seat != null && _seat.root == car) return true;
             Detach();
+            if (car == _failedCar && Time.unscaledTime < _failedRetry) return false;      // (2.2.7) no usable seat: not searched again every frame
             var seat = Game.FindDeep(car, "PlayerModel_Sit");
-            if (seat == null) { Plugin.Verbose("Car " + car.name + " has no PlayerModel_Sit"); return false; }
+            if (seat == null) { Fail(car, "has no PlayerModel_Sit - the game's driver stays"); return false; }
             var src = new Transform[Pairs.Length];
             for (int i = 0; i < Pairs.Length; i++)
             {
                 src[i] = Game.FindDeep(seat, Pairs[i].Src);
-                if (src[i] == null) { Plugin.Log.LogWarning("Car seat of " + car.name + ": bone " + Pairs[i].Src + " missing"); return false; }
+                if (src[i] == null) { Fail(car, "seat bone " + Pairs[i].Src + " missing - the game's driver stays"); return false; }
             }
-            _seat = seat; _src = src;
+            _seat = seat; _src = src; _failedCar = null;
+            Plugin.Log.LogInfo("Car " + car.name + ": driver seat found");
             if (Plugin.ReplaceDriver.Value)
                 foreach (var r in seat.GetComponentsInChildren<Renderer>(true))
                     if (r.enabled) { r.enabled = false; _hidden.Add(r); }
