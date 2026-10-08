@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.2.9";
+        public const string VERSION = "2.3.1";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -66,6 +66,7 @@ namespace Apocaplayer
         {
             Log = Logger;
             Dir = Path.GetDirectoryName(Info.Location);
+            SettingsLayout.Install(Config);
             _hidden = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "hidden-settings.not-saved"), false) { SaveOnConfigSet = false };
 
             // the config file: General (Enabled, Character, IgnitionKey, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
@@ -83,12 +84,15 @@ namespace Apocaplayer
             IgnitionKey = Config.Bind("VEHICLE", "IgnitionKey", KeyCode.E, "Start / stop ignition in the driver's seat. None = no hotkey.");
             if (!ignitionAlreadyMigrated) IgnitionKey.Value = previousIgnitionKey;
             HeadlightsKey = Config.Bind("VEHICLE", "HeadlightsKey", KeyCode.X, "Switch headlights on / off in the driver's seat. None = no hotkey.");
+            if (GameBindings.Find("Headlight") != null) Config.Remove(HeadlightsKey.Definition);
+            if (GameBindings.Find(GameBindings.IgnitionAction) != null) Config.Remove(IgnitionKey.Definition);
             CassetteKey = Config.Bind("VEHICLE", "CassetteKey", KeyCode.Z, "Start / stop the cassette player. Starting at zero volume sets 0.5; a nonzero volume is kept. None = no hotkey.");
             VolumeDownKey = Config.Bind("VEHICLE", "VolumeDownKey", KeyCode.Minus, "Reduce cassette volume by 0.1. None = no hotkey.");
             VolumeUpKey = Config.Bind("VEHICLE", "VolumeUpKey", KeyCode.Equals, "Increase cassette volume by 0.1 (+ on the main keyboard). None = no hotkey.");
             EmptyHandArms = Config.Bind("General", "FirstPersonArms", false, "First person with nothing in hand: show the body's own arms (idle/walk swing, hands on the wheel in a car). Off = no body arms in first person (they can get in the way when crouching or driving); the game's weapon and item arms always show.");
             BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat). Off = only the first-person arms.");
             AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
+            Config.Remove(AutomaticStepUp.Definition);
             OcclusionPrototype = BindCameraCulling(Config);
             OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on). Off: in a vehicle the camera moves in front of what blocks it instead.");
             EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
@@ -96,6 +100,7 @@ namespace Apocaplayer
             DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from her head): at the centre for far targets, moving left toward her as the target gets closer, on her head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
+            new ClimbingController(Config);
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift her hands, Home/End tilt her head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
             ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: on = a press of the observing key (RebindObserving) / middle mouse button locks the camera orbiting around her (her rotation stays) until the next press - handy with WeaponAdjustment; off = hold it to orbit, back behind her on release.");
             // (2.2.8) visible again, for slow-machine reports: off = nothing measured and nothing extra logged
@@ -212,6 +217,7 @@ namespace Apocaplayer
             try { FemalePain.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Female pain sounds: " + e.Message); }
 
+            SettingsLayout.Arrange(Config);
             SceneManager.sceneLoaded += (s, m) => { EnsureRunner(); Runner.OnSceneLoaded(); ModAPI.OnSceneLoaded(); };
             EnsureRunner();
             Log.LogInfo(NAME + " " + VERSION + " loaded");
@@ -234,6 +240,7 @@ namespace Apocaplayer
             _runner = new GameObject("Apocaplayer.Runner") { hideFlags = HideFlags.HideAndDontSave };
             UnityEngine.Object.DontDestroyOnLoad(_runner);
             _runner.AddComponent<Runner>();
+            _runner.AddComponent<ClimbRunner>().Controller = ClimbingController.Instance;
             _runner.AddComponent<ModApiRunner>();          // (2.2.0) characters animated through ModAPI, after the Animators
         }
 

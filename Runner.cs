@@ -6,6 +6,7 @@ namespace Apocaplayer
     internal class Runner : MonoBehaviour
     {
         private static Body _body;
+        internal static Body PlayerBody { get { return _body; } }
         private static float _nextBuild;
         private static bool _wasEnabled;
         private static string _lastMode = "";
@@ -21,6 +22,7 @@ namespace Apocaplayer
 
         public static void OnSceneLoaded()
         {
+            ClimbingController.Instance?.Reset();
             AutoStepUp.Reset();
             RustlinerDoors.Reset();
             DestroyBody();
@@ -37,6 +39,7 @@ namespace Apocaplayer
         // Male / Female: rebuild the body from the other model; her arms texture and TAB picture only for her
         public static void CharacterChanged()
         {
+            ClimbingController.Instance?.Stop();
             try
             {
                 DestroyBody();
@@ -149,7 +152,8 @@ namespace Apocaplayer
                     bool show = third || Plugin.BodyFirstPerson.Value;
                     _body.SetVisible(show && fpCam, !third && show && fpCam);
                     // first person, nothing in hand: the game draws no arms - show the body's own, animated like the rest of her
-                    fpArms = !third && fpCam && Plugin.EmptyHandArms.Value && !Game.Binoculars && !Game.GameArmsShown;
+                    fpArms = !third && fpCam && (ModAPI.PlayerTraversalActive
+                        || Plugin.EmptyHandArms.Value && !Game.Binoculars && !Game.GameArmsShown);
                     mode = third ? "on foot, third person" : "on foot, first person";
                 }
                 _body.SetFirstPersonArms(fpArms);

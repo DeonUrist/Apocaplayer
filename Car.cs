@@ -53,7 +53,7 @@ namespace Apocaplayer
                 if (_start != null) Plugin.Verbose("Ignition: " + Game.PathOf(_start.transform) + (_engine != null ? ", engine state from " + _engine.GetType().Name : ", engine state from the FSM only"));
                 if (newCar) Plugin.Log.LogInfo("Car: " + car.name + " - ignition " + (_start != null ? "found" : "not found (hotkey off)") + ", engine state " + (_engine != null ? "from the vehicle" : "from the FSM"));
             }
-            if (Pressed(Plugin.HeadlightsKey.Value) || Pressed(Plugin.CassetteKey.Value) || Pressed(Plugin.VolumeDownKey.Value) || Pressed(Plugin.VolumeUpKey.Value))
+            if (PressedAction("Headlight", Plugin.HeadlightsKey.Value) || Pressed(Plugin.CassetteKey.Value) || Pressed(Plugin.VolumeDownKey.Value) || Pressed(Plugin.VolumeUpKey.Value))
                 _nextControls = 0f;                           // a hotkey acts on the controls as they are now
             if (Time.unscaledTime >= _nextControls)
             {
@@ -61,7 +61,7 @@ namespace Apocaplayer
                 FindControls(car);
             }
             if (Game.Paused) return;
-            if (Pressed(Plugin.HeadlightsKey.Value))
+            if (PressedAction("Headlight", Plugin.HeadlightsKey.Value))
                 SendUse(Active(_lightOn) ? _lightOn : _lightOff);
             if (Pressed(Plugin.CassetteKey.Value) && _radioAudio != null && _radioAudio.clip != null)
             {
@@ -89,7 +89,7 @@ namespace Apocaplayer
             string s = _start.ActiveStateName ?? "";
             bool running = EngineRunning(s);
             bool stopping = Array.IndexOf(Stopping, s) >= 0;
-            if (_phase == 0 && Pressed(Plugin.IgnitionKey.Value))
+            if (_phase == 0 && PressedAction(GameBindings.IgnitionAction, Plugin.IgnitionKey.Value))
             {
                 if (running)
                 {
@@ -125,6 +125,8 @@ namespace Apocaplayer
             if (key == KeyCode.Minus) return Input.GetKeyDown(KeyCode.KeypadMinus);
             return false;
         }
+        private static bool PressedAction(string action, KeyCode fallback)
+        { return GameBindings.Find(action) != null ? GameBindings.Down(action, KeyCode.None) : Pressed(fallback); }
         private static void SendUse(PlayMakerFSM f) { if (Active(f)) f.SendEvent("useDoor"); }
 
         private static void FindControls(Transform car)
@@ -170,6 +172,13 @@ namespace Apocaplayer
             if (hints.Length > 0) hints.Append('\n');
             hints.Append(KeyName(key)).Append(" - ").Append(text);
         }
+        private static void AddActionHint(StringBuilder hints, string action, KeyCode fallback, string text)
+        {
+            var label = GameBindings.Label(action, fallback);
+            if (string.IsNullOrEmpty(label)) return;
+            if (hints.Length > 0) hints.Append('\n');
+            hints.Append(label).Append(" - ").Append(text);
+        }
         private static void UpdateHints()
         {
             _running = _start != null && EngineRunning(_start.ActiveStateName ?? "");
@@ -180,8 +189,9 @@ namespace Apocaplayer
             _musicPlaying = _radioAudio != null && _radioAudio.isPlaying && _radioAudio.pitch > 0f;
             if (!Plugin.VehicleHotkeyHint.Value) { _hint = ""; return; }
             var hints = new StringBuilder();
-            if (_start != null) AddHint(hints, Plugin.IgnitionKey.Value, _running ? "Ignition Stop" : "Ignition");
-            if (_lightOn != null || _lightOff != null) AddHint(hints, Plugin.HeadlightsKey.Value, _lightsOn ? "Headlights Off" : "Headlights On");
+            if (_start != null) AddActionHint(hints, GameBindings.IgnitionAction, Plugin.IgnitionKey.Value, _running ? "Ignition Stop" : "Ignition");
+            if (_lightOn != null || _lightOff != null) AddActionHint(hints, "Headlight", Plugin.HeadlightsKey.Value, _lightsOn ? "Headlights Off" : "Headlights On");
+            if (_handbrake != null) AddActionHint(hints, "Handbrake", KeyCode.None, _brakeOn ? "Handbrake Release" : "Handbrake Apply");
             if (_radioAudio != null)
             {
                 bool playing = _radioOnOff != null && _radioOnOff.ActiveStateName == "on";

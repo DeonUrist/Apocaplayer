@@ -86,6 +86,11 @@ namespace Apocaplayer
         {
             try
             {
+                if (__instance.Fsm != null && __instance.Fsm.Name == "Jump" && Game.Player != null
+                    && __instance.Fsm.GameObjectName == Game.Player.name && __instance.buttonName != null && __instance.buttonName.Value == "Jump")
+                {
+                    if (ModAPI.PlayerTraversalActive || ClimbingController.Instance != null && ClimbingController.Instance.TryJumpClimb()) return false;
+                }
                 // VEHICLE owns the headlight binding; avoid toggling twice with the vanilla key.
                 if (Plugin.Enabled.Value && Game.InCar && __instance.Fsm != null && __instance.Fsm.Name == "INPUT_Headlight")
                     return false;
@@ -152,7 +157,7 @@ namespace Apocaplayer
                 if (Mathf.Abs(_orbitYaw) < 0.05f) _orbitYaw = 0f;
             }
             if (!On) { _orbitYaw = _orbitPitch = 0f; }
-            bool want = On || CarShift;
+            bool want = On || CarShift || ModAPI.PlayerTraversalCameraActive;
             bool cullingWanted = On && !Peek && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value);
             Cave.Tick(cullingWanted);
             if (!cullingWanted || Cave.Inside) OcclusionCutaway.Stop();
@@ -278,6 +283,14 @@ namespace Apocaplayer
             if (Peek) { HasView = false; cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }   // binoculars: the game's own view
             if (!On)
             {
+                Vector3 climbEye;
+                if (ModAPI.TryPlayerTraversalEye(out climbEye))
+                {
+                    cam.worldToCameraMatrix = Matrix4x4.Scale(new Vector3(1f, 1f, -1f))
+                        * Matrix4x4.TRS(climbEye, t.rotation, Vector3.one).inverse;
+                    cam.cullingMatrix = cam.projectionMatrix * cam.worldToCameraMatrix;
+                    return;
+                }
                 if (!CarShift || Game.Player == null) { cam.ResetWorldToCameraMatrix(); cam.ResetCullingMatrix(); return; }
                 // driving, first person: the eye a few cm forward along her (the seat's) facing, so her own head/chest don't fill the view
                 Vector3 p = CarShiftEye(t);

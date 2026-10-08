@@ -23,3 +23,16 @@ UnityAnims/Assets/Clips/
 UnityAnims/Assets/Mixamo/*.fbx
 UnityAnims/Assets/Mixamo/*.fbx.meta
 *.csproj.user
+tools/ClimbingAnims/Library/
+tools/ClimbingAnims/Temp/
+tools/ClimbingAnims/Logs/
+tools/ClimbingAnims/UserSettings/
+tools/ClimbingAnims/Build/
+tools/ClimbingAnims/Assets/Clips/
+tools/ClimbingAnims/Assets/Source/*.fbx
+tools/ClimbingAnims/Assets/Source/*.fbx.meta
+tools/config-file.txt
+tools/get-button-down.txt
+tools/input-controller.txt
+tools/input-storage.txt
+tools/key-action.txt

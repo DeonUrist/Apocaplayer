@@ -632,6 +632,7 @@ namespace Apocaplayer
 
         public void Destroy()
         {
+            EndTraversal();
             if (_ragdoll != null) { _ragdoll.Destroy(); _ragdoll = null; }
             try { if (_graph.IsValid()) _graph.Destroy(); } catch (Exception) { }
             try { if (_rigGraph.IsValid()) _rigGraph.Destroy(); } catch (Exception) { }
@@ -731,6 +732,7 @@ namespace Apocaplayer
 
         public void LateFoot(View view, float dt)
         {
+            if (LateTraversal(view)) return;
             TickUpper(dt);
             if (_inCar) StartPoseFade(0.3f, false);   // out of the driver's seat: the seated pose eases into standing
             LateFootInner(view, dt);

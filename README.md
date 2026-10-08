@@ -1,5 +1,35 @@
 # Apocaplayer
 
+**2.3.1 fixes climbing under wall pressure.** Small existing capsule/wall
+penetration from physics contact no longer rejects an upward climb. The movement
+must escape that contact without deepening it; new obstacles, ceilings and deep
+overlap still block the climb. The native test suite now includes complete
+climbs starting from pressed-against-wall positions.
+
+**2.3.0 includes climbing.** Apocaclimber is no longer required; do not install
+the old separate DLL alongside this version. Its numeric climbing settings are
+migrated into Apocaplayer on first load.
+
+Hold forward against a reachable wall and press the game's **Jump** key
+(**Space** by default) to climb onto it. A failed climb keeps the normal jump.
+The **climbing** settings group is just before **Debug**, which remains last:
+**Jump triggers climbing** defaults On, with **alternative climb key** directly
+below it, default **None**. Turn off jump climbing and bind an alternative if you
+prefer a separate key. Low automatic steps are configured in this group too.
+
+Climbing uses the waist/high Humanoid animations, temporarily puts the weapon
+on its existing back/holster mount, and follows the animated head in first person
+while retaining mouse look. Playback is 1.5x; the ending is cut at 65% so movement
+returns in about 0.87 s for waist ledges and 1.44 s for high ledges. The detector
+checks slightly farther forward at several heights, including raised car bodies.
+The supported ledge range remains 0.45–2.5 metres with full capsule clearance.
+
+Vehicle hints and light controls follow the game's Controls bindings: default
+**K = headlights**, **Space = handbrake**. Headlight input has one handler, so it
+cannot toggle twice. The native handbrake handler is kept. The current game has
+no ignition action, so the mod's configurable ignition key remains; a native
+ignition action takes precedence if one becomes available.
+
 ![Apocaplayer: Female and Max](media/Apocaplayer_banner.png)
 
 BepInEx 5 mod for **Apocalypter**: see your character - a full body in first person, a third-person camera on foot and in cars,
@@ -25,7 +55,7 @@ The Max model (`Models/Player_max.glb`) is Denis's low-poly Max (made from the g
 
 The female model is **Player_female** (made from the Flexa model, rigged to Flexa's 22-bone mixamo skeleton).
 
-`AutomaticStepUp` (General, default On) helps the grounded player walk onto low solid steps and obstacles up to 35 cm,
+`AutomaticStepUp` (climbing, default On) helps the grounded player walk onto low solid steps and obstacles up to 35 cm,
 including vehicle entrance steps. It uses existing foot collision contacts, then checks the landing surface and clearance
 for both body capsules before lifting the Rigidbody. Tall obstacles, low ceilings, jumping, prone movement and driving are excluded.
 Player collider dimensions and horizontal movement remain the game's own.
@@ -96,7 +126,8 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |
 | VEHICLE | VehicleStatusHint | true | Top-right icons: key when ignition is off, (P) while handbrake is engaged, cassette with 0.0–1.0 volume while music is playing (including muted playback) |
 | VEHICLE | IgnitionKey | E | Start / stop engine with the game's sounds; hint changes from "Ignition" to "Ignition Stop". Previously rebound General/IgnitionKey is migrated |
-| VEHICLE | HeadlightsKey | X | Toggle headlights using the game's switch; replaces the vanilla headlight binding while driving |
+| Game Controls | Headlight | K | Rebind in the game Controls menu; the vehicle hint follows primary and alternative bindings |
+| Game Controls | Handbrake | Space | Native handbrake control; its apply/release key is shown in the vehicle hint |
 | VEHICLE | CassetteKey | Z | Start / stop cassette. Starting at zero sets volume to 0.5; a nonzero volume is preserved |
 | VEHICLE | VolumeDownKey | Minus | Reduce cassette volume by 0.1, clamped at 0; also accepts numpad minus |
 | VEHICLE | VolumeUpKey | Equals | Increase cassette volume by 0.1, clamped at 1; + on the main keyboard (= physical key) or numpad plus |

@@ -1,0 +1,274 @@
+NATIVE CAPSULE radius=0.17 height=1.7 center=(0.0, 0.0, 0.0) enabled=True trigger=False scale=(1.0, 1.0, 1.0)
+NATIVE CAPSULE radius=0.2 height=1.55 center=(0.0, 0.1, 0.0) enabled=True trigger=False scale=(1.0, 1.0, 1.0)
+GAME ACTION Jump = Space / None
+GAME ACTION Crouch = LeftControl / None
+GAME ACTION Crawl = Y / None
+GAME ACTION Run = LeftShift / None
+GAME ACTION Use = F / None
+GAME ACTION Zoom = Z / None
+GAME ACTION Flashlight = L / None
+GAME ACTION Headlight = K / None
+GAME ACTION Horn = H / None
+GAME ACTION Handbrake = Space / None
+GAME ACTION ShiftUp = E / None
+GAME ACTION ShiftDown = Q / None
+GAME ACTION Fire = Mouse0 / None
+GAME ACTION Aim Down Sights = Mouse1 / None
+GAME ACTION Reload = R / None
+GAME ACTION Weapon off = Alpha0 / None
+GAME ACTION Weapon 1 = Alpha1 / None
+GAME ACTION Weapon 2 = Alpha2 / None
+GAME ACTION Weapon 3 = Alpha3 / None
+GAME ACTION Drop Weapon = P / None
+GAME ACTION ShiftIntoR1 = Keypad9 / None
+GAME ACTION ShiftIntoN = N / None
+GAME ACTION ShiftInto1 = Keypad1 / None
+GAME ACTION ShiftInto2 = Keypad2 / None
+GAME ACTION ShiftInto3 = Keypad3 / None
+GAME ACTION ShiftInto4 = Keypad4 / None
+GAME ACTION ShiftInto5 = Keypad5 / None
+GAME ACTION ShiftInto6 = Keypad6 / None
+GAME ACTION Change Camera = C / None
+GAME ACTION Use Bandage = F1 / None
+GAME ACTION Use First Aid = F2 / None
+GAME ACTION Submit = Return / None
+GAME ACTION Cancel = Escape / None
+GAME ACTION Binocular = B / None
+GAME ACTION Rotate Item = Mouse2 / None
+GAME ACTION Player Sheet = Tab / None
+GAME ACTION Smoke = T / None
+GAME ACTION Kick = Q / None
+GAME ACTION Adjust-move up/rotate forward = Keypad8 / None
+GAME ACTION Adjust-move down/rotate backward = Keypad2 / None
+GAME ACTION Adjust-move left/rotate left = Keypad4 / None
+GAME ACTION Adjust-move right/rotate right = Keypad6 / None
+GAME ACTION Adjust-move forward/tilt left = Keypad7 / None
+GAME ACTION Adjust-move backward/tilt right = Keypad1 / None
+GAME ACTION Adjust-reset = Keypad0 / None
+GAME ACTION Adjust-change move/rotate mode = Keypad5 / None
+GAME ACTION Cruise Control = V / None
+GAME ACTION Mouse Steering = O / None
+GAME ACTION Throw Grenade = G / None
+GAME ACTION TrailerAttachDetach = H / None
+GAME ACTION Use_2 = E / None
+GAME ACTION Map = M / None
+GAME ACTION Home = Home / None
+PASS Runtime loaded waist clip from separate bundle
+PASS Runtime loaded high clip from separate bundle
+DETECT True
+PASS Waist-height collider detected
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Climb controller started
+PASS Climbing suspends physics and competing movement FSMs
+PASS First-person view displays the character's own climbing hands
+POSE seconds=0.02 hips=(-0.0156, 1.0073, -0.0068) anim=(0.0000, 0.0000, 0.0000)
+PASS First-person view follows the animated head during the climb
+PASS Head-follow keeps mouse look and the native camera transform unchanged
+PASS Head-follow camera matrix resets after rendering
+PASS Previously disabled jump remains disabled
+POSE seconds=0.42 hips=(-0.0039, 1.0404, -0.1729) anim=(0.0000, 0.0000, 0.0000)
+POSE seconds=0.8199998 hips=(0.0000, 1.0509, -0.0527) anim=(0.0000, 0.0000, 0.0000)
+PASS Waist climb places actual player capsule on the top
+PASS Waist climb returns movement within 1.1 seconds at the new 1.5x speed
+PASS Waist climb's visible body stays within 50 cm of its origin throughout the clip
+PASS Completion restores original physics and FSM enabled states
+PASS Completion releases animation lease
+PASS Completion restores the ordinary first-person camera
+PASS Completion restores the normal first-person arms preference
+DETECT True
+PASS High ledge detected
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Climb controller started
+POSE seconds=0.34 hips=(-0.0020, 0.9466, -0.0586) anim=(0.0000, 0.0000, 0.0000)
+POSE seconds=0.7399998 hips=(-0.0244, 1.0001, -0.0762) anim=(0.0000, 0.0000, 0.0000)
+POSE seconds=1.14 hips=(-0.0010, 1.0842, -0.1885) anim=(0.0000, 0.0000, 0.0000)
+PASS High climb completes with retargeted Mixamo poses
+PASS High climb returns movement within 1.85 seconds without the standing tail
+PASS High climb's visible body stays within 50 cm of its origin throughout the clip
+DETECT False No walkable top within height limit
+PASS Out-of-reach high ledge rejected
+DETECT True
+PASS Forward probes detect raised car bodywork above the lowest ray
+DETECT True
+PASS Forward check includes a ledge slightly beyond the old probe reach
+DETECT False No climbable face in reach
+PASS Trigger obstacle rejected
+DETECT False Climb path or landing has no body clearance
+PASS Low ceiling rejects climb
+DETECT False Obstacle is moving too fast
+PASS Fast moving car rejected
+DETECT False Must stand on ground
+PASS Airborne player rejected
+DETECT False No walkable top within height limit
+PASS Thin fence without landing rejected
+DETECT True
+PASS Cancellation fixture detected
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Climb controller started
+POSE seconds=0.08 hips=(0.0010, 1.0519, -0.0098) anim=(0.0000, 0.0000, 0.0000)
+BLOCKER rb=(10000.0, 1.5, 10000.0) transform=(10000.0, 0.9, 10000.0)
+PASS Dynamic obstruction cancels climb and restores control
+PASS Cancellation keeps last checked safe position
+DETECT True
+PASS Moving-support fixture detected
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Climb controller started
+PASS Support transform movement safely cancels climb
+DETECT True
+PASS Pause fixture detected
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Climb controller started
+PASS Pause preserves traversal lease
+PASS Cleanup releases animation and restores movement
+DETECT True
+PASS Armed climb fixture detected
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Drawn rifle is absent from the back before climbing
+PASS Climb controller started
+PASS Climbing puts the drawn rifle on its back mount and hides the hand model
+PASS Temporary stowing preserves the selected inventory slot and original item
+POSE seconds=0.14 hips=(-0.0059, 1.0481, -0.0459) anim=(0.0000, 0.0000, 0.0000)
+POSE seconds=0.54 hips=(0.0322, 1.0036, -0.1875) anim=(0.0000, 0.0000, 0.0000)
+PASS Climb completion restores the weapon to the hands and removes its back copy
+PASS Climb controller started
+PASS Climb cancellation also restores the weapon
+PASS Apocasetter entry order puts climbing second-last and Debug last
+PASS Alternative climb key appears directly below the jump toggle
+PASS Jump climbing defaults on and alternative key defaults to None
+PASS Saved config also places climbing before the final Debug section
+PASS Native headlights binding removes the duplicate mod setting
+PASS Custom ignition fallback survives the settings migration
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+CONTACT GAP=0.21 reject=
+PASS Climbing succeeds under wall contact pressure at gap 0.21
+PASS Full climb escapes wall contact and reaches the roof at gap 0.21
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+CONTACT GAP=0.2 reject=
+PASS Climbing succeeds under wall contact pressure at gap 0.2
+PASS Full climb escapes wall contact and reaches the roof at gap 0.2
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+CONTACT GAP=0.195 reject=
+PASS Climbing succeeds under wall contact pressure at gap 0.195
+PASS Full climb escapes wall contact and reaches the roof at gap 0.195
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+CONTACT GAP=0.19 reject=
+PASS Climbing succeeds under wall contact pressure at gap 0.19
+PASS Full climb escapes wall contact and reaches the roof at gap 0.19
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+CONTACT GAP=0.18 reject=
+PASS Climbing succeeds under wall contact pressure at gap 0.18
+PASS Full climb escapes wall contact and reaches the roof at gap 0.18
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Contact tolerance does not allow moving deeper into the wall
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=True active=False attempt=90187 consumed=False
+PASS Deep wall penetration still rejects climbing
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=True active=False attempt=90187 consumed=False
+PASS Wall contact tolerance still rejects a blocked ceiling
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+PASS Space pushing into a reachable wall starts climbing and consumes native Jump
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+PASS Space climbs while the capsules are flush against the wall
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=0
+JUMP result=True active=False attempt=90187 consumed=False
+PASS An early probe without forward input leaves Jump available
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+PASS Jump FSM retries after movement updates within the same frame
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=True active=False attempt=90187 consumed=False
+PASS Space keeps the normal jump when no reachable ledge exists
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=0
+JUMP result=True active=False attempt=90187 consumed=False
+PASS Space near a ledge without pushing forward still jumps normally
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=False name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=True active=False attempt=-1 consumed=False
+PASS Turning off Jump triggers climbing restores ordinary Space jumps at walls
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS A configured alternative key climbs independently of the disabled jump toggle
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=False active=True attempt=90187 consumed=True
+PASS Jump climbing follows a game Controls rebind to J
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+JUMP button=Jump toggle=True name=Jump owner=Verifier.Player player=Verifier.Player input=True cursor=False forward=2
+JUMP result=True active=False attempt=90187 consumed=False
+PASS Disabling climbing leaves the native jump untouched
+PASS Headlight hint displays both current game bindings
+PASS Alternative game headlight binding triggers the mod's light control
+PASS Legacy X light binding is ignored when the game has its own action
+PASS Actual Apocaplayer character created from the game's Mixamo avatar
+API ready=True dead=False paused=False inCar=False height=1.7
+PASS Player traversal API ready
+PASS Native and mod light handlers cannot toggle headlights twice
+VEHICLE HINTS F10 / F11 - Headlights Off|Space - Handbrake Release
+PASS Vehicle hints use the game's light and handbrake keys
+PASS Native handbrake input remains enabled
+Checks=132

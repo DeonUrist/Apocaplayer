@@ -240,7 +240,8 @@ namespace Apocaplayer
         private void Show(int i)
         {
             var mount = _mounts[i]; if (mount.Visual == null) return;
-            bool drawn = mount.Slot >= 0 && mount.Slot == _inventory.Drawn || i == 7 && Game.BinocularInUse;
+            bool drawn = !ModAPI.PlayerWeaponStowed && mount.Slot >= 0 && mount.Slot == _inventory.Drawn
+                || i == 7 && Game.BinocularInUse;
             foreach (var renderer in mount.Renderers)
             {
                 renderer.enabled = !drawn && (_visible || _shadow);

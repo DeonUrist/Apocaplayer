@@ -46,6 +46,7 @@ namespace Apocaplayer
 
         public static void Tick()
         {
+            if (ModAPI.PlayerTraversalActive) return;
             if (!Plugin.Enabled.Value || !Plugin.AutomaticStepUp.Value || !Game.Ready || Game.Paused || Game.Dead || Game.InCar) return;
             if (Game.StandingHeight < .75f || Game.MoveState.StartsWith("Crawl", StringComparison.Ordinal)) return;
             if (Game.JumpState == "Jump" || Game.JumpState == "Falling") return;
