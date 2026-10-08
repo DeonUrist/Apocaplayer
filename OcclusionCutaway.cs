@@ -29,7 +29,7 @@ namespace Apocaplayer
             internal OcclusionCutaway Owner;
             private void OnRenderImage(RenderTexture source, RenderTexture destination)
             {
-                var texture = Shader.GetGlobalTexture("_CameraDepthTexture");
+                var texture = Shader.GetGlobalTexture(IdDepthTex);
                 if (Owner != null && texture != null)
                 {
                     Graphics.Blit(texture, Owner._captureDepth, Owner._composite, 1);
@@ -41,8 +41,25 @@ namespace Apocaplayer
         private float _strength;
         private float _largeSeen = float.NegativeInfinity, _windowScale = 1f, _headHeight;
         private int _lastFrame = -1;
-        private DepthTextureMode _oldDepthMode;
+        // (2.2.6) performance: the blocker search runs 10 times a second (a blocker is kept .18 s after it was last seen, so nothing is lost),
+        // what a collider stands for (its renderers, roof / vehicle, terrain) is worked out once and remembered, a collider without a renderer of
+        // its own never pulls in a whole camp / building / terrain tile (an owner with more than MaxOwnerRenderers meshes: only those touching the collider), the vehicle's
+        // renderers are collected every 2 s, the two extra views render at 3/4 resolution with shadows only to 25 m past her, and the main camera's
+        // depth texture and the composite are only on in the frames that really cut something away.
+        private const float ScanInterval = .1f, ClearShadowDistance = 20f, VehicleRescan = 2f;
+        private const int MaxOwnerRenderers = 24;
+        private float _nextScan;
+        private sealed class Blocker { public Renderer[] Renderers; public bool Terrain, RoofOrVehicle; public float At; }
+        private readonly Dictionary<Collider, Blocker> _blockers = new Dictionary<Collider, Blocker>();
+        private static readonly Renderer[] NoRenderers = new Renderer[0];
+        private Transform _vehicle; private Renderer[] _vehicleRenderers = NoRenderers; private float _vehicleAt;
+        private bool _depthOn;
+        private Vector3 _scanPos, _scanFwd;
         private struct TerrainState { public Terrain Terrain; public bool Height, Trees; }
+        private static readonly int IdDepthTex = Shader.PropertyToID("_CameraDepthTexture"), IdEnds = Shader.PropertyToID("_Ends"),
+            IdRadius = Shader.PropertyToID("_Radius"), IdAspect = Shader.PropertyToID("_Aspect"), IdStrength = Shader.PropertyToID("_Strength"),
+            IdFocus = Shader.PropertyToID("_FocusDepth"), IdClean = Shader.PropertyToID("_CleanTex"), IdCleanDepth = Shader.PropertyToID("_CleanDepth"),
+            IdFront = Shader.PropertyToID("_FrontTex"), IdFrontDepth = Shader.PropertyToID("_FrontDepth");
         private static readonly int Mask = ~((1 << 6) | (1 << 2) | (1 << 5) | (1 << 9) | (1 << 22));
 
         internal static bool Available
@@ -65,12 +82,12 @@ namespace Apocaplayer
 
         internal static void Prepare(Camera main, Vector3 pos, Quaternion rotation, Transform vehicle)
         {
-            if (!Available) return;
+            if (!Available || !Game.Ready) return;
             if (_active == null || _active._main != main)
             {
                 Stop();
                 _active = main.gameObject.AddComponent<OcclusionCutaway>();
-                _active._main = main; _active._oldDepthMode = main.depthTextureMode;
+                _active._main = main;
             }
             try { _active.RenderClear(pos, rotation, vehicle); }
             catch (Exception e) { _active.Restore(); _active._prepared = false; Plugin.Warn("Camera cutaway: " + e.Message); }
@@ -83,10 +100,12 @@ namespace Apocaplayer
             Trace(camera, head, feet.y, now); Trace(camera, feet, feet.y, now); Trace(camera, (head + feet) * .5f, feet.y, now);
             int count = Physics.OverlapSphereNonAlloc(camera, Mathf.Max(.10f, _main.nearClipPlane), _near, Mask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < count; i++) Add(_near[i], now);
-            if (vehicle != null)
+            if (vehicle == null) { _vehicle = null; _vehicleRenderers = NoRenderers; }
+            else
             {
                 _largeSeen = now;
-                foreach (var renderer in vehicle.GetComponentsInChildren<Renderer>(true)) Add(renderer, now);
+                if (vehicle != _vehicle || now >= _vehicleAt + VehicleRescan) { _vehicle = vehicle; _vehicleAt = now; _vehicleRenderers = vehicle.GetComponentsInChildren<Renderer>(true); }
+                foreach (var renderer in _vehicleRenderers) Add(renderer, now);
             }
             _removeRenderers.Clear();
             foreach (var item in _renderers) if (item.Key == null || now - item.Value > .18f) _removeRenderers.Add(item.Key);
@@ -116,8 +135,20 @@ namespace Apocaplayer
         {
             if (target == null) return true;
             if (Game.Player != null && target.IsChildOf(Game.Player.transform) || Game.PlayerCamera != null && target.IsChildOf(Game.PlayerCamera)) return true;
-            for (var p = target; p != null; p = p.parent) if (p.name.StartsWith("Apocaplayer", StringComparison.Ordinal)) return true;
-            return false;
+            return ModNamed(target);
+        }
+        // an object of this mod (its name starts with Apocaplayer, or a parent's does) - remembered per transform while its root stays the same
+        // (Transform.name allocates a string on every read)
+        private struct Owned { public int Root; public bool Mod; }
+        private static readonly Dictionary<int, Owned> _owned = new Dictionary<int, Owned>();
+        private static bool ModNamed(Transform t)
+        {
+            int id = t.GetInstanceID(), root = t.root.GetInstanceID(); Owned o;
+            if (_owned.TryGetValue(id, out o) && o.Root == root) return o.Mod;
+            o.Root = root; o.Mod = false;
+            for (var p = t; p != null; p = p.parent) if (p.name.StartsWith("Apocaplayer", StringComparison.Ordinal)) { o.Mod = true; break; }
+            if (_owned.Count > 8192) _owned.Clear();
+            _owned[id] = o; return o.Mod;
         }
 
         private void Add(Renderer renderer, float now)
@@ -128,17 +159,50 @@ namespace Apocaplayer
         private void Add(Collider collider, float now, bool overhead = false)
         {
             if (collider == null || Mine(collider.transform)) return;
-            var terrain = collider.GetComponent<Terrain>();
-            if (terrain != null) return;   // the ground is never cut away (1.6.0: the window used to open holes into the terrain)
+            var b = BlockerOf(collider);
+            if (b.Terrain) return;   // the ground is never cut away (1.6.0: the window used to open holes into the terrain)
             var bounds = collider.bounds;
             bool overheadPanel = bounds.size.y < .5f && Mathf.Max(bounds.size.x, bounds.size.z) > 1f && bounds.center.y >= _headHeight - .15f;
-            if (overhead || overheadPanel || RoofOrVehicle(collider.transform)) _largeSeen = now;
-            var renderer = collider.GetComponent<Renderer>();
-            if (renderer != null) { Add(renderer, now); return; }
-            var lod = collider.GetComponentInParent<LODGroup>();
-            var owner = lod != null ? lod.transform : collider.attachedRigidbody != null ? collider.attachedRigidbody.transform : collider.transform.parent;
-            if (owner == null) owner = collider.transform;
-            foreach (var item in owner.GetComponentsInChildren<Renderer>(true)) Add(item, now);
+            if (overhead || overheadPanel || b.RoofOrVehicle) _largeSeen = now;
+            foreach (var item in b.Renderers) Add(item, now);
+        }
+
+        // what a collider stands for, worked out once: its own renderer, else the renderers of the object it belongs to (LOD group, rigidbody,
+        // parent) - but when that "object" is really an area (a camp, a building, a terrain tile with hundreds of meshes), only the meshes at the
+        // collider itself (their bounds touching it)
+        private Blocker BlockerOf(Collider collider)
+        {
+            Blocker b;
+            if (_blockers.TryGetValue(collider, out b) && Time.unscaledTime - b.At < 10f) return b;   // re-worked every 10 s (parts added, objects moved)
+            if (_blockers.Count > 2048) _blockers.Clear();
+            b = new Blocker { At = Time.unscaledTime };
+            if (collider.GetComponent<Terrain>() != null) { b.Terrain = true; b.Renderers = NoRenderers; _blockers[collider] = b; return b; }
+            b.RoofOrVehicle = RoofOrVehicle(collider.transform);
+            var own = collider.GetComponent<Renderer>();
+            if (own != null) b.Renderers = new[] { own };
+            else
+            {
+                var lod = collider.GetComponentInParent<LODGroup>();
+                var owner = lod != null ? lod.transform : collider.attachedRigidbody != null ? collider.attachedRigidbody.transform : collider.transform.parent;
+                if (owner == null) owner = collider.transform;
+                var all = owner.GetComponentsInChildren<Renderer>(true);
+                if (all.Length <= MaxOwnerRenderers) b.Renderers = all;
+                else
+                {
+                    var near = new List<Renderer>();
+                    var cb = collider.bounds; cb.Expand(.1f);
+                    foreach (var r in all)
+                    {
+                        if (r == null || !r.bounds.Intersects(cb)) continue;
+                        near.Add(r);
+                        if (near.Count >= 256) break;     // sanity limit only
+                    }
+                    b.Renderers = near.ToArray();
+                    Plugin.Verbose("Camera cutaway: " + collider.name + " belongs to " + owner.name + " (" + all.Length + " meshes) - only the " + b.Renderers.Length + " touching the collider are cut away");
+                }
+            }
+            _blockers[collider] = b;
+            return b;
         }
 
         private static bool RoofOrVehicle(Transform target)
@@ -162,16 +226,19 @@ namespace Apocaplayer
                 Vector3 center = Game.Player != null ? Game.Player.transform.position : _main.transform.position;
                 head = center + Vector3.up * .85f; feet = center - Vector3.up * .75f;
             }
-            FindBlockers(pos, head, feet, vehicle);
+            float now = Time.unscaledTime;
+            Vector3 fwd = rotation * Vector3.forward;
+            if (now >= _nextScan || vehicle != _vehicle || (pos - _scanPos).sqrMagnitude > .25f || Vector3.Dot(fwd, _scanFwd) < .996f)
+            { _nextScan = now + ScanInterval; _scanPos = pos; _scanFwd = fwd; FindBlockers(pos, head, feet, vehicle); }   // at once when the camera moved / turned
             if (_lastFrame != Time.frameCount)
             {
                 _lastFrame = Time.frameCount;
                 _strength = Mathf.MoveTowards(_strength, _renderers.Count + _terrains.Count > 0 ? 1f : 0f, Time.unscaledDeltaTime * 8f);
                 _windowScale = Mathf.MoveTowards(_windowScale, Time.unscaledTime - _largeSeen <= .18f ? 3f : 1f, Time.unscaledDeltaTime * 16f);
             }
-            if (_strength <= .001f || _renderers.Count + _terrains.Count == 0) return;
+            if (_strength <= .001f || _renderers.Count + _terrains.Count == 0) { DepthOff(); enabled = false; return; }
             EnsureBuffers();
-            _main.depthTextureMode |= DepthTextureMode.Depth;
+            DepthOn();
             _clearCamera.CopyFrom(_main); _clearCamera.enabled = false;
             _clearCamera.transform.SetPositionAndRotation(pos, rotation);
             _clearCamera.ResetWorldToCameraMatrix(); _clearCamera.ResetCullingMatrix();
@@ -189,8 +256,12 @@ namespace Apocaplayer
                 _hiddenTerrain.Add(new TerrainState { Terrain = terrain, Height = terrain.drawHeightmap, Trees = terrain.drawTreesAndFoliage });
                 terrain.drawHeightmap = false; terrain.drawTreesAndFoliage = false;
             }
+            float shadowDistance = QualitySettings.shadowDistance;
+            float capped = Mathf.Min(shadowDistance, Mathf.Max(ClearShadowDistance, (head - pos).magnitude + 25f));   // shadows to 25 m past her
+            bool capShadows = capped < shadowDistance;
             try
             {
+                if (capShadows) QualitySettings.shadowDistance = capped;
                 _clearDepthReady = false;
                 _captureDepth = _depth;
                 _clearCamera.Render();
@@ -199,9 +270,9 @@ namespace Apocaplayer
                 float focusDepth = Mathf.Max(a.z, b.z);
                 if (focusDepth <= .05f) return;
                 float radius = Mathf.Clamp(Plugin.OcclusionRadius.Value * _main.projectionMatrix.m11 / (2f * Mathf.Max(.3f, (a.z + b.z) * .5f)), .02f, .45f) * _windowScale;
-                _composite.SetVector("_Ends", new Vector4(a.x, a.y, b.x, b.y));
-                _composite.SetFloat("_Radius", radius); _composite.SetFloat("_Aspect", _main.aspect);
-                _composite.SetFloat("_Strength", _strength * (1f - Plugin.OcclusionOpacity.Value));
+                _composite.SetVector(IdEnds, new Vector4(a.x, a.y, b.x, b.y));
+                _composite.SetFloat(IdRadius, radius); _composite.SetFloat(IdAspect, _main.aspect);
+                _composite.SetFloat(IdStrength, _strength * (1f - Plugin.OcclusionOpacity.Value));
                 Vector3 character = Game.Player != null && !Game.Dead ? Game.Player.transform.position : (head + feet) * .5f;
                 float stopDepth = Mathf.Max(_main.nearClipPlane + .01f, Vector3.Dot(character - pos, rotation * Vector3.forward) - .075f);
                 // Restore blockers, then render only the scene beyond the character
@@ -214,17 +285,36 @@ namespace Apocaplayer
                 _captureDepth = _frontDepth; _clearDepthReady = false;
                 _clearCamera.Render();
                 if (!_clearDepthReady) return;
-                _composite.SetFloat("_FocusDepth", stopDepth);
-                _composite.SetTexture("_CleanTex", _clear); _composite.SetTexture("_CleanDepth", _depth);
-                _composite.SetTexture("_FrontTex", _front); _composite.SetTexture("_FrontDepth", _frontDepth);
+                _composite.SetFloat(IdFocus, stopDepth);
                 _prepared = true;
             }
-            finally { Restore(); }
+            finally
+            {
+                if (capShadows) QualitySettings.shadowDistance = shadowDistance;
+                Restore();
+                enabled = _prepared;                 // the composite (OnRenderImage) only in a frame that cuts something away
+            }
+        }
+
+        // the main camera's depth texture (the composite needs it) only while something is cut away
+        private bool _addedDepth;
+        private void DepthOn()
+        {
+            if (_main == null) return;
+            _depthOn = true;
+            var m = _main.depthTextureMode;
+            if ((m & DepthTextureMode.Depth) == 0) { _main.depthTextureMode = m | DepthTextureMode.Depth; _addedDepth = true; }   // re-checked every frame: someone else may set the mode
+        }
+        private void DepthOff()
+        {
+            if (!_depthOn || _main == null) return;
+            _depthOn = false;
+            if (_addedDepth) { _main.depthTextureMode &= ~DepthTextureMode.Depth; _addedDepth = false; }   // only the bit we added; the game's own use stays
         }
 
         private void EnsureBuffers()
         {
-            int width = Mathf.Max(16, _main.pixelWidth), height = Mathf.Max(16, _main.pixelHeight);
+            int width = Mathf.Max(16, _main.pixelWidth * 3 / 4), height = Mathf.Max(16, _main.pixelHeight * 3 / 4);   // 3/4 resolution (~44 % fewer pixels): seen only through the feathered window
             if (_clear != null && _clear.width == width && _clear.height == height) return;
             ReleaseBuffers();
             if (_composite == null) _composite = new Material(_shader) { hideFlags = HideFlags.HideAndDontSave };
@@ -239,6 +329,8 @@ namespace Apocaplayer
             _front = new RenderTexture(width, height, 24, _main.allowHDR ? RenderTextureFormat.DefaultHDR : RenderTextureFormat.Default) { name = "Apocaplayer protected front view", hideFlags = HideFlags.HideAndDontSave };
             _frontDepth = new RenderTexture(width, height, 0, RenderTextureFormat.RFloat, RenderTextureReadWrite.Linear) { name = "Apocaplayer protected front depth", hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Point };
             _clear.Create(); _depth.Create(); _front.Create(); _frontDepth.Create();
+            _composite.SetTexture(IdClean, _clear); _composite.SetTexture(IdCleanDepth, _depth);   // bound once per set of buffers
+            _composite.SetTexture(IdFront, _front); _composite.SetTexture(IdFrontDepth, _frontDepth);
         }
 
         private void Restore()
@@ -269,7 +361,7 @@ namespace Apocaplayer
         private void OnDestroy()
         {
             Restore(); ReleaseBuffers();
-            if (_main != null && _main.depthTextureMode == (_oldDepthMode | DepthTextureMode.Depth)) _main.depthTextureMode = _oldDepthMode;
+            DepthOff();
             if (_clearCamera != null) Destroy(_clearCamera.gameObject);
             if (_composite != null) Destroy(_composite);
             if (_active == this) _active = null;

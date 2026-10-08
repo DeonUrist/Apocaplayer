@@ -69,7 +69,7 @@ namespace Apocaplayer
                     return;
                 }
                 _wasEnabled = true;
-                if (!Game.Ready) { RustlinerDoors.Restore(); if (_body != null) DestroyBody(); return; }
+                if (!Game.Ready) { RustlinerDoors.Restore(); OcclusionCutaway.Stop(); if (_body != null) DestroyBody(); return; }   // (2.2.6) the cutaway taken down in menus / loading too
                 RustlinerDoors.Tick();
                 if (!Game.Dead) { _lastVelocity = Game.Velocity; _lastCar = Game.InCar ? Game.CarRoot : null; }
                 if (Plugin.FemaleArms.Value && (Plugin.Female || Plugin.IsMax)) Arms.Tick(); else Arms.Restore();

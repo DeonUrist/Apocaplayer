@@ -228,7 +228,7 @@ namespace Apocaplayer
             Vector3 d = want - pivot;
             float max = d.magnitude;
             float dist = max;
-            bool cutaway = Plugin.OcclusionPrototype.Value && (car == null || Plugin.OcclusionInVehicle.Value) && OcclusionCutaway.Available;   // driving: culling only with its own setting
+            bool cutaway = Game.Ready && Plugin.OcclusionPrototype.Value && (!Game.InCar || Plugin.OcclusionInVehicle.Value) && OcclusionCutaway.Available;   // (2.2.6) the same test as Tick's Stop   // driving: culling only with its own setting
             if (!cutaway)
                 foreach (var h in Physics.SphereCastAll(pivot, 0.2f, d / Mathf.Max(max, 1e-4f), max, Mask, QueryTriggerInteraction.Ignore))
                 {
