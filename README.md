@@ -286,3 +286,107 @@ Vehicle HUD assets live in `Models/Hud/`; `design/vehicle-hud.png` is the icon m
 `./build.sh` (mcs, against the game's own DLLs; `MANAGED=… BEPCORE=…` to override the paths) or `dotnet build`
 with `Apocaplayer.csproj` (deploys DLL + Models to the game). `tools/` holds the Python scripts used to read the game
 assets (UnityPy) and to bake/verify the arm texture and the car-seat retarget; they are not part of the build.
+
+## ModAPI usage guide (every animation)
+
+### Setup
+
+Reference `Apocaplayer.dll`. Add `[BepInDependency("com.denis.apocalypter.apocaplayer", BepInDependency.DependencyFlags.SoftDependency)]` to your plugin.
+
+```csharp
+using Apocaplayer;
+
+if (!ModAPI.Ready) return;                     // no animation bundle -> nothing to do
+var c = ModAPI.Attach(npc.GetComponentInChildren<Animator>());   // humanoid only, else null
+c.SetWeapon(gunModelTransform);                // or c.SetWeapon(null) for bare hands
+```
+
+The weapon's object name decides the weapon kind and so which animations play:
+
+| Kind | Weapons |
+|---|---|
+| **Rifle** | rifles, shotguns, crossbow |
+| **Pistol** | pistols, revolver, SMGs |
+| **Melee** | machete, knife, shiv, wrench |
+| **None** | `SetWeapon(null)` |
+
+The gun model is moved to the right hand at the player's tuned positions.
+
+Set the per-frame inputs in `Update`. Apocaplayer animates the character in `LateUpdate`.
+
+### Movement (automatic, from the character's velocity)
+
+Velocity comes from its Rigidbody, or its movement since the last frame if it has none. You can also set `c.ManualVelocity = true` and `c.Velocity = ...` yourself. Direction is measured relative to where the character faces.
+
+| You do | Animation |
+|---|---|
+| Stand still | Idle (rifle, pistol or unarmed) |
+| Move under ~3 m/s, any direction | Walk in 8 directions: forward, back, strafes, diagonals |
+| Move ~3.2 m/s or faster | Run in 8 directions |
+| Move ~4.3 m/s or faster | Sprint in 8 directions |
+| `c.Crouched = true` | Crouch idle, and crouch walk in 8 directions |
+| Rotate it while it stands still | Turn in place, feet stepping with the turn (`c.TurnInPlace`, on by default) |
+| Stop after walking forward relaxed | Walk-to-stop step (`c.WalkToStop`, on by default) |
+
+Stance depends on weapon and aiming:
+- **Rifle or pistol, not aiming:** relaxed. Rifle low-ready, lowered pistol, natural walk and run.
+- **`c.Aiming = true` or `c.Firing = true`:** aiming stance and aiming hands.
+- **Melee weapon:** always the fighting stance.
+- **Bare hands:** always relaxed.
+
+### Hands
+
+| You do | Rifle | Pistol | Bare hands / melee |
+|---|---|---|---|
+| Nothing | RifleIdle, RifleWalkLow, RifleRunLow (low-ready) | PistolIdle, PistolRun | Idle, Walk, WalkBack, Run, CrouchIdle |
+| `c.Aiming = true` | RifleAim (crouched: RifleCrouchAim) | PistolFire, held on its first frame | — |
+| `c.Firing = true`, or `c.Shoot()` for a quarter second | firing stance | PistolFire playing | — |
+| `c.AimPitch = deg` | spine bends to aim up or down (+ = down) | same | same |
+
+### Events (call once each)
+
+| Call | Animation |
+|---|---|
+| `c.Reload(2.5f)` | RifleReload or PistolReload, fitted to 2.5 s; the legs keep moving |
+| `c.Reload(3f, 5)` | One round at a time, 5 rounds in 3 s (revolver and shotguns style) |
+| `c.CancelReload()` | Stops the reload |
+| `c.Pump()` | ShotgunPump rack after a shot (rifle kind only, ignored while reloading) |
+| `c.Jump()` + `c.Airborne = true/false` | Jump: take-off, held in the air, landing when Airborne goes back to false (rifle: RifleJumpUp, Loop, Down; pistol: PistolJump; others: Jump) |
+| `c.Kick()` | Kick |
+| `c.Throw()` / `c.Throw(true)` | Grenade throw with the left hand / right hand |
+| `c.Strike(0.4f)` | Bare hands: punch combo, each call the next blow. Melee: Melee swing, then MeleeCombo blows when chained |
+
+### Control
+
+```csharp
+c.Suspended = true;    // the game's own animations back (death, sitting in a car...); gun returns to its own hand
+c.Suspended = false;   // the player's animations again
+c.Dispose();           // done with it (also automatic when the Animator is destroyed)
+```
+
+### Useful reads
+
+```csharp
+c.HandsClip, c.ActionClip, c.UpperClip            // what is playing now
+c.Reloading, c.Pumping                            // event still running
+c.SpeedCap                                        // fastest speed before the feet slide
+ModAPI.ReloadsOneRoundAtATime(key), ModAPI.CocksAfterShot(key), ModAPI.RoundSeconds(key)
+ModAPI.ClipNames(), ModAPI.GetClip(name)          // the player's clips only
+ModAPI.WeaponPose(key, clip, out pos, out rot), ModAPI.AimLiftOf(key, clip, crouched)
+```
+
+### Minimal NPC example
+
+```csharp
+void Update() {
+    c.Crouched = inCover;
+    c.Aiming   = facingTarget;
+    c.Firing   = shooting;
+    c.Airborne = !grounded;
+    if (magazineEmpty) c.Reload(ModAPI.ReloadClipSeconds(c.WeaponKey));
+    if (burstEnded && ModAPI.CocksAfterShot(c.WeaponKey)) c.Pump();
+    if (dead) c.Suspended = true;
+}
+```
+
+NPCAI 1.2.0's `ApBody.cs` and `Brain.Drive` are a full working example.
