@@ -27,8 +27,9 @@ The supported ledge range remains 0.45–2.5 metres with full capsule clearance.
 Vehicle hints and light controls follow the game's Controls bindings: default
 **K = headlights**, **Space = handbrake**. Headlight input has one handler, so it
 cannot toggle twice. The native handbrake handler is kept. The current game has
-no ignition action, so the mod's configurable ignition key remains; a native
-ignition action takes precedence if one becomes available.
+no ignition action, so the mod adds an **Ignition** row to the game's Controls
+screen (after Handbrake, default E); rebind it there. The key is kept in
+`BepInEx\config\Apocaplayer\ignition-key.txt` (the game drops added rows on load).
 
 ![Apocaplayer: Female and Max](media/Apocaplayer_banner.png)
 
@@ -125,7 +126,6 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |
 | VEHICLE | VehicleStatusHint | true | Top-right icons: key when ignition is off, (P) while handbrake is engaged, cassette with 0.0–1.0 volume while music is playing (including muted playback) |
-| VEHICLE | IgnitionKey | E | Start / stop engine with the game's sounds; hint changes from "Ignition" to "Ignition Stop". Previously rebound General/IgnitionKey is migrated |
 | Game Controls | Headlight | K | Rebind in the game Controls menu; the vehicle hint follows primary and alternative bindings |
 | Game Controls | Handbrake | Space | Native handbrake control; its apply/release key is shown in the vehicle hint |
 | VEHICLE | CassetteKey | Z | Start / stop cassette. Starting at zero sets volume to 0.5; a nonzero volume is preserved |

@@ -67,6 +67,7 @@ namespace Apocaplayer
             try
             {
                 try { Perf.Frame(); } catch (Exception e) { Plugin.Warn("Perf: " + e.Message); }
+                try { IgnitionControl.Tick(); } catch (Exception e) { Plugin.Warn("Ignition control: " + e.Message); }
                 bool on = Plugin.Enabled.Value;
                 if (!on)
                 {

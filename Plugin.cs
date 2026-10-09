@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.3.1";
+        public const string VERSION = "2.3.2";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -69,23 +69,23 @@ namespace Apocaplayer
             SettingsLayout.Install(Config);
             _hidden = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "hidden-settings.not-saved"), false) { SaveOnConfigSet = false };
 
-            // the config file: General (Enabled, Character, IgnitionKey, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
+            // the config file: General (Enabled, Character, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
             Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (his body, his arms in first person - armoured left sleeve, bare right forearm, black gloves - and his own TAB picture). Everything else is the same.");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
-            // Preserve a previously rebound ignition key when moving it into VEHICLE.
+            // (2.3.2) the ignition key lives in the game's Controls screen (IgnitionControl.cs): the old .cfg entries are read once and removed
             var oldIgnition = Config.Bind("General", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");
-            var previousIgnitionKey = oldIgnition.Value;
+            var oldVehicleIgnition = Config.Bind("VEHICLE", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");
+            KeyCode legacyIgnition = oldVehicleIgnition.Value != KeyCode.E ? oldVehicleIgnition.Value : oldIgnition.Value;
             Config.Remove(oldIgnition.Definition);
+            Config.Remove(oldVehicleIgnition.Definition);
             VehicleHotkeyHint = Config.Bind("VEHICLE", "VehicleHotkeyHint", true, "Show vehicle hotkeys on the left while driving. Hiding hints keeps the keys working.");
             VehicleStatusHint = Config.Bind("VEHICLE", "VehicleStatusHint", true, "Show ignition off, handbrake engaged and playing cassette with volume in the top right while driving.");
-            bool ignitionAlreadyMigrated = Config.ContainsKey(new ConfigDefinition("VEHICLE", "IgnitionKey"));
-            IgnitionKey = Config.Bind("VEHICLE", "IgnitionKey", KeyCode.E, "Start / stop ignition in the driver's seat. None = no hotkey.");
-            if (!ignitionAlreadyMigrated) IgnitionKey.Value = previousIgnitionKey;
+            IgnitionKey = H("VEHICLE", "IgnitionKey", KeyCode.E, "Mirror of the game's Controls \"Ignition\" key (never saved).");
+            IgnitionControl.Load(legacyIgnition);
             HeadlightsKey = Config.Bind("VEHICLE", "HeadlightsKey", KeyCode.X, "Switch headlights on / off in the driver's seat. None = no hotkey.");
             if (GameBindings.Find("Headlight") != null) Config.Remove(HeadlightsKey.Definition);
-            if (GameBindings.Find(GameBindings.IgnitionAction) != null) Config.Remove(IgnitionKey.Definition);
             CassetteKey = Config.Bind("VEHICLE", "CassetteKey", KeyCode.Z, "Start / stop the cassette player. Starting at zero volume sets 0.5; a nonzero volume is kept. None = no hotkey.");
             VolumeDownKey = Config.Bind("VEHICLE", "VolumeDownKey", KeyCode.Minus, "Reduce cassette volume by 0.1. None = no hotkey.");
             VolumeUpKey = Config.Bind("VEHICLE", "VolumeUpKey", KeyCode.Equals, "Increase cassette volume by 0.1 (+ on the main keyboard). None = no hotkey.");
