@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.3.2";
+        public const string VERSION = "2.3.3";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -72,7 +72,7 @@ namespace Apocaplayer
             // the config file: General (Enabled, Character, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
-            Character = Config.Bind("General", "Character", Gender.Female, "Female: her body, arms and gloves in first person, her TAB-screen picture. Male: the game's own man (his body in third person, in first person and in the driver's seat; the game's arms and TAB picture). Max: a road warrior in a leather jacket (his body, his arms in first person - armoured left sleeve, bare right forearm, black gloves - and his own TAB picture). Everything else is the same.");
+            Character = Config.Bind("General", "Character", Gender.Female, "Model selection");
             Character.SettingChanged += (s, e) => Runner.CharacterChanged();
             // (2.3.2) the ignition key lives in the game's Controls screen (IgnitionControl.cs): the old .cfg entries are read once and removed
             var oldIgnition = Config.Bind("General", "IgnitionKey", KeyCode.E, "Legacy ignition binding.");
@@ -90,19 +90,19 @@ namespace Apocaplayer
             VolumeDownKey = Config.Bind("VEHICLE", "VolumeDownKey", KeyCode.Minus, "Reduce cassette volume by 0.1. None = no hotkey.");
             VolumeUpKey = Config.Bind("VEHICLE", "VolumeUpKey", KeyCode.Equals, "Increase cassette volume by 0.1 (+ on the main keyboard). None = no hotkey.");
             EmptyHandArms = Config.Bind("General", "FirstPersonArms", false, "First person with nothing in hand: show the body's own arms (idle/walk swing, hands on the wheel in a car). Off = no body arms in first person (they can get in the way when crouching or driving); the game's weapon and item arms always show.");
-            BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat). Off = only the first-person arms.");
+            BodyFirstPerson = Config.Bind("General", "BodyFirstPerson", false, "First person: see the body (legs and torso when you look down, the shadow, the body in the driver's seat). Off = only the first-person arms.");
             AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
             Config.Remove(AutomaticStepUp.Definition);
             OcclusionPrototype = BindCameraCulling(Config);
-            OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on). Off: in a vehicle the camera moves in front of what blocks it instead.");
-            EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around her. Off by default: the game uses the middle mouse button to rotate a held item.");
-            ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around her (observe her), back behind her on release. None = no key (only the middle mouse button, if EnableMMB).");
-            DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from her head): at the centre for far targets, moving left toward her as the target gets closer, on her head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
+            OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on).");
+            EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around the character. Off by default: the game uses the middle mouse button to rotate a held item.");
+            ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around the character (observe it), back behind it on release. None = no key (only the middle mouse button, if EnableMMB).");
+            DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from the head): at the centre for far targets, moving left toward the character as the target gets closer, on the head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             new ClimbingController(Config);
-            WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift her hands, Home/End tilt her head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
-            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: on = a press of the observing key (RebindObserving) / middle mouse button locks the camera orbiting around her (her rotation stays) until the next press - handy with WeaponAdjustment; off = hold it to orbit, back behind her on release.");
+            WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in the hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift the hands, Home/End tilt the head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
+            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: on = a press of the observing key (RebindObserving) / middle mouse button locks the camera orbiting around the character (its rotation stays) until the next press - handy with WeaponAdjustment; off = hold it to orbit, back behind the character on release.");
             // (2.2.8) visible again, for slow-machine reports: off = nothing measured and nothing extra logged
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Diagnostics for performance reports, written to BepInEx\\LogOutput.log: the PC (GPU, VRAM, CPU, RAM, quality settings, other mods) once, then every 10 s the FPS, the slowest frame and the stutters, how many ms of each frame Apocaplayer takes (and where), garbage collections, the camera cutaway's work and which cameras render; plus what the mod finds and decides (weapons, cars, seats...). Off = none of it is measured or written.");
             VerboseModApi = H("Debug", "VerboseModApi", false, "Every decision of every ModAPI character (very chatty).");
@@ -210,6 +210,8 @@ namespace Apocaplayer
             catch (Exception e) { Log.LogError("Harmony patch failed, the crosshair hides when aiming in third person: " + e.Message); }
             try { Projectiles.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Harmony patch failed, lances may hit your own car: " + e.Message); }
+            try { FirstPersonSway.Patch(new HarmonyLib.Harmony(GUID)); }
+            catch (Exception e) { Log.LogError("Harmony patch failed, the game's own first-person sway stays: " + e.Message); }
             try { PickAssist.Patch(new HarmonyLib.Harmony(GUID)); }
             catch (Exception e) { Log.LogError("Harmony patch failed, no third-person pick assist: " + e.Message); }
             try { AimTransition.Patch(new HarmonyLib.Harmony(GUID)); }
@@ -258,7 +260,7 @@ namespace Apocaplayer
             bool alreadySaved = config.ContainsKey(definition) || orphans != null && orphans.Contains(definition);
             var legacy = config.Bind("CAMERA", "OcclusionPrototype", false, "Legacy camera culling toggle.");
             bool oldValue = legacy.Value; config.Remove(legacy.Definition);
-            var entry = config.Bind("General", "3rd person camera culling", false, "On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window; not inside caves. Off (default): the camera moves in front of what blocks it.");   // (2.2.9) off by default
+            var entry = config.Bind("General", "3rd person camera culling", false, "On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window; not inside caves.");   // (2.2.9) off by default
             if (!alreadySaved) entry.Value = oldValue;
             return entry;
         }

@@ -24,6 +24,9 @@ returns in about 0.87 s for waist ledges and 1.44 s for high ledges. The detecto
 checks slightly farther forward at several heights, including raised car bodies.
 The supported ledge range remains 0.45–2.5 metres with full capsule clearance.
 
+First-person weapon and item sway (the game's own lag of the arms behind the view) eases the same at every frame rate,
+so turning no longer makes the arms or the weapon jerk.
+
 Vehicle hints and light controls follow the game's Controls bindings: default
 **K = headlights**, **Space = handbrake**. Headlight input has one handler, so it
 cannot toggle twice. The native handbrake handler is kept. The current game has
@@ -115,13 +118,13 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | Section | Key | Default | |
 |---|---|---|---|
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
-| General | Character | Female | Female: her body, her arms and gloves in first person, her TAB picture. Male: the game's own man (with his hair, beard, bags) - in third person, first person and the driver's seat; the game's arms and TAB picture. Max: the road warrior (his body, his arms in first person, his own TAB picture). Animations, weapon poses and everything else are the same |
+| General | Character | Female | Model selection: Female, Male or Max |
 | General | FirstPersonArms | false | First person with nothing in hand: the body's own arms (walk swing, hands on the wheel). Off = no body arms in first person; the game's weapon/item arms always show |
-| Debug | FirstPersonCameraX / Y / Z | 0 | On foot, first person with BodyFirstPerson: move the view right / up / forward (m) relative to her body (her body moves the opposite way; aiming and clicks unchanged) |
+| Debug | FirstPersonCameraX / Y / Z | 0 | On foot, first person with BodyFirstPerson: move the view right / up / forward (m) relative to the body (the body moves the opposite way; aiming and clicks unchanged) |
 | Debug | FirstPersonDrivingCameraX / Y / Z | 0 | The same in the driver's seat (seat's right / up / forward), on top of the built-in seat offset (-0.03, 0.02, 0.02) |
-| General | 3rd person camera culling | false | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius; switched off automatically inside caves. Off restores camera collision movement |
-| General | 3rd person camera culling in vehicles | false | Use the camera culling while driving too (off: in a vehicle the camera moves in front of what blocks it). The ground is never cut away |
-| CAMERA | DynamicCrosshair | true | Third person: the crosshair sits where shots, melee hits and pickups really land (the ray from her head) - centre for far targets, moving left toward her for close ones, on her head when looking straight down. Off = the camera turns toward the aim point instead |
+| General | 3rd person camera culling | false | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius; switched off automatically inside caves. |
+| General | 3rd person camera culling in vehicles | false | Use the camera culling while driving too. The ground is never cut away |
+| CAMERA | DynamicCrosshair | true | Third person: the crosshair sits where shots, melee hits and pickups really land (the ray from the head) - centre for far targets, moving left toward the character for close ones, on the head when looking straight down. Off = the camera turns toward the aim point instead |
 | CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
 | CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |
@@ -131,12 +134,12 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | VEHICLE | CassetteKey | Z | Start / stop cassette. Starting at zero sets volume to 0.5; a nonzero volume is preserved |
 | VEHICLE | VolumeDownKey | Minus | Reduce cassette volume by 0.1, clamped at 0; also accepts numpad minus |
 | VEHICLE | VolumeUpKey | Equals | Increase cassette volume by 0.1, clamped at 1; + on the main keyboard (= physical key) or numpad plus |
-| General | BodyFirstPerson | false | First person: see her body (legs and torso when you look down, her shadow, her body in the driver's seat); off = only the first-person arms |
-| General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around her (off by default: the game rotates a held item with it) |
-| General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around her, back behind her on release; None = no key |
+| General | BodyFirstPerson | false | First person: see the body (legs and torso when you look down, the shadow, the body in the driver's seat); off = only the first-person arms |
+| General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around the character (off by default: the game rotates a held item with it) |
+| General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around the character, back behind it on release; None = no key |
 | Animation | RunLegsIn | 6 | Running with the bundle animations: each thigh turned this many degrees toward the middle (feet kept flat) - the rifle pack's run cycles stand wide on her hips. 0 = the clips as they are |
-| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in her hand, 5 move/rotate, 9/3 pick the clip (every rifle / pistol clip), - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
-| Debug | ToggleMiddleMouse | false | Third person: off = hold the observing key / middle mouse button to orbit around her, back behind her on release; on = a press turns orbiting on / off |
+| Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in the hand, 5 move/rotate, 9/3 pick the clip (every rifle / pistol clip), - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
+| Debug | ToggleMiddleMouse | false | Third person: off = hold the observing key / middle mouse button to orbit around the character, back behind it on release; on = a press turns orbiting on / off |
 | Debug | VerboseLog | false | Diagnostics for performance reports (PC info once, then FPS, stutters and Apocaplayer's own ms per frame every 10 s, plus what the mod finds and decides). Off = nothing measured or written. |
 
 Throws from the driver's seat (blast lance, quick grenade) work like guns there: her chest turns to the aim (a learned per-clip
