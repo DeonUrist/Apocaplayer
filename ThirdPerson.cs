@@ -262,7 +262,10 @@ namespace Apocaplayer
             // converge on the aim point: the camera sits over her shoulder, so looking parallel to her eye line would put the crosshair
             // ThirdShoulder metres beside where shots / picks really go. Find what the eye ray hits (the game casts from the eye) and turn the
             // view so the screen centre looks exactly at it; she stays where she is on screen. Not while orbiting (that view isn't for aiming).
-            float conv = Plugin.DynamicCrosshair.Value ? 0f : 1f - Mathf.Clamp01((Mathf.Abs(_orbitYaw) + Mathf.Abs(_orbitPitch)) / 10f);
+            // (2.3.7) the dynamic crosshair only with a weapon drawn; otherwise the camera turns to the aim point and the crosshair stays centred.
+            // _dynK eases between the two so drawing / holstering doesn't snap the view
+            _dynK = Mathf.MoveTowards(_dynK, DynamicWanted ? 1f : 0f, Time.unscaledDeltaTime * 5f);
+            float conv = (1f - _dynK) * (1f - Mathf.Clamp01((Mathf.Abs(_orbitYaw) + Mathf.Abs(_orbitPitch)) / 10f));
             if (conv > 0.001f && !dead)
             {
                 RaycastHit ah;
@@ -338,11 +341,16 @@ namespace Apocaplayer
         private static readonly RaycastHit[] _eyeHits = new RaycastHit[32];
         private const int GunMask = (1 << 0) | (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11) | (1 << 13) | (1 << 14);   // the player guns' Raycast mask
 
+        private static float _dynK;
+        private static bool DynamicWanted { get { return Plugin.DynamicCrosshair.Value && !string.IsNullOrEmpty(Game.DrawnWeapon); } }
+
         public static void LateCrosshair()
         {
             HasCrosshair = false;
             var cam = Game.Cam;
-            if (!Plugin.DynamicCrosshair.Value || !On || Peek || cam == null || Game.Dead || Game.Paused) { RestoreCrosshair(); return; }
+            if (!Plugin.DynamicCrosshair.Value || !On || Peek || cam == null || Game.Dead || Game.Paused) { _dynK = 0f; RestoreCrosshair(); return; }
+            // no weapon drawn: centred crosshair once the view has turned back to the aim point (placed with the drawn view until then)
+            if (!DynamicWanted && _dynK <= 0f) { RestoreCrosshair(); return; }
             var t = cam.transform;
             // the third-person view exactly as PreCull will draw it this frame
             ComputeView(cam);

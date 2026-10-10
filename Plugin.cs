@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.3.6";
+        public const string VERSION = "2.3.7";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -104,7 +104,7 @@ namespace Apocaplayer
             ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: the observing key - orbits the camera around the character (held, or press on / press off with Toggle Observing). None = no key.");
             ToggleMiddleMouse = Config.Bind("General", "Toggle Observing", false, "Third person, observing key (RebindObserving). Off: hold the key to orbit the camera around the character; it returns behind the character when you let go. On: a press starts observing and the camera stays where you left it until the next press.");
             if (oldToggleOn) ToggleMiddleMouse.Value = true;
-            DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from the head): at the centre for far targets, moving left toward the character as the target gets closer, on the head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
+            DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person with a weapon drawn: the crosshair sits where your shots and melee hits really land (the eye ray from the head): at the centre for far targets, moving left toward the character as the target gets closer, on the head when you look straight down. Without a weapon, or Off: the crosshair stays centred and the camera turns toward the aim point.");
             OcclusionOpacity = Moved(Config, "Occlusion", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)), "CAMERA/OcclusionOpacity");
             OcclusionRadius = Moved(Config, "Occlusion", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)), "CAMERA/OcclusionRadius");
             new ClimbingController(Config);
