@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.3.4";
+        public const string VERSION = "2.3.5";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -94,7 +94,8 @@ namespace Apocaplayer
             AutomaticStepUp = Config.Bind("General", "AutomaticStepUp", true, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Requires ground contact, a walkable top and clearance for the entire body. Off while jumping, prone or driving.");
             Config.Remove(AutomaticStepUp.Definition);
             OcclusionPrototype = BindCameraCulling(Config);
-            OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on).");
+            // (2.3.5) the camera culling settings in their own [Occlusion] section (values carried over once)
+            OcclusionInVehicle = Moved(Config, "Occlusion", "3rd person camera culling in vehicles", false, new ConfigDescription("Third person while driving: also use the camera culling (needs 3rd person camera culling on)."), "General/3rd person camera culling in vehicles");
             // (2.3.4) the middle mouse button no longer orbits (the game rotates held items with it); EnableMMB and [Debug] ToggleMiddleMouse leave the .cfg,
             // "Toggle Observing" in General takes over ToggleMiddleMouse (its value carried over once)
             var oldEnableMmb = Config.Bind("General", "EnableMMB", false, "Legacy."); Config.Remove(oldEnableMmb.Definition);
@@ -104,8 +105,8 @@ namespace Apocaplayer
             ToggleMiddleMouse = Config.Bind("General", "Toggle Observing", false, "Third person, observing key (RebindObserving). Off: hold the key to orbit the camera around the character; it returns behind the character when you let go. On: a press starts observing and the camera stays where you left it until the next press.");
             if (oldToggleOn) ToggleMiddleMouse.Value = true;
             DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from the head): at the centre for far targets, moving left toward the character as the target gets closer, on the head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
-            OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
-            OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
+            OcclusionOpacity = Moved(Config, "Occlusion", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)), "CAMERA/OcclusionOpacity");
+            OcclusionRadius = Moved(Config, "Occlusion", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)), "CAMERA/OcclusionRadius");
             new ClimbingController(Config);
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in the hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift the hands, Home/End tilt the head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
             // (2.2.8) visible again, for slow-machine reports: off = nothing measured and nothing extra logged
@@ -230,15 +231,39 @@ namespace Apocaplayer
             Log.LogInfo(NAME + " " + VERSION + " loaded");
         }
 
-        // a first-person offset slider (m) in CAMERA without a description; its old [Debug] value is carried over once
+        // a first-person offset slider (m), (2.3.5) in [Debug]; the value of [CAMERA] (2.1.11-2.3.4) or the older [Debug] key is carried over once
         private ConfigEntry<float> CameraSlider(string key, string oldKey)
         {
-            bool fresh = !Config.ContainsKey(new ConfigDefinition("CAMERA", key));
-            var old = Config.Bind("Debug", oldKey, 0f, "");
-            float v = old.Value; Config.Remove(old.Definition);
-            var e = Config.Bind("CAMERA", key, 0f, new ConfigDescription("", new AcceptableValueRange<float>(-0.3f, 0.3f)));
-            if (fresh && Mathf.Abs(v) > 1e-5f) e.Value = Mathf.Clamp(v, -0.3f, 0.3f);
+            var e = Moved(Config, "Debug", key, 0f, new ConfigDescription("", new AcceptableValueRange<float>(-0.3f, 0.3f)), "Debug/" + oldKey, "CAMERA/" + key);
+            e.Value = Mathf.Clamp(e.Value, -0.3f, 0.3f);
             return e;
+        }
+
+        // an entry that moved: bound at its new place; if that was never saved, the value of the newest old place that was saved (the
+        // olds are listed oldest first) is taken over once. The old keys leave the file.
+        internal static ConfigEntry<T> Moved<T>(ConfigFile config, string section, string key, T value, ConfigDescription description, params string[] olds)
+        {
+            bool saved = Saved(config, new ConfigDefinition(section, key));
+            bool have = false; T carried = value;
+            foreach (var o in olds)
+            {
+                int slash = o.IndexOf('/');
+                var d = new ConfigDefinition(o.Substring(0, slash), o.Substring(slash + 1));
+                if (d.Section == section && d.Key == key) continue;
+                if (!Saved(config, d)) continue;
+                try { var old = config.Bind(d, value, new ConfigDescription("Moved.")); carried = old.Value; have = true; config.Remove(old.Definition); }
+                catch (Exception e) { Warn("Config: " + o + " not carried over: " + e.Message); }
+            }
+            var entry = config.Bind(section, key, value, description);
+            if (!saved && have) entry.Value = carried;
+            return entry;
+        }
+        internal static bool Saved(ConfigFile config, ConfigDefinition d)
+        {
+            if (config.ContainsKey(d)) return true;
+            var property = typeof(ConfigFile).GetProperty("OrphanedEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            var orphans = property != null ? property.GetValue(config, null) as System.Collections.IDictionary : null;
+            return orphans != null && orphans.Contains(d);
         }
 
         private static void EnsureRunner()
@@ -259,15 +284,8 @@ namespace Apocaplayer
 
         internal static ConfigEntry<bool> BindCameraCulling(ConfigFile config)
         {
-            var definition = new ConfigDefinition("General", "3rd person camera culling");
-            var property = typeof(ConfigFile).GetProperty("OrphanedEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-            var orphans = property != null ? property.GetValue(config, null) as System.Collections.IDictionary : null;
-            bool alreadySaved = config.ContainsKey(definition) || orphans != null && orphans.Contains(definition);
-            var legacy = config.Bind("CAMERA", "OcclusionPrototype", false, "Legacy camera culling toggle.");
-            bool oldValue = legacy.Value; config.Remove(legacy.Definition);
-            var entry = config.Bind("General", "3rd person camera culling", false, "On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window; not inside caves.");   // (2.2.9) off by default
-            if (!alreadySaved) entry.Value = oldValue;
-            return entry;
+            // (2.3.5) [Occlusion]; carried over from [General] (2.2.x-2.3.4) or the older [CAMERA] OcclusionPrototype
+            return Moved(config, "Occlusion", "3rd person camera culling", false, new ConfigDescription("On: keep third-person camera distance and make blocking geometry semi-transparent between camera and body. Roofs and vehicles get a larger window; not inside caves."), "CAMERA/OcclusionPrototype", "General/3rd person camera culling");   // (2.2.9) off by default
         }
 
         internal static void Verbose(string s) { if (VerboseLog != null && VerboseLog.Value && Log != null) Log.LogInfo(s); }

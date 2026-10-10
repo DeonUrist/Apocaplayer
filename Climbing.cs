@@ -41,11 +41,11 @@ namespace Apocaplayer
             enabledMod = config.Bind("climbing", "Enabled", Legacy<bool>("General", "Enabled", true), "Climb onto reachable solid ledges on foot.");
             jumpTriggers = config.Bind("climbing", "Jump triggers climbing", true, "The game's Jump key (Space by default) climbs when pushing forward into a reachable ledge. Otherwise it jumps normally.");
             climbKey = config.Bind("climbing", "alternative climb key", KeyCode.None, "Optional separate climb key. None = no alternative key. Useful when Jump triggers climbing is off.");
-            minHeight = config.Bind("climbing", "MinimumHeight", Legacy<float>("Climbing", "MinimumHeight", .45f), new ConfigDescription("Minimum ledge height above the feet, metres.", new AcceptableValueRange<float>(.36f, 1f)));
-            maxHeight = config.Bind("climbing", "MaximumHeight", Legacy<float>("Climbing", "MaximumHeight", 2.5f), new ConfigDescription("Maximum ledge height above the feet, metres.", new AcceptableValueRange<float>(1f, 2.6f)));
-            reach = config.Bind("climbing", "Reach", Legacy<float>("Climbing", "Reach", .85f), new ConfigDescription("Maximum distance to the obstacle face, metres.", new AcceptableValueRange<float>(.35f, 1.2f)));
-            waistLimit = config.Bind("climbing", "WaistHeightLimit", Legacy<float>("Climbing", "WaistHeightLimit", 1.25f), new ConfigDescription("Higher ledges use the high-climb animation.", new AcceptableValueRange<float>(.8f, 1.5f)));
-            speed = config.Bind("climbing", "AnimationSpeed", Legacy<float>("Climbing", "AnimationSpeed", 1.5f), new ConfigDescription("Climb playback speed.", new AcceptableValueRange<float>(.6f, 2.5f)));
+            minHeight = Plugin.Moved(config, "Debug", "Climb MinimumHeight", Legacy<float>("Climbing", "MinimumHeight", .45f), new ConfigDescription("Climbing: minimum ledge height above the feet, metres.", new AcceptableValueRange<float>(.36f, 1f)), "climbing/MinimumHeight");
+            maxHeight = Plugin.Moved(config, "Debug", "Climb MaximumHeight", Legacy<float>("Climbing", "MaximumHeight", 2.5f), new ConfigDescription("Climbing: maximum ledge height above the feet, metres.", new AcceptableValueRange<float>(1f, 2.6f)), "climbing/MaximumHeight");
+            reach = Plugin.Moved(config, "Debug", "Climb Reach", Legacy<float>("Climbing", "Reach", .85f), new ConfigDescription("Climbing: maximum distance to the obstacle face, metres.", new AcceptableValueRange<float>(.35f, 1.2f)), "climbing/Reach");
+            waistLimit = Plugin.Moved(config, "Debug", "Climb WaistHeightLimit", Legacy<float>("Climbing", "WaistHeightLimit", 1.25f), new ConfigDescription("Climbing: higher ledges use the high-climb animation.", new AcceptableValueRange<float>(.8f, 1.5f)), "climbing/WaistHeightLimit");
+            speed = Plugin.Moved(config, "Debug", "Climb AnimationSpeed", Legacy<float>("Climbing", "AnimationSpeed", 1.5f), new ConfigDescription("Climbing: climb playback speed.", new AcceptableValueRange<float>(.6f, 2.5f)), "climbing/AnimationSpeed");
             Plugin.AutomaticStepUp = config.Bind("climbing", "AutomaticStepUp", Plugin.AutomaticStepUp.Value, "Automatically step onto low solid obstacles up to 35 cm while moving on foot. Off while jumping, prone or driving.");
             try
             {

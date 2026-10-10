@@ -16,6 +16,7 @@ The **climbing** settings group is just before **Debug**, which remains last:
 **Jump triggers climbing** defaults On, with **alternative climb key** directly
 below it, default **None**. Turn off jump climbing and bind an alternative if you
 prefer a separate key. Low automatic steps are configured in this group too.
+The numeric climbing tuning (Climb MinimumHeight / MaximumHeight / Reach / WaistHeightLimit / AnimationSpeed) is in **Debug** since 2.3.5.
 
 Climbing uses the waist/high Humanoid animations, temporarily puts the weapon
 on its existing back/holster mount, and follows the animated head in first person
@@ -112,7 +113,7 @@ The window ends strictly before the character: front walls remain opaque when th
 This also covers the occupied vehicle and cameras inside a collider. The game's eye transform, physics and materials are preserved.
 The prototype uses two extra scene passes while obstructed (clear view and protected forward geometry), so performance and interaction with other post-processing effects need in-game evaluation.
 Roof/ceiling and vehicle obstructions expand the transparent window radius to three times its normal size, with a smooth transition.
-The body configuration has `General / 3rd person camera culling` (On/Off, default Off since 2.2.9; never inside caves). Off restores the previous collision camera;
+The body configuration has `Occlusion / 3rd person camera culling` (On/Off, default Off since 2.2.9; never inside caves). Off restores the previous collision camera;
 the former `CAMERA / OcclusionPrototype` preference migrates automatically. Binoculars and first person use the normal game view.
 
 | Section | Key | Default | |
@@ -120,13 +121,13 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | General | Enabled | true | Off = the game's own player (arms, driver, TAB picture) comes back at once |
 | General | Character | Female | Model selection: Female, Male or Max |
 | General | FirstPersonArms | false | First person with nothing in hand: the body's own arms (walk swing, hands on the wheel). Off = no body arms in first person; the game's weapon/item arms always show |
-| Debug | FirstPersonCameraX / Y / Z | 0 | On foot, first person with BodyFirstPerson: move the view right / up / forward (m) relative to the body (the body moves the opposite way; aiming and clicks unchanged) |
-| Debug | FirstPersonDrivingCameraX / Y / Z | 0 | The same in the driver's seat (seat's right / up / forward), on top of the built-in seat offset (-0.03, 0.02, 0.02) |
-| General | 3rd person camera culling | false | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius; switched off automatically inside caves. |
-| General | 3rd person camera culling in vehicles | false | Use the camera culling while driving too. The ground is never cut away |
+| Debug | FirstPersonBodyX / Y / Z | 0 | On foot, first person with BodyFirstPerson: move the view right / up / forward (m) relative to the body (the body moves the opposite way; aiming and clicks unchanged) |
+| Debug | FirstPersonDrivingX / Y / Z | 0 | The same in the driver's seat (seat's right / up / forward), on top of the built-in seat offset (-0.03, 0.02, 0.02) |
+| Occlusion | 3rd person camera culling | false | Body configuration: On/Off for the transparent outline; roofs and cars get a 3x radius; switched off automatically inside caves. |
+| Occlusion | 3rd person camera culling in vehicles | false | Use the camera culling while driving too. The ground is never cut away |
 | CAMERA | DynamicCrosshair | true | Third person: the crosshair sits where shots, melee hits and pickups really land (the ray from the head) - centre for far targets, moving left toward the character for close ones, on the head when looking straight down. Off = the camera turns toward the aim point instead |
-| CAMERA | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
-| CAMERA | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
+| Occlusion | OcclusionOpacity | 0.2 | Remaining opacity of the obstruction in the window (0 = clear) |
+| Occlusion | OcclusionRadius | 0.55 | Radius around the character in metres; controls the window's width |
 | VEHICLE | VehicleHotkeyHint | true | Show hotkeys on the left while driving; hiding them keeps the controls working |
 | VEHICLE | VehicleStatusHint | true | Top-right icons: key when ignition is off, (P) while handbrake is engaged, cassette with 0.0–1.0 volume while music is playing (including muted playback) |
 | Game Controls | Headlight | K | Rebind in the game Controls menu; the vehicle hint follows primary and alternative bindings |

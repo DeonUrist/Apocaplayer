@@ -26,6 +26,7 @@ namespace Apocaplayer
             if (section.Equals("General", StringComparison.OrdinalIgnoreCase)) return 0;
             if (section.Equals("VEHICLE", StringComparison.OrdinalIgnoreCase)) return 1;
             if (section.Equals("CAMERA", StringComparison.OrdinalIgnoreCase)) return 2;
+            if (section.Equals("Occlusion", StringComparison.OrdinalIgnoreCase)) return 3;
             if (section.Equals("climbing", StringComparison.OrdinalIgnoreCase)) return 100;
             if (section.Equals("Debug", StringComparison.OrdinalIgnoreCase)) return 101;
             return 50;
