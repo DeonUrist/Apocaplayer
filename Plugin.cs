@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.3.3";
+        public const string VERSION = "2.3.4";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -69,7 +69,7 @@ namespace Apocaplayer
             SettingsLayout.Install(Config);
             _hidden = new ConfigFile(Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "hidden-settings.not-saved"), false) { SaveOnConfigSet = false };
 
-            // the config file: General (Enabled, Character, BodyFirstPerson, EnableMMB, RebindObserving) and Debug only - everything else is fixed (H) or kept in its own file
+            // the config file: General (Enabled, Character, BodyFirstPerson, RebindObserving, Toggle Observing) and Debug only - everything else is fixed (H) or kept in its own file
             Config.Bind("General", "Apocasetter", true, "Show this mod in the Apocasetter Mods menu");
             Enabled = Config.Bind("General", "Enabled", true, "Your character: body, third-person camera and the rest of this mod. Off = the game's own player (arms, driver, TAB picture) comes back at once.");
             Character = Config.Bind("General", "Character", Gender.Female, "Model selection");
@@ -95,14 +95,19 @@ namespace Apocaplayer
             Config.Remove(AutomaticStepUp.Definition);
             OcclusionPrototype = BindCameraCulling(Config);
             OcclusionInVehicle = Config.Bind("General", "3rd person camera culling in vehicles", false, "Third person while driving: also use the camera culling (needs 3rd person camera culling on).");
-            EnableMMB = Config.Bind("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera around the character. Off by default: the game uses the middle mouse button to rotate a held item.");
-            ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: hold this key to orbit the camera around the character (observe it), back behind it on release. None = no key (only the middle mouse button, if EnableMMB).");
+            // (2.3.4) the middle mouse button no longer orbits (the game rotates held items with it); EnableMMB and [Debug] ToggleMiddleMouse leave the .cfg,
+            // "Toggle Observing" in General takes over ToggleMiddleMouse (its value carried over once)
+            var oldEnableMmb = Config.Bind("General", "EnableMMB", false, "Legacy."); Config.Remove(oldEnableMmb.Definition);
+            EnableMMB = H("General", "EnableMMB", false, "Third person: the middle mouse button also orbits the camera (off: the game rotates a held item with it).");
+            var oldToggle = Config.Bind("Debug", "ToggleMiddleMouse", false, "Legacy."); bool oldToggleOn = oldToggle.Value; Config.Remove(oldToggle.Definition);
+            ObserveKey = Config.Bind("General", "RebindObserving", KeyCode.LeftAlt, "Third person: the observing key - orbits the camera around the character (held, or press on / press off with Toggle Observing). None = no key.");
+            ToggleMiddleMouse = Config.Bind("General", "Toggle Observing", false, "Third person, observing key (RebindObserving). Off: hold the key to orbit the camera around the character; it returns behind the character when you let go. On: a press starts observing and the camera stays where you left it until the next press.");
+            if (oldToggleOn) ToggleMiddleMouse.Value = true;
             DynamicCrosshair = Config.Bind("CAMERA", "DynamicCrosshair", true, "Third person: the crosshair sits where your shots, melee hits and pickups really land (the eye ray from the head): at the centre for far targets, moving left toward the character as the target gets closer, on the head when you look straight down. Off: the camera turns toward the aim point instead (old behaviour).");
             OcclusionOpacity = Config.Bind("CAMERA", "OcclusionOpacity", .20f, new ConfigDescription("Opacity of blocking geometry inside the cutaway window: 0 = clear, 0.2 = faintly visible.", new AcceptableValueRange<float>(0f, .9f)));
             OcclusionRadius = Config.Bind("CAMERA", "OcclusionRadius", .55f, new ConfigDescription("Width around the character cleared by the cutaway, in metres. The rest of a large object remains visible.", new AcceptableValueRange<float>(.2f, 1.5f)));
             new ClimbingController(Config);
             WeaponAdjust = Config.Bind("Debug", "WeaponAdjustment", false, "Third person: numpad 8/2 6/4 7/1 move the weapon in the hand, 5 move/rotate, 9/3 pick the animation, - / * delete/copy/paste.\nSaved to config/Apocaplayer/weapon-poses.txt (overrides the built-in poses).\nAiming (or an aim clip picked with 9/3): Page Up/Down lift the hands, Home/End tilt the head, Insert/Delete push the hands forward - saved to config/Apocaplayer/aim-lift.txt.");
-            ToggleMiddleMouse = Config.Bind("Debug", "ToggleMiddleMouse", false, "Third person: on = a press of the observing key (RebindObserving) / middle mouse button locks the camera orbiting around the character (its rotation stays) until the next press - handy with WeaponAdjustment; off = hold it to orbit, back behind the character on release.");
             // (2.2.8) visible again, for slow-machine reports: off = nothing measured and nothing extra logged
             VerboseLog = Config.Bind("Debug", "VerboseLog", false, "Diagnostics for performance reports, written to BepInEx\\LogOutput.log: the PC (GPU, VRAM, CPU, RAM, quality settings, other mods) once, then every 10 s the FPS, the slowest frame and the stutters, how many ms of each frame Apocaplayer takes (and where), garbage collections, the camera cutaway's work and which cameras render; plus what the mod finds and decides (weapons, cars, seats...). Off = none of it is measured or written.");
             VerboseModApi = H("Debug", "VerboseModApi", false, "Every decision of every ModAPI character (very chatty).");

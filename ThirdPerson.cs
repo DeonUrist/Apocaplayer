@@ -123,7 +123,7 @@ namespace Apocaplayer
             if (Peek && !peek) { _dist = 0.3f; _nextScan = 0f; }   // binoculars down: the camera comes back out from behind her head, first-person renderers hidden again at once
             Peek = peek;
             // the observing key (RebindObserving, LeftAlt) - and the middle mouse button only with EnableMMB, the game rotates held items with it -
-            // orbits the camera around her: held (back behind her on release), or with ToggleMiddleMouse a press turns it on / off
+            // orbits the camera around the character: held (back behind it on release), or with "Toggle Observing" (ToggleMiddleMouse) a press turns it on / off
             bool click = false, held = false;
             if (On && !Game.Paused && !Game.Dead)
                 try

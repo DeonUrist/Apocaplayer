@@ -43,7 +43,7 @@ and a choice of **Female** (her own model), **Male** (the game's own player man)
   The game's own first-person arms are kept (every reload, melee swing and item animation still works) but wear her
   skin and black gloves; the kick leg wears her boot.
 - **Third person on foot** – the game's *Change Camera* key (the one that switches views in a car) also works on foot:
-  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); holding Left Alt (`RebindObserving`) orbits the camera around her (the middle mouse button too with `EnableMMB` - off by default, the game rotates held items with it). Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
+  a camera over her right shoulder; the mouse wheel zooms (saved separately on foot and in cars); holding Left Alt (`RebindObserving`) orbits the camera around the character (`Toggle Observing` makes a press stick until the next one). Shots and picks still come from the first-person eye; the view is turned so the screen centre is exactly where they land, so aim with the crosshair.
   It works in cars too: dashboard clicks are blocked in third person so switches do not capture shooting or camera zoom.
   Use the vehicle hotkeys below; Exit (F) at the door still works, and you stay in third person when you get out.
   On death, animation stops and a jointed physics ragdoll falls from the current pose; the third-person camera follows the body.
@@ -135,11 +135,10 @@ the former `CAMERA / OcclusionPrototype` preference migrates automatically. Bino
 | VEHICLE | VolumeDownKey | Minus | Reduce cassette volume by 0.1, clamped at 0; also accepts numpad minus |
 | VEHICLE | VolumeUpKey | Equals | Increase cassette volume by 0.1, clamped at 1; + on the main keyboard (= physical key) or numpad plus |
 | General | BodyFirstPerson | false | First person: see the body (legs and torso when you look down, the shadow, the body in the driver's seat); off = only the first-person arms |
-| General | EnableMMB | false | Third person: the middle mouse button also orbits the camera around the character (off by default: the game rotates a held item with it) |
-| General | RebindObserving | LeftAlt | Third person: hold this key to orbit the camera around the character, back behind it on release; None = no key |
+| General | RebindObserving | LeftAlt | Third person: the observing key - orbits the camera around the character (held, or press on / press off with Toggle Observing); None = no key |
+| General | Toggle Observing | false | Third person, observing key: off = hold it to orbit the camera around the character, it returns behind the character on release; on = a press starts observing and the camera stays until the next press |
 | Animation | RunLegsIn | 6 | Running with the bundle animations: each thigh turned this many degrees toward the middle (feet kept flat) - the rifle pack's run cycles stand wide on her hips. 0 = the clips as they are |
 | Debug | WeaponAdjustment | false | Third person: numpad 8/2 6/4 7/1 move the weapon in the hand, 5 move/rotate, 9/3 pick the clip (every rifle / pistol clip), - / * delete/copy/paste; saved to `config/Apocaplayer/weapon-poses.txt` (overrides the built-in poses) |
-| Debug | ToggleMiddleMouse | false | Third person: off = hold the observing key / middle mouse button to orbit around the character, back behind it on release; on = a press turns orbiting on / off |
 | Debug | VerboseLog | false | Diagnostics for performance reports (PC info once, then FPS, stutters and Apocaplayer's own ms per frame every 10 s, plus what the mod finds and decides). Off = nothing measured or written. |
 
 Throws from the driver's seat (blast lance, quick grenade) work like guns there: her chest turns to the aim (a learned per-clip
