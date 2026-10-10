@@ -28,6 +28,9 @@ The supported ledge range remains 0.45–2.5 metres with full capsule clearance.
 First-person weapon and item sway (the game's own lag of the arms behind the view) eases the same at every frame rate,
 so turning no longer makes the arms or the weapon jerk.
 
+The third-person view follows the game's floating origin (the world is shifted back every 1000 m while driving), so the picture no
+longer flashes to an empty, "unloaded" world for a frame when that happens with the dynamic crosshair on.
+
 Vehicle hints and light controls follow the game's Controls bindings: default
 **K = headlights**, **Space = handbrake**. Headlight input has one handler, so it
 cannot toggle twice. The native handbrake handler is kept. The current game has

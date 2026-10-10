@@ -207,15 +207,23 @@ namespace Apocaplayer
 
         // the third-person view of this frame: position, rotation, field of view (the game's own FOV, read before we change it, x the aim zoom)
         private static int _viewFrame = -1;
-        private static Vector3 _vPos; private static Quaternion _vRot = Quaternion.identity; private static float _vFov = 60f, _gameFov = 60f;
+        private static Vector3 _vPos, _vEye; private static Quaternion _vRot = Quaternion.identity; private static float _vFov = 60f, _gameFov = 60f;
         private static Transform _vCar; private static bool _vCutaway;
         private static bool _projSet; private static int _zoomLogs; private static string _xhairWhat = ""; private static float _xhairDist;
         public static Matrix4x4 Projection(Camera cam, float fov) { return Matrix4x4.Perspective(fov, cam.aspect, cam.nearClipPlane, cam.farClipPlane); }
         private static void ComputeView(Camera cam)
         {
-            if (_viewFrame == Time.frameCount) return;
-            _viewFrame = Time.frameCount;
             var t = cam.transform;
+            if (_viewFrame == Time.frameCount)
+            {
+                // (2.3.6) already worked out this frame (the dynamic crosshair does it in LateUpdate). If the game camera moved since - above all
+                // the vehicle package's floating origin, which shifts the whole world back by up to 1000 m in its own LateUpdate - move the cached
+                // view along, or the frame is drawn from where the car was before the shift (an empty, "unloaded" world for one frame)
+                Vector3 moved = t.position - _vEye;
+                if (moved.sqrMagnitude > 1e-8f) { _vPos += moved; _vEye = t.position; }
+                return;
+            }
+            _viewFrame = Time.frameCount;
             if (!_fovSet) _gameFov = cam.fieldOfView;
             bool dead = Game.Dead;
             if (dead && !_deathView) _deathRotation = HasView ? ViewRot : Quaternion.Euler(10f, t.eulerAngles.y, 0f);
@@ -266,7 +274,7 @@ namespace Apocaplayer
                 Vector3 look = aim - pos;
                 if (look.sqrMagnitude > 1e-4f) viewRot = Quaternion.Slerp(viewRot, Quaternion.LookRotation(look.normalized, Vector3.up), conv);
             }
-            _vPos = pos; _vRot = viewRot; _vCar = car; _vCutaway = cutaway;
+            _vPos = pos; _vRot = viewRot; _vCar = car; _vCutaway = cutaway; _vEye = t.position;
         }
 
         private static readonly RaycastHit[] _hits = new RaycastHit[128];
