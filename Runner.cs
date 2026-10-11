@@ -149,6 +149,7 @@ namespace Apocaplayer
                     _body.LateFoot(third ? Body.View.ThirdPerson : Body.View.FirstPerson, Time.deltaTime);
                     if (!third && Game.PlayerCamera != null)
                         _body.ShiftFirstPerson(Quaternion.Euler(0f, Game.PlayerCamera.eulerAngles.y, 0f), new Vector3(Plugin.FpCamX.Value, Plugin.FpCamY.Value, Plugin.FpCamZ.Value));
+                    _body.FitFirstPersonJump(!third, Time.deltaTime);
                     _body.SetMesh(!third, false);
                     bool show = third || Plugin.BodyFirstPerson.Value;
                     _body.SetVisible(show && fpCam, !third && show && fpCam);

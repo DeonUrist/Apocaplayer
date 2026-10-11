@@ -17,7 +17,7 @@ namespace Apocaplayer
     {
         public const string GUID = "com.denis.apocalypter.apocaplayer";
         public const string NAME = "Apocaplayer";
-        public const string VERSION = "2.3.7";
+        public const string VERSION = "2.3.8";
 
         internal static ManualLogSource Log;
         internal static string Dir;
@@ -29,6 +29,7 @@ namespace Apocaplayer
         internal static ConfigEntry<string> IdleClip, RunClip, RifleClip, PistolClip, MeleeClip;
         internal static ConfigEntry<float> BodyBack, BodyBackDown, RunClipSpeed, WalkStride, RunFrom, ThirdDistance, ThirdHeight, ThirdShoulder, AimPitchShare;
         internal static ConfigEntry<float> CarCameraForward, FirstPersonWeaponBack, FirstPersonChestLean;
+        internal static ConfigEntry<float> FirstPersonJumpKneeCorrection;
         internal static ConfigEntry<float> FpCamX, FpCamY, FpCamZ, FpCarCamX, FpCarCamY, FpCarCamZ;
         // the driver's-seat view offset Denis set in game (1.5.3: X -0.03, Y 0.02, Z 0.02) is the built-in base; the [Debug] values add to it
         internal static readonly Vector3 CarViewBase = new Vector3(-0.03f, 0.02f, 0.02f);
@@ -124,6 +125,7 @@ namespace Apocaplayer
             BodyBack = H("Camera", "FirstPersonBodyBack", 0.08f, "First person on foot: her head sits this far (m) behind the camera.");
             FirstPersonWeaponBack = H("Camera", "FirstPersonWeaponBack", 0.08f, "First person with a weapon drawn: her body moves this much (m) further back.");
             FirstPersonChestLean = H("Camera", "FirstPersonChestLean", 20f, "First person with a weapon drawn: her chest bends back by this many degrees.");
+            FirstPersonJumpKneeCorrection = H("Camera", "FirstPersonJumpKneeCorrection", 1f, "First person on foot: reduce a jump's forward thigh lift to 30 degrees so the knees stay below the hips. Strength 0 to 1; 0 keeps the original jump pose.");
             // the mouse-wheel distances are remembered in their own file (not shown in the config / Apocasetter)
             string camPath = Path.Combine(Path.Combine(Paths.ConfigPath, "Apocaplayer"), "camera.cfg");
             bool camFresh = !File.Exists(camPath);

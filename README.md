@@ -1,5 +1,13 @@
 # Apocaplayer
 
+**2.3.8 keeps jump knees below the hips in first person.** The jump clips' high
+forward thigh tuck is limited to 30 degrees after the final body pose and camera
+offsets, easing over roughly 0.1 seconds. The knee bend, feet and visible legs are
+preserved. Third-person jumps, normal running, kicks, climbing and driving retain
+their existing poses. Hidden tuning: `Camera / FirstPersonJumpKneeCorrection`
+has strength 1 by default; 0 retains the original jump pose.
+Includes the cleaned Mad Max character model.
+
 **2.3.1 fixes climbing under wall pressure.** Small existing capsule/wall
 penetration from physics contact no longer rejects an upward climb. The movement
 must escape that contact without deepening it; new obstacles, ceilings and deep
