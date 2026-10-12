@@ -159,7 +159,8 @@ namespace Apocaplayer
             }
         }
 
-        // WeaponsArm/Parent/kick [Attack]: on -> (Kick button) fire 0.55 s -> wait -> on
+        // WeaponsArm/Parent/kick [Animation]: off -> (Kick button) on for 0.55 s -> off.
+        // Attack's fire state can end immediately on a hit; Animation stays on for the whole kick.
         public static string KickState
         {
             get
@@ -169,7 +170,7 @@ namespace Apocaplayer
                     if (_kickFsm == null && WeaponsParent != null)
                     {
                         var k = WeaponsParent.Find("kick");
-                        if (k != null) foreach (var f in k.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Attack") _kickFsm = f;
+                        if (k != null) foreach (var f in k.GetComponents<PlayMakerFSM>()) if (f.FsmName == "Animation") _kickFsm = f;
                     }
                     return _kickFsm != null && _kickFsm.gameObject.activeInHierarchy ? _kickFsm.ActiveStateName : "";
                 }

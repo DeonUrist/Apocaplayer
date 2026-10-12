@@ -1,5 +1,10 @@
 # Apocaplayer
 
+**2.3.9 fixes kick animations.** The third-person body kick plays within the
+game's 0.55-second kick window. First person keeps only the game's existing kick
+leg animation; the body kick is also removed when switching to first person
+during a kick.
+
 **2.3.8 keeps jump knees below the hips in first person.** The jump clips' high
 forward thigh tuck is limited to 30 degrees after the final body pose and camera
 offsets, easing over roughly 0.1 seconds. The knee bend, feet and visible legs are

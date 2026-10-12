@@ -599,8 +599,21 @@ namespace Apocaplayer
 
             // kick (the game's Kick button) and jump: whole-body one-shots on the action layer
             string ks = Game.KickState;
-            if (ks == "fire" && _kickState != "fire") { StartAction("Kick"); _actionIsTurn = false; }
+            if (view == View.ThirdPerson && ks == "on" && _kickState != "on" && Has("Kick") && _action.IsValid())
+            {
+                const float kickDuration = 0.55f;   // the game's kick animation / attack window
+                StartAction("Kick");
+                _action.SetSpeed(Anims.Get("Kick").length / kickDuration);
+                _actionUntil = Time.time + kickDuration;
+                _actionFade = 1f / 0.15f;   // finish fading within that same window
+                _actionIsTurn = false;
+            }
             _kickState = ks;
+            if (view == View.FirstPerson && _actionClip == "Kick")
+            {
+                _actionUntil = 0f;
+                _actionW = 0f;   // also remove a third-person kick when switching views mid-animation
+            }
             // (2.1.2) the game's [Jump] FSM: Idle -> Jump (button) -> Idle on landing; Falling only when walking off an edge. Each jump clip's take-off,
             // apex and touch-down are measured once (JumpMarks); the clip starts just before its take-off, holds its apex while she is in the air,
             // and on landing goes to its touch-down - standing still it shows ~0.25 s of the landing, moving it fades straight back to the legs.
@@ -650,7 +663,7 @@ namespace Apocaplayer
                 else if (!air && Time.time - _jumpAt > 0.5f && _jumpPhase != "") { _jumpPhase = ""; _actionUntil = Mathf.Min(_actionUntil, Time.time + 0.15f); }
             }
             _jumpState = js;
-            if (_previewName != null && (_previewName.Contains("Jump") || _previewName == "Kick" || _previewName.Contains("Turn")) && Time.time > _actionUntil - 0.2f)
+            if (_previewName != null && (_previewName.Contains("Jump") || _previewName == "Kick" && view == View.ThirdPerson || _previewName.Contains("Turn")) && Time.time > _actionUntil - 0.2f)
             { StartAction(_previewName); _actionIsTurn = _previewName.Contains("Turn"); }
             if (_previewName == null) TurnInPlace(yaw.eulerAngles.y, m, crouch, relaxed, dt);
             // walking relaxed (straight forward) and letting go of the keys: RifleWalkToStop's last step settles the feet (the hands stay the rig's).
